@@ -76,3 +76,9 @@ Thumbs.db
 /.playwright-mcp
 /.sisyphus
 /.omo
+# 调试产物（根目录，历史 QA 会话遗留）
+/*.png
+/*.log
+/*.txt
+followup-*
+scheduled-task-*

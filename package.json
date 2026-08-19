@@ -3,19 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/nebula-web.umd.cjs",
-  "module": "./dist/nebula-web.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/nebula-web.js",
-      "require": "./dist/nebula-web.umd.cjs"
-    }
-  },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "vite build",
     "dev": "vite --host 0.0.0.0",
@@ -26,21 +13,17 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "axios": "^1.7.9"
-  },
-  "peerDependencies": {
-    "@ant-design/icons": "^6.3.1",
-    "@ant-design/pro-components": "^3.1.12-0",
-    "antd": "^6.5.0",
+    "@ant-design/icons": "^6.3.2",
+    "@ant-design/pro-components": "3.1.14-4",
+    "antd": "^6.5.2",
     "antd-style": "^4.1.0",
+    "axios": "^1.7.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.6.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "@ant-design/icons": "^6.3.2",
-    "@ant-design/pro-components": "3.1.14-4",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^6.6.3",
@@ -50,18 +33,11 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
-    "antd": "^6.5.2",
-    "antd-style": "^4.1.0",
     "jsdom": "^26.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^7.6.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.8.2",
     "vite": "^6.3.0",
-    "vite-plugin-dts": "^4.5.0",
     "vite-plugin-svgr": "^5.2.0",
-    "vitest": "^3.0.8",
-    "zustand": "^5.0.3"
+    "vitest": "^3.0.8"
   }
 }

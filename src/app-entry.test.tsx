@@ -20,12 +20,6 @@ describe('app entry wiring', () => {
     vi.resetModules();
   });
 
-  it('exports App from the package index', async () => {
-    const { App } = await import('./index');
-
-    expect(App).toBeTypeOf('function');
-  });
-
   it('keeps the startup shell in main.tsx instead of App.tsx', async () => {
     const { App } = await import('./main');
 
