@@ -1,0 +1,37 @@
+import type { NebulaLayoutMessages } from '../../types';
+
+export const layout: NebulaLayoutMessages = {
+  sidebarCollapse: 'Collapse sidebar',
+  sidebarExpand: 'Expand sidebar',
+  breadcrumbAriaLabel: 'Breadcrumb',
+  sidebarAriaLabel: 'Main navigation',
+  tabContextMenu: {
+    refresh: 'Refresh',
+    closeCurrent: 'Close',
+    closeLeft: 'Close left',
+    closeRight: 'Close right',
+    closeOthers: 'Close others',
+    openInNewWindow: 'Open in new window',
+    ariaLabel: 'Tab menu',
+  },
+  headerUser: {
+    anonymous: 'Anonymous user',
+    menuAriaLabel: 'User menu',
+    profile: 'Profile',
+    preferences: 'Preferences',
+    logout: 'Sign out',
+    preferencesTitle: 'Preferences',
+    themeLabel: 'Theme',
+    languageLabel: 'Language',
+    light: 'Light',
+    dark: 'Dark',
+    zhCN: '中文',
+    enUS: 'English',
+    save: 'Save',
+    cancel: 'Cancel',
+    profilePlaceholder: 'Profile content is reserved and will show account details here later.',
+  },
+  notificationInbox: 'My Messages',
+  tabRenameAriaLabel: 'Rename tab',
+  tabReorderHandleAriaLabel: 'Move tab',
+};

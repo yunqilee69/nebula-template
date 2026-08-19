@@ -1,0 +1,30 @@
+/**
+ * NebulaProTable toolbar layout
+ *
+ * Layout: [Custom buttons] -------- [Built-in options]
+ *
+ * ProTable's DOM structure inside toolbar-right:
+ *   1. Optional inline-style div containing custom buttons from toolBarRender
+ *   2. .ant-pro-table-list-toolbar-setting-items: built-in options (reload, density, fullscreen, setting)
+ *
+ * We use flexbox order to position them correctly.
+ */
+
+.nebula-pro-table-toolbar .ant-pro-table-list-toolbar-right {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+/* Custom buttons from toolBarRender - display on the LEFT */
+.nebula-pro-table-toolbar .ant-pro-table-list-toolbar-right > div:not(.ant-pro-table-list-toolbar-setting-items):first-child {
+  order: 1;
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Built-in options (reload, density, fullscreen, setting) - display on the RIGHT */
+.nebula-pro-table-toolbar .ant-pro-table-list-toolbar-setting-items {
+  order: 2;
+}

@@ -1,0 +1,37 @@
+import type { NebulaLayoutMessages } from '../../types';
+
+export const layout: NebulaLayoutMessages = {
+  sidebarCollapse: '收起侧边栏',
+  sidebarExpand: '展开侧边栏',
+  breadcrumbAriaLabel: '面包屑',
+  sidebarAriaLabel: '主导航',
+  tabContextMenu: {
+    refresh: '刷新',
+    closeCurrent: '关闭',
+    closeLeft: '关闭左侧',
+    closeRight: '关闭右侧',
+    closeOthers: '关闭其他',
+    openInNewWindow: '新窗口打开',
+    ariaLabel: '标签页菜单',
+  },
+  headerUser: {
+    anonymous: '未登录用户',
+    menuAriaLabel: '用户菜单',
+    profile: '个人信息',
+    preferences: '偏好设置',
+    logout: '退出登录',
+    preferencesTitle: '偏好设置',
+    themeLabel: '主题',
+    languageLabel: '语言',
+    light: '浅色',
+    dark: '深色',
+    zhCN: '中文',
+    enUS: 'English',
+    save: '保存',
+    cancel: '取消',
+    profilePlaceholder: '个人信息内容暂未开放，后续将在这里展示账号资料。',
+  },
+  notificationInbox: '我的消息',
+  tabRenameAriaLabel: '重命名标签页',
+  tabReorderHandleAriaLabel: '拖拽标签页',
+};

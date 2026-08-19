@@ -1,0 +1,18 @@
+- generic [ref=e15]:
+  - heading "Nebula Web" [level=3] [ref=e17]
+  - generic [ref=e19]:
+    - tablist [ref=e20]:
+      - tab "账号密码" [selected] [ref=e24] [cursor=pointer]
+    - tabpanel "账号密码" [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e34]:
+          - generic "用户名" [ref=e36]: "* 用户名"
+          - textbox "* 用户名" [ref=e40]
+        - generic [ref=e42]:
+          - generic "密码" [ref=e44]: "* 密码"
+          - generic [ref=e48]
+        - button "登 录" [ref=e61] [cursor=pointer]
+  - generic [ref=e64]:
+    - text: 没有账号？
+    - link "立即注册" [ref=e65] [cursor=pointer]:
+      - /url: /register

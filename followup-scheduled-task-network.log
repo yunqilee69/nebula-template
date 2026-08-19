@@ -1,0 +1,6 @@
+155. [GET] http://localhost:5173/api/auth/current-user => [500] Internal Server Error
+156. [GET] http://localhost:5173/api/auth/current-user => [500] Internal Server Error
+157. [GET] http://localhost:5173/api/frontend/init => [500] Internal Server Error
+158. [GET] http://localhost:5173/api/frontend/init => [500] Internal Server Error
+
+Note: 154 static requests not shown, run with "static" option to see them.

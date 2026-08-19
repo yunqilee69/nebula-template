@@ -1,0 +1,1 @@
+{"timestamp":"2026-07-29T02:05:04.658+00:00","path":"/api/frontend/init","status":500,"error":"Internal Server Error","requestId":"5d81183c-10"}
