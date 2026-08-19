@@ -1,0 +1,125 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: nebula-template-backend
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 默认值与 backend/docker-compose.yml 对齐，零配置即可本地启动
+    url: ${NEBULA_APP_DATASOURCE_URL:jdbc:mysql://localhost:3306/nebula?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${NEBULA_APP_DATASOURCE_USERNAME:nebula}
+    password: ${NEBULA_APP_DATASOURCE_PASSWORD:nebula}
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      test-on-borrow: true
+      test-while-idle: true
+      validation-query: SELECT 1
+  data:
+    redis:
+      host: ${NEBULA_APP_REDIS_HOST:localhost}
+      port: ${NEBULA_APP_REDIS_PORT:6379}
+      username: ${NEBULA_APP_REDIS_USERNAME:}
+      password: ${NEBULA_APP_REDIS_PASSWORD:}
+      database: 0
+
+nebula:
+  architecture:
+    mode: local
+  web:
+    result-advice-enable: true
+  cache:
+    type: redis
+    default-ttl: 300
+  scheduler:
+    mode: local
+    engine: quartz
+    definition-sync:
+      enabled: true
+      startup-failure-policy: DEGRADED
+  auth:
+    mode: local
+    oauth2:
+      providers:
+        github:
+          enabled: ${NEBULA_AUTH_GITHUB_ENABLED:false}
+          client-id: ${NEBULA_AUTH_GITHUB_CLIENT_ID:}
+          client-secret: ${NEBULA_AUTH_GITHUB_CLIENT_SECRET:}
+          scope: ${NEBULA_AUTH_GITHUB_SCOPE:read:user user:email}
+          redirect-uri: ${NEBULA_AUTH_GITHUB_REDIRECT_URI:http://localhost:8080/api/auth/github/callback}
+          frontend-callback-uri: ${NEBULA_AUTH_GITHUB_FRONTEND_CALLBACK_URI:http://localhost:5173/login/github-callback}
+          frontend-callback-allowlist:
+            - ${NEBULA_AUTH_GITHUB_FRONTEND_CALLBACK_ORIGIN:http://localhost:5173}
+      bind:
+        frontend-callback-uri: ${NEBULA_AUTH_OAUTH2_BIND_FRONTEND_CALLBACK_URI:http://localhost:5173/profile/bind-callback}
+    security:
+      jwt:
+        # ⚠️ 生产环境必须通过环境变量 NEBULA_AUTH_JWT_SECRET 覆盖（至少 32 字节随机串）
+        secret: ${NEBULA_AUTH_JWT_SECRET:nebula-template-dev-jwt-secret-change-me-0123456789abcdef}
+        expire-hours: 24
+        refresh-expire-hours: 168
+      captcha:
+        enabled: false
+      rate-limit:
+        enabled: false
+  storage:
+    mode: local
+    temporary:
+      type: ${NEBULA_STORAGE_TEMPORARY_TYPE:filesystem}
+      minio:
+        endpoint: ${NEBULA_STORAGE_TEMPORARY_MINIO_ENDPOINT:http://localhost:9000}
+        access-key: ${NEBULA_STORAGE_TEMPORARY_MINIO_ACCESS_KEY:}
+        secret-key: ${NEBULA_STORAGE_TEMPORARY_MINIO_SECRET_KEY:}
+        bucket: ${NEBULA_STORAGE_TEMPORARY_MINIO_BUCKET:nebula-temp}
+    formal:
+      type: ${NEBULA_STORAGE_FORMAL_TYPE:filesystem}
+      minio:
+        endpoint: ${NEBULA_STORAGE_FORMAL_MINIO_ENDPOINT:http://localhost:9000}
+        access-key: ${NEBULA_STORAGE_FORMAL_MINIO_ACCESS_KEY:}
+        secret-key: ${NEBULA_STORAGE_FORMAL_MINIO_SECRET_KEY:}
+        bucket: ${NEBULA_STORAGE_FORMAL_MINIO_BUCKET:nebula}
+
+org:
+  quartz:
+    scheduler:
+      instanceName: nebula-template-quartz
+      instanceId: AUTO
+    threadPool:
+      class: org.quartz.simpl.SimpleThreadPool
+      threadCount: 5
+      threadPriority: 5
+    jobStore:
+      class: org.quartz.impl.jdbcjobstore.JobStoreTX
+      driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      useProperties: false
+      tablePrefix: QRTZ_
+      dataSource: nebulaQuartzDS
+      isClustered: false
+      misfireThreshold: 60000
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      table-underline: true
+      id-type: assign_uuid
+      logic-delete-field: deleted
+      logic-not-delete-value: "false"
+      logic-delete-value: "true"
+  mapper-locations: classpath*:mapper/**/*.xml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

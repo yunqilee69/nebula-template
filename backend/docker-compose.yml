@@ -1,0 +1,42 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: nebula-template-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-nebula-root}"
+      MYSQL_DATABASE: nebula
+      MYSQL_USER: "${NEBULA_APP_DATASOURCE_USERNAME:-nebula}"
+      MYSQL_PASSWORD: "${NEBULA_APP_DATASOURCE_PASSWORD:-nebula}"
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - nebula-mysql-data:/var/lib/mysql
+      # 首次启动自动按文件名顺序导入初始化脚本（结构与数据 + Quartz 表）
+      - ./sql/01-init-structure-mysql.sql:/docker-entrypoint-initdb.d/01-init-structure-mysql.sql:ro
+      - ./sql/02-init-data-mysql.sql:/docker-entrypoint-initdb.d/02-init-data-mysql.sql:ro
+      - ./sql/01-init-structure-quartz-mysql.sql:/docker-entrypoint-initdb.d/03-init-structure-quartz-mysql.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: nebula-template-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - nebula-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  nebula-mysql-data:
+  nebula-redis-data:

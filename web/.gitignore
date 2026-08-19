@@ -1,0 +1,84 @@
+# 依赖目录
+/node_modules
+/.pnp
+.pnp.js
+.pnp.cjs
+
+# 构建输出
+/dist
+/build
+/.next
+/out
+
+# 本地环境文件
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# 日志文件
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 运行时数据
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# 测试覆盖率
+/coverage
+/.nyc_output
+
+# 缓存
+/.cache
+/.parcel-cache
+/.vite
+
+# 编辑器和 IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.bs-config.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# TypeScript 构建信息（如果是源码编译输出）
+*.tsbuildinfo
+
+# ESLint 缓存
+.eslintcache
+
+# 可选：如果使用 Tailwind 或类似工具生成的临时文件
+/tailwind.css
+
+# 可选：如果使用 Storybook
+/storybook-static
+
+# 可选：如果使用 Yarn 或 pnpm 的优化文件
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnpm-debug.log
+
+/docs/superpowers
+/.playwright-mcp
+/.sisyphus
+/.omo
+# 调试产物（根目录，历史 QA 会话遗留）
+/*.png
+/*.log
+/*.txt
+followup-*
+scheduled-task-*

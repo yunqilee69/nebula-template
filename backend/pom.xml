@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Nebula 后端模板工程：独立于主仓 reactor，只依赖发布到 Maven Central 的
+        cn.cloudomni:nebula-app-starter。fork nebula-template 仓库后：
+        1. 修改 groupId / artifactId 为你自己的项目坐标
+        2. docker compose up -d 启动 MySQL + Redis（首次自动导入初始化 SQL）
+        3. mvn spring-boot:run
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.7</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>cn.cloudomni</groupId>
+    <artifactId>nebula-template-backend</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>nebula-template-backend</name>
+    <description>Nebula 中台后端模板工程（基于 nebula-app-starter）</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <nebula.version>1.0.0</nebula.version>
+    </properties>
+
+    <dependencies>
+        <!-- 一个依赖获得完整中台后端：认证/字典/参数/通知/存储/审计/调度/前端配置 -->
+        <dependency>
+            <groupId>cn.cloudomni</groupId>
+            <artifactId>nebula-app-starter</artifactId>
+            <version>${nebula.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
