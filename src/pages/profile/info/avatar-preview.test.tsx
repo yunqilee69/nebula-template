@@ -37,7 +37,7 @@ const profile: ProfileResp = {
   username: 'yunqi',
   nickname: '云起',
   avatar: 'https://example.com/avatar.png',
-  email: 'yunqi@cludix.com',
+  email: 'yunqi@cloudomni.cn',
   phone: '13800000001',
   status: 1,
   createTime: '2026-06-06 10:00:00',
@@ -125,7 +125,7 @@ describe('ProfileInfoPage avatar previews', () => {
     await waitFor(() => expect(service.updateProfile).toHaveBeenCalledWith({
       nickname: '云起',
       avatar: uploadedAvatarUrl,
-      email: 'yunqi@cludix.com',
+      email: 'yunqi@cloudomni.cn',
       phone: '13800000001',
     }));
     await waitFor(() => expect(request).toHaveBeenCalledWith({

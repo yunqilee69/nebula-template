@@ -30,7 +30,7 @@ describe('profileService', () => {
       username: 'yunqi',
       nickname: '云起',
       avatar: 'https://example.com/avatar.png',
-      email: 'yunqi@cludix.com',
+      email: 'yunqi@cloudomni.cn',
       phone: '13800000001',
       status: 1,
       createTime: '2026-06-06 10:00:00',
@@ -47,7 +47,7 @@ describe('profileService', () => {
     const data: UpdateProfileReq = {
       nickname: '新昵称',
       avatar: 'https://example.com/new.png',
-      email: 'new@cludix.com',
+      email: 'new@cloudomni.cn',
       phone: '13900000001',
     };
     const updated: ProfileResp = { id: 'user-1', username: 'yunqi', status: 1, ...data };
