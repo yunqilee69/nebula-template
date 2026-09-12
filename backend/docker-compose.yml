@@ -3,19 +3,22 @@ services:
     image: mysql:8.0
     container_name: nebula-template-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-nebula-root}"
-      MYSQL_DATABASE: nebula
-      MYSQL_USER: "${NEBULA_APP_DATASOURCE_USERNAME:-nebula}"
-      MYSQL_PASSWORD: "${NEBULA_APP_DATASOURCE_PASSWORD:-nebula}"
+      # 本机开发栈专用变量（NEBULA_LOCAL_*）：与应用的 NEBULA_APP_* 变量隔离，
+      # 避免开发者 shell 里已导出的生产/远程连接信息（NEBULA_APP_DATASOURCE_* 等）
+      # 被 compose 插值，导致容器用错账号或后端连到远程库。
+      MYSQL_ROOT_PASSWORD: "${NEBULA_LOCAL_MYSQL_ROOT_PASSWORD:-nebula-root}"
+      MYSQL_DATABASE: "${NEBULA_LOCAL_MYSQL_DATABASE:-nebula}"
+      MYSQL_USER: "${NEBULA_LOCAL_MYSQL_USER:-nebula}"
+      MYSQL_PASSWORD: "${NEBULA_LOCAL_MYSQL_PASSWORD:-nebula}"
       TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "${NEBULA_LOCAL_MYSQL_PORT:-3306}:3306"
     volumes:
       - nebula-mysql-data:/var/lib/mysql
       # 首次启动自动按文件名顺序导入初始化脚本（结构与数据 + Quartz 表）
-      - ./sql/01-init-structure-mysql.sql:/docker-entrypoint-initdb.d/01-init-structure-mysql.sql:ro
-      - ./sql/02-init-data-mysql.sql:/docker-entrypoint-initdb.d/02-init-data-mysql.sql:ro
-      - ./sql/01-init-structure-quartz-mysql.sql:/docker-entrypoint-initdb.d/03-init-structure-quartz-mysql.sql:ro
+      - ../docs/sql/init/01-init-structure-mysql.sql:/docker-entrypoint-initdb.d/01-init-structure-mysql.sql:ro
+      - ../docs/sql/init/02-init-data-mysql.sql:/docker-entrypoint-initdb.d/02-init-data-mysql.sql:ro
+      - ../docs/sql/init/01-init-structure-quartz-mysql.sql:/docker-entrypoint-initdb.d/03-init-structure-quartz-mysql.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 10s
@@ -28,7 +31,7 @@ services:
     container_name: nebula-template-redis
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "${NEBULA_LOCAL_REDIS_PORT:-6379}:6379"
     volumes:
       - nebula-redis-data:/data
     healthcheck:

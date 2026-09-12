@@ -49,7 +49,7 @@ const profile: ProfileResp = {
   username: 'yunqi',
   nickname: '云起',
   avatar: 'https://example.com/avatar.png',
-  email: 'yunqi@cloudomni.cn',
+  email: 'yunqilee69@gmail.com',
   phone: '13800000001',
   status: 1,
   createTime: '2026-06-06 10:00:00',
@@ -139,7 +139,7 @@ describe('ProfileInfoPage', () => {
     const service = renderPage();
 
     expect(await screen.findByDisplayValue('云起')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('yunqi@cloudomni.cn')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('yunqilee69@gmail.com')).toBeInTheDocument();
     expect(screen.getByText('GitHub')).toBeInTheDocument();
     expect(screen.getByText('Octo Cat')).toBeInTheDocument();
     expect(screen.queryByText('github-user-1')).not.toBeInTheDocument();
@@ -186,7 +186,7 @@ describe('ProfileInfoPage', () => {
       expect(service.updateProfile).toHaveBeenCalledWith({
         nickname: '新昵称',
         avatar: 'https://example.com/avatar.png',
-        email: 'yunqi@cloudomni.cn',
+        email: 'yunqilee69@gmail.com',
         phone: '13800000001',
       });
     });
@@ -267,7 +267,7 @@ describe('ProfileInfoPage', () => {
       expect(service.updateProfile).toHaveBeenCalledWith({
         nickname: '云起',
         avatar: 'https://example.com/new-avatar.png',
-        email: 'yunqi@cloudomni.cn',
+        email: 'yunqilee69@gmail.com',
         phone: '13800000001',
       });
     });

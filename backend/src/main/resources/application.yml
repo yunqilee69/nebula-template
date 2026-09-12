@@ -34,6 +34,13 @@ nebula:
     mode: local
   web:
     result-advice-enable: true
+    # 跨域配置：默认关闭。浏览器端跨域访问（H5 / 移动端 WebView / 独立前端域名）时按需开启：
+    # cors:
+    #   allowed-origins:
+    #     - http://localhost:8081
+    #     - https://*.your-domain.com
+    #   allow-credentials: true
+    # 也可用环境变量：NEBULA_WEB_CORS_ALLOWED_ORIGINS=http://a.com,https://b.com
   cache:
     type: redis
     default-ttl: 300
@@ -68,6 +75,11 @@ nebula:
         enabled: false
       rate-limit:
         enabled: false
+    code:
+      # 手机/邮箱验证码发送器：框架只提供 VerificationCodeSender 扩展点，
+      # 业务工程实现该接口并注册为 Bean 即可对接短信/邮件网关。
+      # 未注册发送器时发送验证码会失败；本地联调可临时开启此项，把验证码打到日志（生产禁用）。
+      log-enabled: ${NEBULA_AUTH_CODE_LOG_ENABLED:false}
   storage:
     mode: local
     temporary:

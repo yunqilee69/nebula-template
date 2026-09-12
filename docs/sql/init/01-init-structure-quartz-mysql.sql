@@ -1,19 +1,17 @@
 -- ============================================================================
 -- Nebula - Quartz Scheduler Database Initialization Script
 -- File: 01-init-structure-quartz-mysql.sql
--- Purpose: Initialize Quartz scheduler tables in a separate database (MySQL)
--- Usage: mysql -u root -p < 01-init-structure-quartz-mysql.sql
+-- Purpose: Initialize Quartz scheduler tables for JDBC persistence (MySQL)
+-- Usage: mysql -u <user> -p <database> < 01-init-structure-quartz-mysql.sql
 -- Notes:
 --   1. Target database: MySQL 8.0+.
---   2. This script creates the nebula_quartz database and all Quartz tables.
---   3. Execute independently from main Nebula init scripts.
+--   2. 表建在**当前连接的库**中，不切换数据库：
+--      - 单体应用（默认）：应用库即调度库，脚本随业务库初始化一起执行（docker-compose 已挂载）。
+--      - 调度器独立部署：对调度服务自身的数据源执行本脚本；
+--        若使用独立库，需先 createdb/建库并授权，再连到该库执行。
+--   3. 仅 Quartz + JDBC 持久化（org.quartz.jobStore.class=JobStoreTX）时需要执行；
+--      默认的 RAMJobStore 无需建表（见 docs/sql/README.md）。
 -- ============================================================================
-
-CREATE DATABASE IF NOT EXISTS nebula_quartz
-    DEFAULT CHARACTER SET utf8mb4
-    DEFAULT COLLATE utf8mb4_unicode_ci;
-
-USE nebula_quartz;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;

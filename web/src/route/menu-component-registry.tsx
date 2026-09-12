@@ -1,34 +1,27 @@
-import { DashboardPage } from '@/pages/dashboard';
-import { MenuManagementPage } from '@/pages/system/operation/menu';
-import { OrgManagementPage } from '@/pages/system/operation/org';
-import { RoleManagementPage } from '@/pages/system/operation/role';
-import { UserManagementPage } from '@/pages/system/operation/user';
-import { ButtonManagementPage } from '@/pages/system/operation/button';
-import { MenuPermissionPage } from '@/pages/system/permission/menu-permission';
-import { ButtonPermissionPage } from '@/pages/system/permission/button-permission';
-import { DictManagementPage } from '@/pages/system/config/dict';
-import { ParamManagementPage } from '@/pages/system/config/param';
-import { GeneralConfigPage } from '@/pages/system/config/general';
-import { AuditLogPage } from '@/pages/system/monitor/audit-log';
-import { CacheManagementPage } from '@/pages/system/monitor/cache-management';
-import { OnlineUserPage } from '@/pages/system/monitor/online-user';
-import { ScheduledTaskPage } from '@/pages/system/monitor/scheduled-task';
-import AnnouncementManagementPage from '@/pages/system/notify/announcement';
-import ChannelTargetManagementPage from '@/pages/system/notify/channel-target';
-import NotifyRecordPage from '@/pages/system/notify/record';
-import TemplateManagementPage from '@/pages/system/notify/template';
+import { lazy, Suspense } from 'react';
+import { RouteLoading } from './route-loading';
 import type { MenuComponentRegistry } from './types';
 
 export function createMenuComponentRegistry(registry: MenuComponentRegistry): MenuComponentRegistry {
   return registry;
 }
 
+// 菜单管理页需要拿到注册表本身，这里用动态导入保证内置页面同样按需加载。
+const LazyMenuManagementPage = lazy(() =>
+  import('@/pages/system/operation/menu').then((module) => ({ default: module.MenuManagementPage })),
+);
+
 function BuiltInMenuManagementPage() {
-  return <MenuManagementPage componentRegistry={builtInMenuComponentRegistry} />;
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <LazyMenuManagementPage componentRegistry={builtInMenuComponentRegistry} />
+    </Suspense>
+  );
 }
 
 // Component names here are the contract with backend menu records.
 // 所有页面组件由后端菜单下发 path/component 后在这里解析。
+// loader 使用动态 import()，页面代码只在对应路由被访问时才加载。
 // 系统管理 - 运营管理
 export const builtInMenuComponentRegistry = createMenuComponentRegistry({
   // 仪表盘
@@ -37,7 +30,7 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultName: '仪表盘',
     defaultCode: 'DASHBOARD',
     defaultPath: '/dashboard',
-    loader: () => Promise.resolve({ default: DashboardPage }),
+    loader: () => import('@/pages/dashboard').then((module) => ({ default: module.DashboardPage })),
   },
   // 系统管理 - 运营管理
   UserManagementPage: {
@@ -46,21 +39,21 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'USER_MANAGEMENT',
     defaultPath: '/system/operation/user',
     defaultIcon: 'UserOutlined',
-    loader: () => Promise.resolve({ default: UserManagementPage }),
+    loader: () => import('@/pages/system/operation/user').then((module) => ({ default: module.UserManagementPage })),
   },
   OrgManagementPage: {
     component: 'OrgManagementPage',
     defaultName: '组织管理',
     defaultCode: 'ORG_MANAGEMENT',
     defaultPath: '/system/operation/org',
-    loader: () => Promise.resolve({ default: OrgManagementPage }),
+    loader: () => import('@/pages/system/operation/org').then((module) => ({ default: module.OrgManagementPage })),
   },
   RoleManagementPage: {
     component: 'RoleManagementPage',
     defaultName: '角色管理',
     defaultCode: 'ROLE_MANAGEMENT',
     defaultPath: '/system/operation/role',
-    loader: () => Promise.resolve({ default: RoleManagementPage }),
+    loader: () => import('@/pages/system/operation/role').then((module) => ({ default: module.RoleManagementPage })),
   },
   MenuManagementPage: {
     component: 'MenuManagementPage',
@@ -74,7 +67,7 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultName: '按钮管理',
     defaultCode: 'BUTTON_MANAGEMENT',
     defaultPath: '/system/operation/button',
-    loader: () => Promise.resolve({ default: ButtonManagementPage }),
+    loader: () => import('@/pages/system/operation/button').then((module) => ({ default: module.ButtonManagementPage })),
   },
   // 系统管理 - 权限管理
   MenuPermissionPage: {
@@ -82,14 +75,16 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultName: '菜单权限',
     defaultCode: 'MENU_PERMISSION',
     defaultPath: '/system/permission/menu-permission',
-    loader: () => Promise.resolve({ default: MenuPermissionPage }),
+    loader: () =>
+      import('@/pages/system/permission/menu-permission').then((module) => ({ default: module.MenuPermissionPage })),
   },
   ButtonPermissionPage: {
     component: 'ButtonPermissionPage',
     defaultName: '按钮权限',
     defaultCode: 'BUTTON_PERMISSION',
     defaultPath: '/system/permission/button-permission',
-    loader: () => Promise.resolve({ default: ButtonPermissionPage }),
+    loader: () =>
+      import('@/pages/system/permission/button-permission').then((module) => ({ default: module.ButtonPermissionPage })),
   },
   // 系统管理 - 系统配置
   DictManagementPage: {
@@ -97,21 +92,21 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultName: '字典管理',
     defaultCode: 'DICT_MANAGEMENT',
     defaultPath: '/system/config/dict',
-    loader: () => Promise.resolve({ default: DictManagementPage }),
+    loader: () => import('@/pages/system/config/dict').then((module) => ({ default: module.DictManagementPage })),
   },
   ParamManagementPage: {
     component: 'ParamManagementPage',
     defaultName: '参数管理',
     defaultCode: 'PARAM_MANAGEMENT',
     defaultPath: '/system/config/param',
-    loader: () => Promise.resolve({ default: ParamManagementPage }),
+    loader: () => import('@/pages/system/config/param').then((module) => ({ default: module.ParamManagementPage })),
   },
   GeneralConfigPage: {
     component: 'GeneralConfigPage',
     defaultName: '通用配置',
     defaultCode: 'GENERAL_CONFIG',
     defaultPath: '/system/config/general',
-    loader: () => Promise.resolve({ default: GeneralConfigPage }),
+    loader: () => import('@/pages/system/config/general').then((module) => ({ default: module.GeneralConfigPage })),
   },
   // 系统管理 - 系统监控
   AuditLogPage: {
@@ -119,14 +114,14 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultName: '审计日志',
     defaultCode: 'AUDIT_LOG',
     defaultPath: '/system/monitor/audit-log',
-    loader: () => Promise.resolve({ default: AuditLogPage }),
+    loader: () => import('@/pages/system/monitor/audit-log').then((module) => ({ default: module.AuditLogPage })),
   },
   ScheduledTaskPage: {
     component: 'ScheduledTaskPage',
     defaultName: '定时任务',
     defaultCode: 'SCHEDULED_TASK',
     defaultPath: '/system/monitor/scheduled-task',
-    loader: () => Promise.resolve({ default: ScheduledTaskPage }),
+    loader: () => import('@/pages/system/monitor/scheduled-task').then((module) => ({ default: module.ScheduledTaskPage })),
   },
   CacheManagementPage: {
     component: 'CacheManagementPage',
@@ -134,7 +129,8 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'CACHE_MANAGEMENT',
     defaultPath: '/system/monitor/cache-management',
     defaultIcon: 'DatabaseOutlined',
-    loader: () => Promise.resolve({ default: CacheManagementPage }),
+    loader: () =>
+      import('@/pages/system/monitor/cache-management').then((module) => ({ default: module.CacheManagementPage })),
   },
   OnlineUserPage: {
     component: 'OnlineUserPage',
@@ -142,7 +138,7 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'ONLINE_USER',
     defaultPath: '/system/monitor/online-user',
     defaultIcon: 'TeamOutlined',
-    loader: () => Promise.resolve({ default: OnlineUserPage }),
+    loader: () => import('@/pages/system/monitor/online-user').then((module) => ({ default: module.OnlineUserPage })),
   },
   // 系统管理 - 通知管理
   TemplateManagementPage: {
@@ -151,7 +147,7 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'NOTIFY_TEMPLATE',
     defaultPath: '/system/notify/template',
     defaultIcon: 'NotificationOutlined',
-    loader: () => Promise.resolve({ default: TemplateManagementPage }),
+    loader: () => import('@/pages/system/notify/template').then((module) => ({ default: module.TemplateManagementPage })),
   },
   AnnouncementManagementPage: {
     component: 'AnnouncementManagementPage',
@@ -159,7 +155,8 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'NOTIFY_ANNOUNCEMENT',
     defaultPath: '/system/notify/announcement',
     defaultIcon: 'SoundOutlined',
-    loader: () => Promise.resolve({ default: AnnouncementManagementPage }),
+    loader: () =>
+      import('@/pages/system/notify/announcement').then((module) => ({ default: module.AnnouncementManagementPage })),
   },
   NotifyRecordPage: {
     component: 'NotifyRecordPage',
@@ -167,7 +164,7 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'NOTIFY_RECORD',
     defaultPath: '/system/notify/record',
     defaultIcon: 'FileTextOutlined',
-    loader: () => Promise.resolve({ default: NotifyRecordPage }),
+    loader: () => import('@/pages/system/notify/record').then((module) => ({ default: module.NotifyRecordPage })),
   },
   ChannelTargetManagementPage: {
     component: 'ChannelTargetManagementPage',
@@ -175,6 +172,7 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'NOTIFY_CHANNEL_TARGET',
     defaultPath: '/system/notify/channel-target',
     defaultIcon: 'LinkOutlined',
-    loader: () => Promise.resolve({ default: ChannelTargetManagementPage }),
+    loader: () =>
+      import('@/pages/system/notify/channel-target').then((module) => ({ default: module.ChannelTargetManagementPage })),
   },
 });

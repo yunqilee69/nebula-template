@@ -2,7 +2,7 @@
 
 Nebula Web 是 Nebula 中台的前端模板工程（React 18 + Ant Design 6 + React Router 7 + Vite + Tailwind CSS 4），采用 **fork 模板** 模式分发：新项目直接 fork 本工程，在应用层上开发业务页面，并通过 `git pull` 持续吸收上游模板升级。
 
-> 本目录是 `nebula` monorepo 的组成部分（源仓 `nebula-web` 已合入）。纯前端模板镜像仓 `nebula-template` 由主仓 CI 从本目录自动生成，用户应 fork 该镜像仓。
+> 本目录是 `nebula` monorepo 的组成部分（源仓 `nebula-web` 已合入）。完整模板仓 `nebula-template`（backend + web 前后端双模板）由主仓 CI 从本目录与 `backend/` 自动生成，用户应 fork 该模板仓。
 
 ## 快速开始
 
@@ -14,7 +14,7 @@ pnpm typecheck  # 类型检查
 pnpm build      # 生产构建
 ```
 
-后端配套：单体模式直接启动 `nebula-app/nebula-app-starter`（默认 8080），或微服务模式启动 `nebula-gateway-service`（9999，见 `.env.local.example`）。完整后端接入见主仓 `doc/quickstart-nebula-app-starter.md`。
+后端配套：单体模式直接启动 `nebula-app/nebula-app-starter`（默认 8080），或微服务模式启动 `nebula-gateway-service`（9999，见 `.env.local.example`）。完整后端接入见 [`backend/README.md`](./backend/README.md)。
 
 ## Fork 工作流
 

@@ -772,7 +772,6 @@ INSERT INTO sys_dict_item (
     ('019cf114a00070008000000000000012', 'param_module', '字典模块', 'dict', 2, 1, NULL, '数据字典相关参数', NOW(), NOW()),
     ('019cf114a00070008000000000000013', 'param_module', '参数模块', 'param', 3, 1, NULL, '系统参数中心相关参数', NOW(), NOW()),
     ('019cf114a00070008000000000000014', 'param_module', '通知模块', 'notify', 4, 1, NULL, '公告通知相关参数', NOW(), NOW()),
-    ('019cf114a00070008000000000000015', 'param_module', '通信模块', 'comms', 5, 1, NULL, '企业通信平台相关参数', NOW(), NOW()),
     ('019cf114a00070008000000000000016', 'param_module', '存储模块', 'storage', 6, 1, NULL, '文件存储相关参数', NOW(), NOW()),
     ('019cf114a00070008000000000000017', 'param_module', '调度模块', 'scheduler', 7, 1, NULL, '任务调度相关参数', NOW(), NOW()),
     ('019cf114a00070008000000000000018', 'param_module', '前端配置模块', 'frontend', 8, 1, NULL, '前端初始化、主题、语言和布局相关参数', NOW(), NOW()),

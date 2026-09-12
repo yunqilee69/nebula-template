@@ -26,7 +26,12 @@
 
     <properties>
         <java.version>21</java.version>
-        <nebula.version>1.0.0</nebula.version>
+        <!--
+            框架版本：与主仓发布到 Maven Central 的版本保持一致。
+            nebula 主仓打 v* 标签发布时，sync-template 工作流会按标签版本覆盖本值，
+            因此本文件在主干上始终指向“当前最新已发布版本”，勿手工填未发布版本。
+        -->
+        <nebula.version>0.2.0</nebula.version>
     </properties>
 
     <dependencies>
@@ -35,6 +40,16 @@
             <groupId>cn.cloudomni</groupId>
             <artifactId>nebula-app-starter</artifactId>
             <version>${nebula.version}</version>
+        </dependency>
+        <!--
+            业务代码使用 Lombok（实体/DTO 的 @Data、@Slf4j 等）：
+            框架内部按 provided 引入 Lombok，不会传递给业务工程，需自行声明。
+            版本由 spring-boot-starter-parent 统一管理。
+        -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 

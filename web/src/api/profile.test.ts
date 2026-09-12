@@ -30,7 +30,7 @@ describe('profileService', () => {
       username: 'yunqi',
       nickname: '云起',
       avatar: 'https://example.com/avatar.png',
-      email: 'yunqi@cloudomni.cn',
+      email: 'yunqilee69@gmail.com',
       phone: '13800000001',
       status: 1,
       createTime: '2026-06-06 10:00:00',

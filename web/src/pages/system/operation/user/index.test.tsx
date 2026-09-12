@@ -12,7 +12,7 @@ function createService(overrides: Partial<AuthManagementService> = {}): AuthMana
   return {
     pageUsers: vi.fn().mockResolvedValue({
       data: [
-        { id: 'user-1', username: 'yunqi', nickname: '云起', email: 'yunqi@cloudomni.cn', phone: '13800000001', status: 1 },
+        { id: 'user-1', username: 'yunqi', nickname: '云起', email: 'yunqilee69@gmail.com', phone: '13800000001', status: 1 },
       ],
       total: 1,
     } satisfies PageResp<UserResp>),

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, Outlet, useLocation, type RouteObject } from 'react-router-dom';
 import { EmptyModule } from '@/layouts/empty-module';
 import { ExceptionResult } from '@/layouts/exception-result';
@@ -5,13 +6,20 @@ import { NebulaLayout } from '@/layouts/nebula-layout';
 import { ForgotPasswordPage } from '@/pages/forgot-password';
 import { GitHubCallbackPage } from '@/pages/login/github-callback';
 import { LoginPage } from '@/pages/login';
-import { NotificationInboxPage } from '@/pages/notify/inbox';
 import { ProfileBindCallbackPage } from '@/pages/profile/bind-callback';
-import { ProfileInfoPage } from '@/pages/profile/info';
 import { RegisterPage } from '@/pages/register';
 import { buildMenuRoutes } from './build-menu-routes';
 import { RouteGuard } from './route-guard';
+import { RouteLoading } from './route-loading';
 import type { CreateNebulaRouterOptions, NebulaRouteObject } from './types';
+
+// 内置个人中心/通知中心页面同样按需加载，避免它们的重型依赖进入首屏包。
+const LazyProfileInfoPage = lazy(() =>
+  import('@/pages/profile/info').then((module) => ({ default: module.ProfileInfoPage })),
+);
+const LazyNotificationInboxPage = lazy(() =>
+  import('@/pages/notify/inbox').then((module) => ({ default: module.NotificationInboxPage })),
+);
 
 const authPagePaths = new Set(['/login', '/login/github-callback', '/profile/bind-callback', '/register', '/forgot-password']);
 const redirectPathPrefix = '/redirect';
@@ -96,10 +104,24 @@ export function createNebulaRouter(options: CreateNebulaRouterOptions) {
     builtInAuthRoutes.push({ path: '/forgot-password', element: <ForgotPasswordPage /> });
   }
   if (!sourceRoutePaths.has('/profile/info')) {
-    builtInLayoutRoutes.push({ path: '/profile/info', element: <ProfileInfoPage /> });
+    builtInLayoutRoutes.push({
+      path: '/profile/info',
+      element: (
+        <Suspense fallback={<RouteLoading />}>
+          <LazyProfileInfoPage />
+        </Suspense>
+      ),
+    });
   }
   if (!sourceRoutePaths.has('/notify/inbox')) {
-    builtInLayoutRoutes.push({ path: '/notify/inbox', element: <NotificationInboxPage /> });
+    builtInLayoutRoutes.push({
+      path: '/notify/inbox',
+      element: (
+        <Suspense fallback={<RouteLoading />}>
+          <LazyNotificationInboxPage />
+        </Suspense>
+      ),
+    });
   }
   const fullPageRoutes = sourceRoutes.filter((route) => typeof route.path === 'string' && authPagePaths.has(route.path));
   const layoutSourceRoutes = sourceRoutes.filter((route) => typeof route.path !== 'string' || !authPagePaths.has(route.path));
