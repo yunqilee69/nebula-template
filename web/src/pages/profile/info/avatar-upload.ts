@@ -1,5 +1,6 @@
-import { parseStorageDownloadUrl } from '@/api/storage';
+import { parseStorageDownloadUrl, uploadFileWithPolicy } from '@/api/storage';
 import type { StorageService } from '@/api/storage';
+import { ensureUploadPolicy } from '@/stores/upload-policy-store';
 import type { NeUploadFile } from '@/components/ne-upload';
 import type { UploadTaskDetailResp } from '@/types/storage';
 
@@ -15,10 +16,13 @@ export interface AvatarUploadResult {
 }
 
 export interface AvatarUploadAdapter {
-  readonly uploadAvatar: (file: File) => Promise<AvatarUploadResult>;
+  readonly uploadAvatar: (file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadResult>;
 }
 
-export type AvatarStorageService = Pick<StorageService, 'uploadSimpleFile' | 'bindUploadTask' | 'getDownloadUrl'>;
+export type AvatarStorageService = Pick<
+  StorageService,
+  'uploadSimpleFile' | 'createUploadTask' | 'uploadTaskPart' | 'completeUploadTask' | 'bindUploadTask' | 'getDownloadUrl'
+>;
 
 function normalizeOptionalText(value: string | undefined) {
   const nextValue = value?.trim();
@@ -60,8 +64,10 @@ export function filesToAvatarUrl(files: readonly NeUploadFile[]) {
 
 export function createAvatarUploadAdapter(storageService: AvatarStorageService, profileId: string): AvatarUploadAdapter {
   return {
-    async uploadAvatar(file) {
-      const task = await storageService.uploadSimpleFile(file);
+    async uploadAvatar(file, onProgress) {
+      // 走策略选路：超过分片阈值的头像自动切片上传，避免大图在传输口径处被 413 拦掉
+      const policy = await ensureUploadPolicy();
+      const task = await uploadFileWithPolicy(storageService, policy, file, { onProgress });
       const fileId = await storageService.bindUploadTask(task.id, {
         sourceEntity: avatarSourceEntity,
         sourceId: profileId,

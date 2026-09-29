@@ -33,7 +33,11 @@ export interface NeUploadProps {
   helperText?: ReactNode;
   className?: string;
   style?: CSSProperties;
-  uploadRequest?: (file: File) => Promise<UploadTaskDetailResp>;
+  /**
+   * 上传实现。第二个入参为进度回调（0-100），分片上传下由实现方按整体进度回传；
+   * 不回调时列表只展示不确定态进度。
+   */
+  uploadRequest?: (file: File, onProgress?: (percent: number) => void) => Promise<UploadTaskDetailResp>;
   listBySource?: (req: ListStorageFilesBySourceReq) => Promise<StorageFileDetailResp[]>;
   deleteFile?: (file: NeUploadFile) => Promise<void>;
   onChange?: (files: NeUploadFile[]) => void;

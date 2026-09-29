@@ -689,6 +689,27 @@ INSERT INTO auth_menu (
         'Built-in online user menu',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
+    ),
+    -- 登录日志
+    (
+        '0196dbe0a6f17000a000000000000029',
+        '登录日志',
+        '0196dbe0a6f17000a000000000000015',
+        '/system/monitor/login-log',
+        46,
+        'system-monitor-login-log',
+        'LoginOutlined',
+        'LoginLogPage',
+        'MENU',
+        1,
+        FALSE,
+        NULL,
+        TRUE,
+        TRUE,
+        NULL,
+        'Built-in login log menu',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
     )
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
@@ -736,6 +757,7 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000223', '0196dbe0a6f17000a000000000000010', 'AUTH_DATA_SCOPE_EDIT', '编辑数据范围', 'edit', 5, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000224', '0196dbe0a6f17000a000000000000010', 'AUTH_DATA_SCOPE_DELETE', '删除数据范围', 'delete', 6, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000225', '0196dbe0a6f17000a000000000000027', 'AUTH_ONLINE_USER_KICK_OUT', '踢出在线用户', 'kick-out', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000226', '0196dbe0a6f17000a000000000000027', 'AUTH_ONLINE_USER_KICK_OUT_ALL', '踢出用户全部会话', 'kick-out-all', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000101', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_CREATE', '新增渠道目标', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000102', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_EDIT', '编辑渠道目标', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000103', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_DELETE', '删除渠道目标', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -901,8 +923,11 @@ INSERT INTO sys_param (
     ('01959f0aa4d37c0d91a7d9af9c7d1028', 'notify.email.security', 'SMTP加密方式', 'SMTP加密方式，可选 NONE、STARTTLS、SSL', 'STARTTLS', 'STRING', NULL, 'notify', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1029', 'notify.email.username', '邮箱账号', 'SMTP登录邮箱账号，同时作为邮件发件人', '', 'STRING', NULL, 'notify', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1030', 'notify.email.password', '邮箱密码', 'SMTP登录邮箱密码或授权码', '', 'STRING', NULL, 'notify', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('01959f0aa4d37c0d91a7d9af9c7d1031', 'spring.servlet.multipart.max-file-size', '单文件上传上限', 'Spring multipart 单个文件大小上限，例如 100MB，超过后可能触发 content too large/413', '100MB', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('01959f0aa4d37c0d91a7d9af9c7d1032', 'spring.servlet.multipart.max-request-size', '单次请求上传上限', 'Spring multipart 单次请求总大小上限，例如 120MB，分片上传时应不小于单片文件大小', '120MB', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('01959f0aa4d37c0d91a7d9af9c7d1033', 'storage.upload.max-file-size', '单文件大小上限(MB)', '单个文件上传大小上限，单位 MB；必须不大于 application.yml 中 spring.servlet.multipart.max-file-size 的静态传输口径，否则请求会被容器提前以 413 拒绝；不变式 chunk-size <= chunk-threshold <= max-file-size', '100', 'INT', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1034', 'storage.upload.chunk-threshold', '分片上传阈值(MB)', '文件超过该值必须走分片上传，单位 MB；不变式 chunk-size <= chunk-threshold <= max-file-size', '10', 'INT', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1035', 'storage.upload.chunk-size', '分片大小(MB)', '分片上传的单片大小，单位 MB；不变式 chunk-size <= chunk-threshold <= max-file-size，且不超过 2047（超过会溢出 Integer 字节数）', '5', 'INT', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1036', 'storage.upload.allowed-extensions', '允许的扩展名', '允许上传的文件扩展名，逗号分隔，可带或不带前导点（jpg,png 与 .jpg,.png 等价），大小写不敏感，留空表示不限制', '', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1037', 'storage.upload.temp-retention-days', '临时任务保留天数', '临时上传任务及其临时文件的保留天数，超期由定时清理任务删除', '14', 'INT', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (param_key) DO UPDATE SET
     param_name = EXCLUDED.param_name,
     description = EXCLUDED.description,
@@ -912,6 +937,18 @@ ON CONFLICT (param_key) DO UPDATE SET
     module_code = EXCLUDED.module_code,
     is_builtin = EXCLUDED.is_builtin,
     update_time = EXCLUDED.update_time;
+
+-- ----------------------------------------------------------------------------
+-- param / 清理已废弃参数
+-- ----------------------------------------------------------------------------
+-- 上面是 upsert，删掉 INSERT 行不会删掉存量库中已有的记录，必须显式清理。
+-- spring.servlet.multipart.* 是启动期装配项，参数中心改它不会生效（容器在请求解析阶段就已限流），
+-- 现改由 application.yml 静态配置，并由 nebula-storage 启动自检保证口径不小于业务上限。
+DELETE FROM sys_param
+WHERE param_key IN (
+    'spring.servlet.multipart.max-file-size',
+    'spring.servlet.multipart.max-request-size'
+);
 
 -- ----------------------------------------------------------------------------
 -- auth-core / 权限种子数据（基于 menu 和 button 表自动生成）

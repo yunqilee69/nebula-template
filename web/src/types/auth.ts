@@ -111,11 +111,29 @@ export interface FrontendThemeResp {
   themeConfig?: Record<string, string>;
 }
 
+export interface FrontendUploadConfig {
+  /** 单文件大小上限（MB） */
+  maxFileSize?: number;
+  /** 分片上传阈值（MB），超过该值必须走分片上传 */
+  chunkThreshold?: number;
+  /** 分片大小（MB） */
+  chunkSize?: number;
+  /** 允许的扩展名，逗号分隔，空表示不限制 */
+  allowedExtensions?: string;
+  /** 临时任务保留天数（服务端清理任务用，客户端不读） */
+  tempRetentionDays?: number;
+}
+
+export interface FrontendStorageInit {
+  upload?: FrontendUploadConfig;
+}
+
 export interface FrontendInitResp {
   frontendConfig?: FrontendConfigResp;
   loginConfig?: AuthInitResp;
   defaultPreference?: FrontendPreferenceResp;
   defaultTheme?: FrontendThemeResp;
+  storage?: FrontendStorageInit;
 }
 
 export interface LoginReq {

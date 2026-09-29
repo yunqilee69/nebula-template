@@ -44,31 +44,39 @@ describe('general config helpers', () => {
       'login.phone.enabled': 'true',
       'notify.email.smtp-port': '587',
       'notify.email.security': 'STARTTLS',
-      'spring.servlet.multipart.max-file-size': '100MB',
+      'storage.upload.max-file-size': '100',
+      'storage.upload.allowed-extensions': 'jpg,png',
     });
 
     expect(patch).toEqual({
       phoneLoginEnabled: true,
       notifyEmailSmtpPort: 587,
       notifyEmailSecurity: 'STARTTLS',
-      storageMultipartMaxFileSize: '100MB',
+      storageUploadMaxFileSize: 100,
+      storageUploadAllowedExtensions: 'jpg,png',
     });
   });
 
-  it('renders storage upload limit fields from the general-config DTO', () => {
+  it('renders storage business upload policy fields from the general-config DTO', () => {
     const builtTabs = buildTabs({
-      storageMultipartMaxFileSize: '100MB',
-      storageMultipartMaxRequestSize: '120MB',
+      storageUploadMaxFileSize: 100,
+      storageUploadChunkThreshold: 10,
+      storageUploadChunkSize: 5,
+      storageUploadAllowedExtensions: 'jpg,png',
+      storageUploadTempRetentionDays: 14,
     });
 
     const storageTab = builtTabs.find((tab) => tab.tabName === '存储');
 
     expect(storageTab?.groups[0]?.groupName).toBe('上传配置');
     expect(storageTab?.groups[0]?.params.map((param) => param.paramKey)).toEqual([
-      'spring.servlet.multipart.max-file-size',
-      'spring.servlet.multipart.max-request-size',
+      'storage.upload.max-file-size',
+      'storage.upload.chunk-threshold',
+      'storage.upload.chunk-size',
+      'storage.upload.allowed-extensions',
+      'storage.upload.temp-retention-days',
     ]);
-    expect(storageTab?.groups[0]?.params.map((param) => param.paramValue)).toEqual(['100MB', '120MB']);
+    expect(storageTab?.groups[0]?.params.map((param) => param.paramValue)).toEqual(['100', '10', '5', 'jpg,png', '14']);
   });
 
   it('updates saved values immutably after unified save', () => {

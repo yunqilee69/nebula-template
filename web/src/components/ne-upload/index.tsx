@@ -3,6 +3,8 @@ import { Button, Flex, Typography, Upload, message, theme as antdTheme } from 'a
 import type { UploadProps } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { buildAcceptAttribute, isExtensionAllowed, parseAllowedExtensions } from '@/api/storage';
+import { useUploadPolicyStore } from '@/stores/upload-policy-store';
 import type { ListStorageFilesBySourceReq, StorageFileDetailResp, UploadTaskDetailResp } from '../../types/storage';
 import type { NeImageUploadProps, NeUploadFile, NeUploadProps } from './types';
 import { FileUploadList, ImageUploadList } from './upload-lists';
@@ -95,6 +97,7 @@ function NeUploadView({
   preview = false,
 }: NeUploadViewProps) {
   const { token } = antdTheme.useToken();
+  const uploadPolicy = useUploadPolicyStore((state) => state.policy);
   const controlled = value !== undefined;
   const [internalFiles, setInternalFiles] = useState<NeUploadFile[]>(defaultValue ?? []);
   const files = controlled ? value : internalFiles;
@@ -111,6 +114,10 @@ function NeUploadView({
   const visibleFiles = useMemo(() => limitFiles(files, maxCount), [files, maxCount]);
   const atLimit = visibleFiles.length >= maxCount;
   const canReplaceSingleFile = replaceable && maxCount === 1;
+  // 扩展名白名单以服务端为准：显式 accept 优先，其次由缓存的 storage.upload 策略推导
+  const effectiveAccept = accept
+    ?? buildAcceptAttribute(uploadPolicy.allowedExtensions)
+    ?? (variant === 'image' ? 'image/*' : undefined);
 
   const applyUpdate = useCallback(
     (updater: (prev: NeUploadFile[]) => NeUploadFile[]) => {
@@ -172,7 +179,11 @@ function NeUploadView({
 
       try {
         if (!uploadRequest) throw new Error('未配置上传方法');
-        const task = await uploadRequest(file);
+        const task = await uploadRequest(file, (percent) => {
+          applyUpdate((prev) =>
+            prev.map((item) => (item.uid === localFile.uid && item.status === 'uploading' ? { ...item, percent } : item)),
+          );
+        });
         const doneFile = mapTaskToFile(localFile, task);
         applyUpdate((prev) =>
           prev.map((item) => (item.uid === localFile.uid ? doneFile : item)),
@@ -206,12 +217,19 @@ function NeUploadView({
       if (!onLimitExceeded) void message.warning(`最多只能上传 ${maxCount} 个文件`);
     }
 
-    if (allowedFiles.includes(file)) void uploadOne(file);
+    if (allowedFiles.includes(file)) {
+      // accept 只是选择器提示（拖拽/改后缀可绕过），服务端才是权威；这里提前拦一次避免白传流量
+      if (isExtensionAllowed(uploadPolicy.allowedExtensions, file.name)) {
+        void uploadOne(file);
+      } else {
+        void message.error(`该文件类型不允许上传（允许：${parseAllowedExtensions(uploadPolicy.allowedExtensions).join('、')}）`);
+      }
+    }
     return Upload.LIST_IGNORE;
   };
 
   const uploadButton = (
-    <Upload accept={accept} disabled={disabled} showUploadList={false} beforeUpload={beforeUpload} multiple={maxCount > 1}>
+    <Upload accept={effectiveAccept} disabled={disabled} showUploadList={false} beforeUpload={beforeUpload} multiple={maxCount > 1}>
       {canReplaceSingleFile || !atLimit ? (
         <Button aria-label={variant === 'image' ? '上传图片' : '上传附件'} icon={<PlusOutlined />} disabled={disabled}>
           {uploadText ?? (variant === 'image' ? '上传图片' : '上传附件')}
@@ -245,11 +263,12 @@ export function NeUpload(props: NeUploadProps) {
 }
 
 export function NeImageUpload({
-  accept = 'image/*',
+  accept,
   maxCount = defaultMaxCount,
   preview = true,
   ...rest
 }: NeImageUploadProps) {
+  // accept 不在这里兜底成 image/*：留给视图先按策略白名单推导，未配置白名单时才回退到 image/*
   return <NeUploadView {...rest} accept={accept} maxCount={maxCount} preview={preview} variant="image" />;
 }
 

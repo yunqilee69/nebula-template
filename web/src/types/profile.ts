@@ -64,19 +64,9 @@ export interface BindOAuth2Resp {
   status: BindOAuth2Status;
 }
 
-export interface LoginRecordPageReq {
-  pageNum: number;
-  pageSize: number;
-}
-
-export type LoginRecordResult = 'SUCCESS' | 'FAILED';
-
-export interface LoginRecordResp {
-  loginTime?: string;
-  loginAccount?: string;
-  loginType?: string;
-  loginResult?: LoginRecordResult;
-  loginIp?: string;
-  deviceInfo?: string;
-  failReason?: string;
-}
+export type {
+  LoginRecordPageReq,
+  LoginRecordResp,
+  LoginRecordResult,
+  LoginRecordType,
+} from './login-record';

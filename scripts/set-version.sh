@@ -52,9 +52,9 @@ if [ -n "$BOM_CURRENT" ] && [ "$BOM_CURRENT" != "$CURRENT" ]; then
   echo "ERROR: 根 pom 与 nebula-dependency 的 revision 不一致（${CURRENT} vs ${BOM_CURRENT}），请先手动修复" >&2
   exit 1
 fi
+SAME_VERSION=""
 if [ "$CURRENT" = "$NEW_VERSION" ]; then
-  echo "当前版本已是 ${NEW_VERSION}，无需修改"
-  exit 0
+  SAME_VERSION="1"
 fi
 
 # sed 模式中的版本号需转义点号
@@ -84,6 +84,25 @@ patch_version_global() {
   patch_file "$file" "s|$esc_old|$new|g"
 }
 
+patch_backend() {
+  patch_file "$ROOT/backend/pom.xml" "s|<nebula.version>[^<]*</nebula.version>|<nebula.version>$NEW_VERSION</nebula.version>|"
+}
+
+if [ -n "$SAME_VERSION" ]; then
+  # 发版后回填 backend 引用时就处于这个状态：revision 已是待发布版本，只需同步 backend。
+  if [ "$WITH_BACKEND" = "--with-backend" ]; then
+    echo "版本号已是 ${NEW_VERSION}，仅更新 backend 模板工程引用"
+    echo "[3/3] backend 模板工程引用"
+    patch_backend
+    echo
+    echo "完成。后续步骤："
+    echo "  git add -A && git commit -m \"build: backend 模板锁定 ${NEW_VERSION}\" && git push"
+  else
+    echo "当前版本已是 ${NEW_VERSION}，无需修改"
+  fi
+  exit 0
+fi
+
 echo "版本号: $CURRENT -> $NEW_VERSION"
 echo
 
@@ -104,7 +123,7 @@ patch_version_global "$ROOT/docker/Dockerfile.service" "$ESC_CUR" "$NEW_VERSION"
 
 echo "[3/3] backend 模板工程引用"
 if [ "$WITH_BACKEND" = "--with-backend" ]; then
-  patch_file "$ROOT/backend/pom.xml" "s|<nebula.version>[^<]*</nebula.version>|<nebula.version>$NEW_VERSION</nebula.version>|"
+  patch_backend
 else
   echo "  跳过（默认引用已发布版本；该版本发布到 Central 后可用 --with-backend 更新）"
 fi

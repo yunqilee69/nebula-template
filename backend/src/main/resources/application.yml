@@ -1,9 +1,20 @@
 server:
   port: 8080
+  tomcat:
+    # 长文件名场景：默认 512B 容易触发上传失败
+    max-part-header-size: 10KB
 
 spring:
   application:
     name: nebula-template-backend
+  servlet:
+    multipart:
+      # 静态传输口径（启动期装配，运行期不可改）：
+      # 必须 >= 参数中心 storage.upload.max-file-size（默认 100MB），
+      # 否则超限请求会在进入业务校验前被容器以 413 拒绝。
+      # nebula-storage 启动时会自检该约束，不满足直接启动失败。
+      max-file-size: 110MB
+      max-request-size: 120MB
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration

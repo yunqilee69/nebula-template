@@ -18,6 +18,16 @@ export interface UploadTaskDetailResp {
   updateTime?: string;
 }
 
+export interface CreateUploadTaskReq {
+  fileName: string;
+  /** 文件总大小（字节） */
+  fileSize: number;
+  /** 分片大小（字节），必须与参数中心 storage.upload.chunk-size 一致 */
+  chunkSize: number;
+  /** 分片总数，服务端会按配置重算并覆盖 */
+  chunkCount: number;
+}
+
 export interface BindUploadTaskReq {
   sourceEntity: string;
   sourceId: string;

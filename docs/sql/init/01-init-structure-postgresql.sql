@@ -316,6 +316,51 @@ COMMENT ON COLUMN auth_oauth2_account.linked_at IS '绑定时间';
 COMMENT ON COLUMN auth_oauth2_account.create_time IS '创建时间';
 COMMENT ON COLUMN auth_oauth2_account.update_time IS '更新时间';
 
+-- ----------------------------------------------------------------------------
+-- auth-core / login-record
+-- Tables: auth_login_record
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS auth_login_record (
+    id CHAR(32) PRIMARY KEY,
+    user_id CHAR(32) NOT NULL,
+    login_account VARCHAR(100) NOT NULL,
+    login_type VARCHAR(20) NOT NULL,
+    login_result VARCHAR(20) NOT NULL,
+    is_success SMALLINT NOT NULL DEFAULT 0,
+    login_ip VARCHAR(50) DEFAULT NULL,
+    user_agent VARCHAR(500) DEFAULT NULL,
+    client_type VARCHAR(20) DEFAULT NULL,
+    client_type_source VARCHAR(20) DEFAULT NULL,
+    device_info VARCHAR(500) DEFAULT NULL,
+    oauth_provider VARCHAR(50) DEFAULT NULL,
+    fail_reason VARCHAR(200) DEFAULT NULL,
+    login_time TIMESTAMP NOT NULL,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_record_user_id ON auth_login_record (user_id);
+CREATE INDEX IF NOT EXISTS idx_login_record_login_time ON auth_login_record (login_time);
+CREATE INDEX IF NOT EXISTS idx_login_record_client_type ON auth_login_record (client_type);
+
+COMMENT ON TABLE auth_login_record IS '用户登录记录表';
+COMMENT ON COLUMN auth_login_record.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_login_record.user_id IS '用户ID';
+COMMENT ON COLUMN auth_login_record.login_account IS '登录账号（用户名/手机/邮箱/OAuth2标识）';
+COMMENT ON COLUMN auth_login_record.login_type IS '登录类型：PASSWORD/PHONE/EMAIL/OAUTH2';
+COMMENT ON COLUMN auth_login_record.login_result IS '登录结果：SUCCESS/FAILED';
+COMMENT ON COLUMN auth_login_record.is_success IS '是否成功：0失败 1成功';
+COMMENT ON COLUMN auth_login_record.login_ip IS '登录IP地址';
+COMMENT ON COLUMN auth_login_record.user_agent IS '原始User-Agent字符串';
+COMMENT ON COLUMN auth_login_record.client_type IS '客户端端类型：WEB/H5/MP_WEIXIN/MP_ALIPAY/APP/API/UNKNOWN';
+COMMENT ON COLUMN auth_login_record.client_type_source IS '端类型判定来源：HEADER/USER_AGENT/DEFAULT';
+COMMENT ON COLUMN auth_login_record.device_info IS '设备信息（解析后的浏览器/操作系统）';
+COMMENT ON COLUMN auth_login_record.oauth_provider IS 'OAuth2提供商ID（仅OAuth2登录）';
+COMMENT ON COLUMN auth_login_record.fail_reason IS '失败原因（仅失败记录）';
+COMMENT ON COLUMN auth_login_record.login_time IS '登录时间';
+COMMENT ON COLUMN auth_login_record.create_time IS '创建时间';
+COMMENT ON COLUMN auth_login_record.update_time IS '更新时间';
+
 -- ============================================================================
 -- Module: dict
 -- Source: dict/01-dict-schema-mysql.sql

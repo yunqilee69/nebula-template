@@ -140,6 +140,14 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultIcon: 'TeamOutlined',
     loader: () => import('@/pages/system/monitor/online-user').then((module) => ({ default: module.OnlineUserPage })),
   },
+  LoginLogPage: {
+    component: 'LoginLogPage',
+    defaultName: '登录日志',
+    defaultCode: 'LOGIN_LOG',
+    defaultPath: '/system/monitor/login-log',
+    defaultIcon: 'LoginOutlined',
+    loader: () => import('@/pages/system/monitor/login-log').then((module) => ({ default: module.LoginLogPage })),
+  },
   // 系统管理 - 通知管理
   TemplateManagementPage: {
     component: 'TemplateManagementPage',

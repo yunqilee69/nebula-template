@@ -140,8 +140,11 @@ export const TAB_CONFIGS: ConfigTab[] = [
       {
         groupName: '上传配置',
         fields: [
-          { field: 'storageMultipartMaxFileSize', paramKey: 'spring.servlet.multipart.max-file-size', paramName: '单文件上传上限', description: 'Spring multipart 单个文件大小上限，例如 100MB；超过后可能触发 content too large/413', dataType: DataType.STRING },
-          { field: 'storageMultipartMaxRequestSize', paramKey: 'spring.servlet.multipart.max-request-size', paramName: '单次请求上传上限', description: 'Spring multipart 单次请求总大小上限，例如 120MB；分片上传时应不小于单片文件大小', dataType: DataType.STRING },
+          { field: 'storageUploadMaxFileSize', paramKey: 'storage.upload.max-file-size', paramName: '单文件大小上限（MB）', description: '单个文件上传大小上限，单位 MB；需不大于 application.yml 的 multipart 传输口径，且满足 分片大小 ≤ 分片阈值 ≤ 单文件上限', dataType: DataType.INT },
+          { field: 'storageUploadChunkThreshold', paramKey: 'storage.upload.chunk-threshold', paramName: '分片上传阈值（MB）', description: '文件超过该值必须走分片上传，单位 MB；需满足 分片大小 ≤ 分片阈值 ≤ 单文件上限', dataType: DataType.INT },
+          { field: 'storageUploadChunkSize', paramKey: 'storage.upload.chunk-size', paramName: '分片大小（MB）', description: '分片上传的单片大小，单位 MB；需满足 分片大小 ≤ 分片阈值 ≤ 单文件上限，且不超过 2047', dataType: DataType.INT },
+          { field: 'storageUploadAllowedExtensions', paramKey: 'storage.upload.allowed-extensions', paramName: '允许的扩展名', description: '逗号分隔，可带或不带点（jpg,png 与 .jpg,.png 等价），大小写不敏感，留空表示不限制', dataType: DataType.STRING },
+          { field: 'storageUploadTempRetentionDays', paramKey: 'storage.upload.temp-retention-days', paramName: '临时任务保留天数', description: '临时上传任务及临时文件的保留天数，超期由定时清理任务删除', dataType: DataType.INT },
         ],
       },
     ],
@@ -235,6 +238,10 @@ function assignConfigValue(dto: GeneralConfigDTO, field: keyof GeneralConfigDTO,
     case 'auditRequestMaxLength':
     case 'auditResponseMaxLength':
     case 'auditRetentionDays':
+    case 'storageUploadMaxFileSize':
+    case 'storageUploadChunkThreshold':
+    case 'storageUploadChunkSize':
+    case 'storageUploadTempRetentionDays':
     case 'notifyEmailSmtpPort':
       dto[field] = parseNumberValue(value, dataType);
       return;
@@ -242,8 +249,7 @@ function assignConfigValue(dto: GeneralConfigDTO, field: keyof GeneralConfigDTO,
     case 'notifyEmailSecurity':
     case 'notifyEmailUsername':
     case 'notifyEmailPassword':
-    case 'storageMultipartMaxFileSize':
-    case 'storageMultipartMaxRequestSize':
+    case 'storageUploadAllowedExtensions':
       dto[field] = value;
       return;
   }

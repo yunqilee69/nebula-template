@@ -1,5 +1,5 @@
 import { CameraOutlined, LoadingOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, Descriptions, Form, Input, Space, Tag, Typography, Upload, message, theme as antdTheme } from 'antd';
+import { Avatar, Button, Card, Descriptions, Form, Input, Progress, Space, Tag, Typography, Upload, message, theme as antdTheme } from 'antd';
 import type { FormInstance, UploadProps } from 'antd';
 import { createStyles } from 'antd-style';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
@@ -50,6 +50,14 @@ const useStyles = createStyles(({ token }) => ({
     pointerEvents: 'none',
     transition: `opacity ${token.motionDurationMid} ${token.motionEaseOut}`,
   },
+  avatarProgressOverlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+  },
   avatarHint: {
     display: 'block',
   },
@@ -70,7 +78,7 @@ interface BasicProfileCardProps {
   readonly uploadDisabled: boolean;
   readonly onRefresh: () => void | Promise<void>;
   readonly onSubmit: (values: ProfileFormValues) => void | Promise<void>;
-  readonly uploadAvatarFile: (file: File) => Promise<AvatarUploadResult>;
+  readonly uploadAvatarFile: (file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadResult>;
 }
 
 function getAvatarUploadErrorMessage(error: unknown, fallback: string) {
@@ -99,6 +107,7 @@ export function BasicProfileCard({
   const { styles } = useStyles();
   const [localAvatarPreview, setLocalAvatarPreview] = useState<LocalAvatarPreview>();
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarPercent, setAvatarPercent] = useState(0);
   const renderNotProvided = (value: string | number | undefined) => value ?? t('auth.profileInfo.empty.notProvided');
   const avatarFallback = profile?.nickname?.slice(0, 1) ?? profile?.username?.slice(0, 1);
   const avatarAlt = t('auth.profileInfo.fields.avatar');
@@ -123,8 +132,9 @@ export function BasicProfileCard({
     (file) => {
       const preview = createLocalAvatarPreview(file);
       if (preview) setLocalAvatarPreview(preview);
+      setAvatarPercent(0);
       setAvatarUploading(true);
-      void uploadAvatarFile(file)
+      void uploadAvatarFile(file, setAvatarPercent)
         .then((result) => {
           if (preview) setLocalAvatarPreview({ ...preview, avatarUrl: result.avatarUrl });
         })
@@ -158,6 +168,21 @@ export function BasicProfileCard({
                 <span className={`${styles.avatarOverlay} nebula-profile-avatar-overlay`} aria-hidden="true">
                   {avatarUploading ? <LoadingOutlined /> : <CameraOutlined />}
                 </span>
+                {avatarUploading && avatarPercent > 0 ? (
+                  <span className={styles.avatarProgressOverlay}>
+                    <Progress
+                      type="circle"
+                      percent={Math.round(avatarPercent)}
+                      size={88}
+                      strokeWidth={6}
+                      strokeColor={token.colorPrimary}
+                      trailColor="rgba(0, 0, 0, 0.45)"
+                      format={(percent) => (
+                        <span style={{ color: token.colorTextLightSolid, fontSize: token.fontSizeSM }}>{percent}%</span>
+                      )}
+                    />
+                  </span>
+                ) : null}
               </button>
             </Upload>
             <Typography.Text type="secondary" className={styles.avatarHint}>{t('auth.profileInfo.hints.avatarUpload')}</Typography.Text>

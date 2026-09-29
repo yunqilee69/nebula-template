@@ -25,7 +25,7 @@ import type { PasswordFormValues } from './section-cards';
 
 export interface ProfileInfoPageProps {
   service?: ProfileService;
-  uploadAvatar?: (file: File) => Promise<AvatarUploadResult>;
+  uploadAvatar?: (file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadResult>;
 }
 
 export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileInfoPageProps) {
@@ -148,9 +148,9 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
   }, [profile?.id, uploadAvatar]);
 
   const uploadAvatarFile = useCallback(
-    async (file: File) => {
+    async (file: File, onProgress?: (percent: number) => void) => {
       if (!avatarUpload) throw new Error(t('auth.profileInfo.feedback.profileLoadFailed'));
-      const result = await avatarUpload(file);
+      const result = await avatarUpload(file, onProgress);
       const avatarPreviewUrl = createAvatarPreviewUrl(file);
       setSaving(true);
       try {

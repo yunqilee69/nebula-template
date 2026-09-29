@@ -1,4 +1,5 @@
 import { request } from '@/request/request';
+import { cacheUploadPolicyFromInit } from '@/stores/upload-policy-store';
 import type {
   AuthInitResp,
   FrontendInitResp,
@@ -47,6 +48,8 @@ export const authService: AuthService = {
       method: 'GET',
       url: '/api/frontend/init',
     });
+    // init 响应同时携带上传策略，顺手写入缓存，后续上传无需再请求该端点
+    cacheUploadPolicyFromInit(resp);
     return resp.loginConfig ?? {};
   },
 

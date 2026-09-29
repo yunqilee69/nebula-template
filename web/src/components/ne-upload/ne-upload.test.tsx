@@ -1,8 +1,10 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { request } from '@/request/request';
+import { DEFAULT_UPLOAD_POLICY, useUploadPolicyStore } from '@/stores/upload-policy-store';
+import type { FrontendUploadConfig } from '@/types/auth';
 import { NeImageUpload, NeUpload } from './index';
 import type { NeUploadFile } from './types';
 
@@ -12,6 +14,15 @@ vi.mock('@/request/request', () => ({
 
 const originalCreateObjectURL = URL.createObjectURL;
 const originalRevokeObjectURL = URL.revokeObjectURL;
+
+/** 上传策略来自 init 缓存，测试里直接落缓存，避免触发补拉。 */
+function seedUploadPolicy(overrides: Partial<FrontendUploadConfig> = {}) {
+  useUploadPolicyStore.setState({ policy: { ...DEFAULT_UPLOAD_POLICY, ...overrides }, loaded: true });
+}
+
+function resetUploadPolicy() {
+  useUploadPolicyStore.setState({ policy: DEFAULT_UPLOAD_POLICY, loaded: false });
+}
 
 function mockObjectUrl(objectUrl: string) {
   const createObjectURL = vi.fn(() => objectUrl);
@@ -35,6 +46,7 @@ describe('NeUpload', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    resetUploadPolicy();
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: originalRevokeObjectURL });
   });
@@ -249,12 +261,73 @@ describe('NeUpload', () => {
 
     await waitFor(() => expect(listBySource).toHaveBeenCalledWith({ sourceEntity: 'contract', sourceId: 'c-1', sourceType: 'main' }));
   });
+
+  it('renders the real progress reported by the upload implementation', async () => {
+    let reportProgress: ((percent: number) => void) | undefined;
+    let finishUpload: ((task: unknown) => void) | undefined;
+    const onChange = vi.fn();
+    const uploadRequest = vi.fn().mockImplementation((_file: File, onProgress?: (percent: number) => void) => {
+      reportProgress = onProgress;
+      return new Promise((resolve) => {
+        finishUpload = resolve;
+      });
+    });
+
+    render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
+
+    await userEvent.upload(getFileInput(), createFile('a.txt'));
+    await waitFor(() => expect(uploadRequest).toHaveBeenCalledTimes(1));
+
+    act(() => reportProgress?.(42));
+
+    await waitFor(() => {
+      expect(onChange.mock.calls.at(-1)?.[0][0]).toMatchObject({ status: 'uploading', percent: 42 });
+    });
+
+    act(() => finishUpload?.({ id: 'task-1', taskMode: 'simple', fileName: 'a.txt', status: 'COMPLETED' }));
+
+    await waitFor(() => {
+      expect(onChange.mock.calls.at(-1)?.[0][0]).toMatchObject({ status: 'done', percent: 100 });
+    });
+  });
+
+  it('derives the accept attribute from the cached storage.upload whitelist', () => {
+    seedUploadPolicy({ allowedExtensions: 'jpg,.PNG' });
+
+    render(<NeUpload />);
+
+    expect(getFileInput()).toHaveAttribute('accept', '.jpg,.png');
+  });
+
+  it('prefers an explicit accept prop over the cached whitelist', () => {
+    seedUploadPolicy({ allowedExtensions: 'jpg,png' });
+
+    render(<NeUpload accept=".pdf" />);
+
+    expect(getFileInput()).toHaveAttribute('accept', '.pdf');
+  });
+
+  it('rejects files outside the cached whitelist even when the picker hints are bypassed', async () => {
+    seedUploadPolicy({ allowedExtensions: 'jpg,png' });
+    const uploadRequest = vi.fn();
+    const onChange = vi.fn();
+
+    render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
+
+    // applyAccept: false 模拟拖拽/改后缀绕过 accept 提示的场景，此时只能靠组件内校验兜住
+    await userEvent.setup({ applyAccept: false }).upload(getFileInput(), createFile('a.gif', 'x', 'image/gif'));
+
+    await waitFor(() => expect(screen.getByText('该文件类型不允许上传（允许：jpg、png）')).toBeInTheDocument());
+    expect(uploadRequest).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe('NeImageUpload', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    resetUploadPolicy();
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: originalRevokeObjectURL });
   });
@@ -263,6 +336,12 @@ describe('NeImageUpload', () => {
     render(<NeImageUpload />);
 
     expect(screen.getByLabelText('上传图片')).toBeInTheDocument();
+  });
+
+  it('falls back to image/* when no extension whitelist is configured', () => {
+    render(<NeImageUpload />);
+
+    expect(getFileInput()).toHaveAttribute('accept', 'image/*');
   });
 
   it('renders a thumbnail and hides add control at the max count', () => {

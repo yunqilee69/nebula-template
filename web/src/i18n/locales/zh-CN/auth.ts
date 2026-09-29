@@ -245,7 +245,7 @@ export const auth: NebulaAuthMessages = {
     sections: { basic: '基本资料', password: '修改密码', oauth2: '第三方账号绑定', loginRecords: '登录记录' },
     actions: { save: '保存资料', changePassword: '修改密码', refresh: '刷新', bind: '绑定', unbind: '解绑', uploadAvatar: '上传头像' },
     fields: { username: '用户名', accountName: '账号', displayName: '显示名称', nickname: '昵称', avatar: '头像', email: '邮箱', phone: '手机号', status: '状态', createTime: '创建时间', oldPassword: '原密码', newPassword: '新密码', confirmPassword: '确认新密码' },
-    columns: { loginType: '登录方式', loginIp: '登录 IP', deviceInfo: '客户端', loginTime: '登录时间', success: '结果', failReason: '失败原因' },
+    columns: { loginType: '登录方式', clientType: '端类型', loginIp: '登录 IP', deviceInfo: '客户端', loginTime: '登录时间', success: '结果', failReason: '失败原因' },
     placeholders: { nickname: '请输入昵称', email: '请输入邮箱', phone: '请输入手机号', oldPassword: '请输入原密码', newPassword: '请输入新密码', confirmPassword: '请再次输入新密码' },
     validation: { email: '请输入有效邮箱', phone: '请输入有效手机号', oldPasswordRequired: '请输入原密码', newPasswordRequired: '请输入新密码', confirmPasswordRequired: '请确认新密码', passwordMismatch: '两次输入的新密码不一致' },
     status: { enabled: '启用', disabled: '停用', bound: '已绑定', unbound: '未绑定', success: '成功', failed: '失败' },

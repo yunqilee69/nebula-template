@@ -9,6 +9,14 @@ import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import { useNotice } from '@/hooks/use-notice';
 import type { ProfileService } from '@/api/profile';
 import type { LoginRecordResp, OAuth2BindingResp } from '@/types/profile';
+import {
+  formatLoginRecordTime,
+  renderLoginClientType,
+  renderLoginDeviceInfo,
+  renderLoginFailReason,
+  renderLoginResult,
+  renderLoginType,
+} from '@/utils/login-record-presentation';
 
 export interface PasswordFormValues {
   oldPassword: string;
@@ -131,19 +139,13 @@ export function LoginRecordsCard({ service }: LoginRecordsCardProps) {
   const notice = useNotice();
   const notProvided = t('auth.profileInfo.empty.notProvided');
   const columns = useMemo<NebulaProColumns<LoginRecordResp>[]>(() => [
-    { title: t('auth.profileInfo.columns.loginType'), dataIndex: 'loginType', render: (_, record) => renderProfileValue(record.loginType, notProvided) },
+    { title: t('auth.profileInfo.columns.loginType'), dataIndex: 'loginType', render: (_, record) => renderLoginType(record.loginType, t) },
+    { title: t('auth.profileInfo.columns.clientType'), dataIndex: 'clientType', render: (_, record) => renderLoginClientType(record.clientType, record.clientTypeSource, t) },
     { title: t('auth.profileInfo.columns.loginIp'), dataIndex: 'loginIp', render: (_, record) => renderProfileValue(record.loginIp, notProvided) },
-    { title: t('auth.profileInfo.columns.deviceInfo'), dataIndex: 'deviceInfo', render: (_, record) => renderProfileValue(record.deviceInfo, notProvided) },
-    { title: t('auth.profileInfo.columns.loginTime'), dataIndex: 'loginTime', render: (_, record) => renderProfileValue(record.loginTime, notProvided) },
-    {
-      title: t('auth.profileInfo.columns.success'),
-      key: 'success',
-      render: (_, record) => {
-        const success = record.loginResult === 'SUCCESS';
-        return <Tag color={success ? 'success' : 'error'}>{success ? t('auth.profileInfo.status.success') : t('auth.profileInfo.status.failed')}</Tag>;
-      },
-    },
-    { title: t('auth.profileInfo.columns.failReason'), dataIndex: 'failReason', render: (_, record) => renderProfileValue(record.failReason, notProvided) },
+    { title: t('auth.profileInfo.columns.deviceInfo'), dataIndex: 'deviceInfo', render: (_, record) => renderLoginDeviceInfo(record, t) },
+    { title: t('auth.profileInfo.columns.loginTime'), dataIndex: 'loginTime', render: (_, record) => formatLoginRecordTime(record.loginTime) },
+    { title: t('auth.profileInfo.columns.success'), key: 'success', render: (_, record) => renderLoginResult(record.loginResult, t) },
+    { title: t('auth.profileInfo.columns.failReason'), dataIndex: 'failReason', render: (_, record) => renderLoginFailReason(record.failReason, t) },
   ], [notProvided, t]);
 
   return (

@@ -245,7 +245,7 @@ export const auth: NebulaAuthMessages = {
     sections: { basic: 'Basic Information', password: 'Change Password', oauth2: 'Third-party Accounts', loginRecords: 'Login Records' },
     actions: { save: 'Save Profile', changePassword: 'Change Password', refresh: 'Refresh', bind: 'Bind', unbind: 'Unbind', uploadAvatar: 'Upload Avatar' },
     fields: { username: 'Username', accountName: 'Account', displayName: 'Display Name', nickname: 'Nickname', avatar: 'Avatar', email: 'Email', phone: 'Phone', status: 'Status', createTime: 'Created At', oldPassword: 'Current Password', newPassword: 'New Password', confirmPassword: 'Confirm New Password' },
-    columns: { loginType: 'Login Method', loginIp: 'Login IP', deviceInfo: 'Client', loginTime: 'Login Time', success: 'Result', failReason: 'Failure Reason' },
+    columns: { loginType: 'Login Method', clientType: 'Client Type', loginIp: 'Login IP', deviceInfo: 'Client', loginTime: 'Login Time', success: 'Result', failReason: 'Failure Reason' },
     placeholders: { nickname: 'Enter nickname', email: 'Enter email', phone: 'Enter phone', oldPassword: 'Enter current password', newPassword: 'Enter new password', confirmPassword: 'Enter new password again' },
     validation: { email: 'Enter a valid email', phone: 'Enter a valid phone number', oldPasswordRequired: 'Enter current password', newPasswordRequired: 'Enter new password', confirmPasswordRequired: 'Confirm new password', passwordMismatch: 'New passwords do not match' },
     status: { enabled: 'Enabled', disabled: 'Disabled', bound: 'Bound', unbound: 'Unbound', success: 'Success', failed: 'Failed' },

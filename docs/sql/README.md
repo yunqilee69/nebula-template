@@ -65,4 +65,19 @@ docs/sql/
 
 ## 当前状态
 
-`0.1.0` 是首个规划发布版本，**尚无版本升级目录**（`docs/sql/` 下暂无 `0.1.0/` 等版本目录，待有升级脚本时再创建）。后续版本发布时，在本目录新建对应版本目录并放入升级脚本，同时同步刷新 `init/` 至最新全量。
+当前版本为 `0.2.1`。
+
+- `0.1.0/`：从 `0.1.0` 升级到 `0.2.0` 的增量脚本；已在 `0.2.0` 及之后的环境忽略。
+- `0.2.0/`：从 `0.2.0` 升级到 `0.2.1` 的增量脚本（移除失效的 `spring.servlet.multipart.*` 参数、新增 `storage.upload.*` 上传策略参数）；已在 `0.2.1` 的环境忽略。
+
+从 `0.2.0` 升级到 `0.2.1` 时，除执行 `0.2.0/` 下的脚本外，还需确认应用 `application.yml` 的静态传输口径不小于业务上限：
+
+```yaml
+spring.servlet.multipart.max-file-size: 110MB    # >= storage.upload.max-file-size（默认 100MB）
+spring.servlet.multipart.max-request-size: 120MB  # >= max-file-size + 文本字段开销
+server.tomcat.max-part-header-size: 10KB          # 长文件名场景，默认 512B 容易触发上传失败
+```
+
+`nebula-storage` 启动时会自检该口径，静态口径小于业务上限将直接启动失败。
+
+后续版本发布时，在本目录新建对应版本目录并放入升级脚本，同时同步刷新 `init/` 至最新全量。

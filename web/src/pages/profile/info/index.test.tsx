@@ -58,15 +58,32 @@ const profile: ProfileResp = {
 const loginRecords: PageResp<LoginRecordResp> = {
   data: [
     {
+      id: 'login-1',
       loginAccount: 'yunqi',
       loginType: 'PASSWORD',
       loginIp: '127.0.0.1',
+      clientType: 'WEB',
+      clientTypeSource: 'HEADER',
       deviceInfo: 'Chrome / Mac',
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0',
       loginTime: '2026-06-06 12:00:00',
       loginResult: 'SUCCESS',
     },
+    {
+      id: 'login-2',
+      loginAccount: 'yunqi',
+      loginType: 'PASSWORD',
+      loginIp: '127.0.0.2',
+      clientType: 'MP_WEIXIN',
+      clientTypeSource: 'USER_AGENT',
+      deviceInfo: 'WeChat / iOS',
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) miniProgram',
+      loginTime: '2026-06-06 13:00:00',
+      loginResult: 'FAILED',
+      failReason: '密码错误',
+    },
   ],
-  total: 1,
+  total: 2,
 };
 
 const uploadedAvatarTask: AvatarUploadResult['task'] = {
@@ -146,8 +163,11 @@ describe('ProfileInfoPage', () => {
     expect(screen.getByText('已绑定')).toBeInTheDocument();
     expect(await screen.findByText('127.0.0.1')).toBeInTheDocument();
     expect(screen.getByText('Chrome / Mac')).toBeInTheDocument();
+    expect(screen.getByText('Web 端')).toBeInTheDocument();
+    expect(screen.getByText('微信小程序')).toBeInTheDocument();
     expect(screen.getByText('成功')).toBeInTheDocument();
-    expect(screen.queryByText('失败')).not.toBeInTheDocument();
+    expect(screen.getByText('失败')).toBeInTheDocument();
+    expect(screen.getByText('密码错误')).toBeInTheDocument();
     expect(screen.getAllByText('账号')).not.toHaveLength(0);
     expect(screen.getByText('显示名称')).toBeInTheDocument();
     expect(service.getProfile).toHaveBeenCalledTimes(1);
@@ -227,7 +247,7 @@ describe('ProfileInfoPage', () => {
     const user = userEvent.setup();
     const service = createService();
     let resolveUpload: (value: AvatarUploadResult) => void;
-    const uploadAvatar = vi.fn<(file: File) => Promise<AvatarUploadResult>>().mockImplementation(
+    const uploadAvatar = vi.fn<(file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadResult>>().mockImplementation(
       () => new Promise((resolve) => {
         resolveUpload = resolve;
       }),
@@ -248,7 +268,7 @@ describe('ProfileInfoPage', () => {
     await user.upload(fileInput, file);
 
     await waitFor(() => {
-      expect(uploadAvatar).toHaveBeenCalledWith(file);
+      expect(uploadAvatar).toHaveBeenCalledWith(file, expect.any(Function));
       expect(screen.getByAltText('头像')).toHaveAttribute('src', 'blob:selected-avatar');
     });
     expect(createObjectURL).toHaveBeenCalledWith(file);

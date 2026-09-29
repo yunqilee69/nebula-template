@@ -16,6 +16,9 @@ interface ApiResultPayload {
 
 const defaultBusinessErrorMessage = '接口请求出错，请联系管理员';
 
+const CLIENT_TYPE_HEADER = 'X-Client-Type';
+const DEFAULT_CLIENT_TYPE = 'WEB';
+
 function isApiResult(value: unknown): value is ApiResultPayload {
   if (!value || typeof value !== 'object') return false;
   if (!('code' in value)) return false;
@@ -56,12 +59,18 @@ export function createRequestClient(options: RequestClientOptions = {}) {
       return config;
     }
 
+    const headers = AxiosHeaders.from(config.headers);
+
     const token = options.getToken?.();
     if (token) {
-      const headers = AxiosHeaders.from(config.headers);
       headers.set('Authorization', `Bearer ${token}`);
-      config.headers = headers;
     }
+
+    if (!headers.has(CLIENT_TYPE_HEADER)) {
+      headers.set(CLIENT_TYPE_HEADER, options.clientType ?? DEFAULT_CLIENT_TYPE);
+    }
+
+    config.headers = headers;
     return config;
   });
 

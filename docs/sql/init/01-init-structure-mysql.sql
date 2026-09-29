@@ -500,6 +500,8 @@ CREATE TABLE IF NOT EXISTS auth_login_record (
     is_success TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否成功：0失败 1成功',
     login_ip VARCHAR(50) DEFAULT NULL COMMENT '登录IP地址',
     user_agent VARCHAR(500) DEFAULT NULL COMMENT '原始User-Agent字符串',
+    client_type VARCHAR(20) DEFAULT NULL COMMENT '客户端端类型：WEB/H5/MP_WEIXIN/MP_ALIPAY/APP/API/UNKNOWN',
+    client_type_source VARCHAR(20) DEFAULT NULL COMMENT '端类型判定来源：HEADER/USER_AGENT/DEFAULT',
     device_info VARCHAR(500) DEFAULT NULL COMMENT '设备信息（解析后的浏览器/操作系统）',
     oauth_provider VARCHAR(50) DEFAULT NULL COMMENT 'OAuth2提供商ID（仅OAuth2登录）',
     fail_reason VARCHAR(200) DEFAULT NULL COMMENT '失败原因（仅失败记录）',
@@ -508,7 +510,8 @@ CREATE TABLE IF NOT EXISTS auth_login_record (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
     KEY idx_login_record_user_id (user_id),
-    KEY idx_login_record_login_time (login_time)
+    KEY idx_login_record_login_time (login_time),
+    KEY idx_login_record_client_type (client_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户登录记录表';
 
 -- ============================================================================

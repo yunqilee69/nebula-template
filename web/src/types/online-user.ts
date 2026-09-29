@@ -1,3 +1,5 @@
+import type { ClientType, ClientTypeSource, DeviceType } from './client-type';
+import type { LoginRecordType } from './login-record';
 import type { PageReq } from './auth-management';
 
 export type OnlineUserResp = {
@@ -9,7 +11,16 @@ export type OnlineUserResp = {
   readonly email?: string;
   readonly orgCodeList?: readonly string[];
   readonly roleCodeList?: readonly string[];
+  readonly clientType?: ClientType;
+  readonly clientTypeSource?: ClientTypeSource;
+  readonly loginType?: LoginRecordType;
+  readonly loginIp?: string;
+  readonly browser?: string;
+  readonly os?: string;
+  readonly deviceType?: DeviceType;
+  readonly userAgent?: string;
   readonly loginTime?: string;
+  readonly lastActiveTime?: string;
   readonly expireTime?: string;
   readonly remainingTtlSeconds?: number;
 };
@@ -20,4 +31,6 @@ export interface OnlineUserPageReq extends PageReq {
   readonly nickname?: string;
   readonly email?: string;
   readonly phone?: string;
+  readonly clientType?: ClientType;
+  readonly loginIp?: string;
 }

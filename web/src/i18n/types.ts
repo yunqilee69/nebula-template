@@ -21,6 +21,40 @@ export interface NebulaCommonMessages {
   pagination: {
     total: string;
   };
+  clientType: {
+    web: string;
+    h5: string;
+    mpWeixin: string;
+    mpAlipay: string;
+    app: string;
+    api: string;
+    unknown: string;
+  };
+  clientTypeSource: {
+    header: string;
+    userAgent: string;
+    default: string;
+  };
+  deviceType: {
+    pc: string;
+    mobile: string;
+    tablet: string;
+  };
+  loginType: {
+    password: string;
+    phone: string;
+    email: string;
+    oauth2: string;
+  };
+  loginResult: {
+    success: string;
+    failed: string;
+  };
+  tooltip: {
+    clientTypeSource: string;
+    userAgent: string;
+  };
+  notProvided: string;
 }
 
 export interface NebulaTabContextMenuMessages {
@@ -518,6 +552,7 @@ export interface NebulaProfileInfoMessages {
   };
   columns: {
     loginType: string;
+    clientType: string;
     loginIp: string;
     deviceInfo: string;
     loginTime: string;
@@ -1228,6 +1263,88 @@ export interface NebulaSchedulerMessages {
   };
 }
 
+export interface NebulaOnlineUserMessages {
+  columns: {
+    userId: string;
+    username: string;
+    nickname: string;
+    phone: string;
+    email: string;
+    orgCodeList: string;
+    roleCodeList: string;
+    clientType: string;
+    loginType: string;
+    loginIp: string;
+    browser: string;
+    os: string;
+    deviceType: string;
+    loginTime: string;
+    lastActiveTime: string;
+    expireTime: string;
+    remainingTtlSeconds: string;
+    actions: string;
+  };
+  actions: {
+    kickOut: string;
+    kickOutAll: string;
+  };
+  tooltip: {
+    clientTypeSource: string;
+    userAgent: string;
+  };
+  confirm: {
+    kickOutTitle: string;
+    kickOutAllTitle: string;
+    kickOutAllDescription: string;
+  };
+  feedback: {
+    listLoadFailed: string;
+    kickOutSuccess: string;
+    kickOutFailed: string;
+    kickOutAllSuccess: string;
+    kickOutAllFailed: string;
+  };
+  pagination: {
+    total: string;
+  };
+}
+
+export interface NebulaLoginLogMessages {
+  columns: {
+    id: string;
+    loginAccount: string;
+    loginType: string;
+    clientType: string;
+    loginIp: string;
+    deviceInfo: string;
+    loginResult: string;
+    failReason: string;
+    loginTime: string;
+  };
+  search: {
+    loginAccount: string;
+    clientType: string;
+    loginType: string;
+    loginResult: string;
+    loginIp: string;
+    loginTimeRange: string;
+  };
+  placeholders: {
+    loginAccount: string;
+    clientType: string;
+    loginType: string;
+    loginResult: string;
+    loginIp: string;
+    loginTimeRange: string;
+  };
+  feedback: {
+    listLoadFailed: string;
+  };
+  pagination: {
+    total: string;
+  };
+}
+
 export interface NebulaAuditMessages {
   columns: {
     id: string;
@@ -1290,6 +1407,8 @@ export interface NebulaMessages {
   system: NebulaSystemMessages;
   scheduler: NebulaSchedulerMessages;
   audit: NebulaAuditMessages;
+  onlineUser: NebulaOnlineUserMessages;
+  loginLog: NebulaLoginLogMessages;
 }
 
 /** Recursive type that generates all dot-notation paths to string leaves. */

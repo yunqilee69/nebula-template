@@ -63,6 +63,51 @@ describe('createRequestClient', () => {
     expect(capturedConfig!.headers.get('Authorization')).toBeUndefined();
   });
 
+  it('injects the default X-Client-Type header of WEB', async () => {
+    let capturedConfig: InternalAxiosRequestConfig | undefined;
+
+    const client = createRequestClient({});
+
+    client.defaults.adapter = mockAdapter((config) => {
+      capturedConfig = config;
+      return makeResponse(config);
+    });
+
+    await client.get('/me');
+
+    expect(capturedConfig!.headers.get('X-Client-Type')).toBe('WEB');
+  });
+
+  it('uses the configured clientType option for the X-Client-Type header', async () => {
+    let capturedConfig: InternalAxiosRequestConfig | undefined;
+
+    const client = createRequestClient({ clientType: 'H5' });
+
+    client.defaults.adapter = mockAdapter((config) => {
+      capturedConfig = config;
+      return makeResponse(config);
+    });
+
+    await client.get('/me');
+
+    expect(capturedConfig!.headers.get('X-Client-Type')).toBe('H5');
+  });
+
+  it('keeps a per-request X-Client-Type header instead of the default', async () => {
+    let capturedConfig: InternalAxiosRequestConfig | undefined;
+
+    const client = createRequestClient({ clientType: 'WEB' });
+
+    client.defaults.adapter = mockAdapter((config) => {
+      capturedConfig = config;
+      return makeResponse(config);
+    });
+
+    await client.get('/me', { headers: { 'x-client-type': 'MP_WEIXIN' } });
+
+    expect(capturedConfig!.headers.get('X-Client-Type')).toBe('MP_WEIXIN');
+  });
+
   it('calls onUnauthorized when response status is 401', async () => {
     const onUnauthorized = vi.fn();
     const onError = vi.fn();

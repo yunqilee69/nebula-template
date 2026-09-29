@@ -7,6 +7,8 @@ function toNebulaMethod(method: StorageRequestConfig['method']): NebulaRequestCo
   switch (method) {
     case 'post':
       return 'POST';
+    case 'put':
+      return 'PUT';
     case 'delete':
       return 'DELETE';
     case 'get':
@@ -22,6 +24,7 @@ const storageRequest: StorageRequestFn = <T,>(config: StorageRequestConfig) => r
   params: config.params,
   headers: config.headers,
   responseType: config.responseType,
+  onUploadProgress: config.onUploadProgress,
 });
 
 export const profileStorageService = createStorageService(storageRequest);
