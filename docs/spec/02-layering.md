@@ -433,7 +433,7 @@ service → local → core → api
 
 | 层级 | 允许依赖 |
 |---|---|
-| `*-api` | `nebula-base-common` |
+| `*-api` | `nebula-base-common`、其他模块 `*-api`（见 3.2） |
 | `*-core` | `*-api`、`nebula-base-common`、`nebula-base-mybatis`、`nebula-base-cache`、其他模块 `*-api` |
 | `*-local` | `*-api`、`*-core`、`nebula-base-web` |
 | `*-remote` | `*-api`、`nebula-base-cloud`、`spring-cloud-starter-openfeign` |
@@ -448,6 +448,17 @@ service → local → core → api
 | `*-local` | `*-remote`、其他模块 `*-local`、其他模块 `*-core` |
 | `*-remote` | `*-core`、`*-local`、其他模块 `*-remote` |
 | `*-service` | 其他模块 `*-local`、其他模块 `*-core` |
+
+**跨 api 契约复用的约束**：
+
+允许 `*-api` 依赖其他模块的 `*-api`，是为了让聚合型契约直接复用生产方定义的对象，而不是各自复制一份同构类——复制品会随源侧演进而静默漂移（见下）。使用时必须满足：
+
+- **不得成环**：`a-api → b-api` 之后，`b-api` 不得再依赖 `a-api`，也不得通过 `b-core` 反向依赖 `a-core` 形成闭环
+- **只传契约，不传实现**：被依赖方只能提供 DTO/Command/Query/Service 接口，不得借此引入对方的 Entity、DAO、Controller
+- **契约字段必须逐字段对齐**：跨模块复用的 DTO 转 Resp 时，Mapper 必须显式声明
+  `unmappedSourcePolicy = ReportingPolicy.ERROR` 与 `unmappedTargetPolicy = ReportingPolicy.ERROR`。
+  MapStruct 的 `unmappedSourcePolicy` 默认是 `IGNORE`，源侧新增字段而目标侧漏加时既不报错也不告警，
+  值会被静默丢弃——这是"接口加了字段、前端拿不到"这类缺陷的唯一成因，必须由构建期拦截
 
 ### 3.2 跨模块依赖规则
 

@@ -16,9 +16,9 @@ services:
     volumes:
       - nebula-mysql-data:/var/lib/mysql
       # 首次启动自动按文件名顺序导入初始化脚本（结构与数据 + Quartz 表）
-      - ../docs/sql/init/01-init-structure-mysql.sql:/docker-entrypoint-initdb.d/01-init-structure-mysql.sql:ro
-      - ../docs/sql/init/02-init-data-mysql.sql:/docker-entrypoint-initdb.d/02-init-data-mysql.sql:ro
-      - ../docs/sql/init/01-init-structure-quartz-mysql.sql:/docker-entrypoint-initdb.d/03-init-structure-quartz-mysql.sql:ro
+      - ../docs/sql/init/mysql/01-init-structure.sql:/docker-entrypoint-initdb.d/01-init-structure.sql:ro
+      - ../docs/sql/init/mysql/02-init-data.sql:/docker-entrypoint-initdb.d/02-init-data.sql:ro
+      - ../docs/sql/init/mysql/03-init-structure-quartz.sql:/docker-entrypoint-initdb.d/03-init-structure-quartz.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 10s

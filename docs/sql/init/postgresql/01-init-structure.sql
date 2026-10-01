@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Nebula - Database Structure Initialization Script
--- File: 01-init-structure-postgresql.sql
+-- File: 01-init-structure.sql
 -- Purpose: Initialize all module table structures (PostgreSQL)
--- Usage: psql -d nebula -f 01-init-structure-postgresql.sql
+-- Usage: psql -d nebula -f 01-init-structure.sql
 -- Notes:
 --   1. Target database: PostgreSQL 14+.
---   2. Execute this script before 02-init-data-postgresql.sql.
+--   2. Execute this script before 02-init-data.sql.
 --   3. SQL sections are grouped by module for easier future maintenance.
 --   4. This script assumes the target database already exists.
 -- ============================================================================
@@ -829,3 +829,261 @@ COMMENT ON COLUMN scheduler_job_run.finish_time IS '完成时间';
 COMMENT ON COLUMN scheduler_job_run.terminated_at IS '终止时间';
 COMMENT ON COLUMN scheduler_job_run.create_time IS '创建时间';
 COMMENT ON COLUMN scheduler_job_run.update_time IS '更新时间';
+
+-- ============================================================================
+-- Module: audit
+-- Source: audit/01-audit-schema-mysql.sql
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS audit_record (
+    id VARCHAR(64) PRIMARY KEY,
+    operator_id VARCHAR(64),
+    operator_name VARCHAR(128),
+    module VARCHAR(64),
+    action VARCHAR(128),
+    resource_type VARCHAR(128),
+    resource_id VARCHAR(64),
+    resource_name VARCHAR(256),
+    request_params TEXT,
+    response_data TEXT,
+    request_ip VARCHAR(64),
+    result_status VARCHAR(32),
+    result_message VARCHAR(1024),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_record_create_time ON audit_record (create_time);
+CREATE INDEX IF NOT EXISTS idx_audit_record_operator_create_time ON audit_record (operator_id, create_time);
+CREATE INDEX IF NOT EXISTS idx_audit_record_module_action_create_time ON audit_record (module, action, create_time);
+CREATE INDEX IF NOT EXISTS idx_audit_record_resource_create_time ON audit_record (resource_type, resource_id, create_time);
+
+COMMENT ON TABLE audit_record IS '审计记录表';
+COMMENT ON COLUMN audit_record.id IS '主键';
+COMMENT ON COLUMN audit_record.operator_id IS '操作人ID';
+COMMENT ON COLUMN audit_record.operator_name IS '操作人名称';
+COMMENT ON COLUMN audit_record.module IS '业务模块';
+COMMENT ON COLUMN audit_record.action IS '操作动作';
+COMMENT ON COLUMN audit_record.resource_type IS '资源类型';
+COMMENT ON COLUMN audit_record.resource_id IS '资源ID';
+COMMENT ON COLUMN audit_record.resource_name IS '资源名称';
+COMMENT ON COLUMN audit_record.request_params IS '请求参数';
+COMMENT ON COLUMN audit_record.response_data IS '响应数据';
+COMMENT ON COLUMN audit_record.request_ip IS '请求IP';
+COMMENT ON COLUMN audit_record.result_status IS '结果状态';
+COMMENT ON COLUMN audit_record.result_message IS '结果消息';
+COMMENT ON COLUMN audit_record.create_time IS '创建时间';
+COMMENT ON COLUMN audit_record.update_time IS '更新时间';
+
+-- ============================================================================
+-- Module: event
+-- Source: event remote MyBatis entities
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS event_outbox (
+    id CHAR(32) PRIMARY KEY,
+    event_id VARCHAR(64) NOT NULL,
+    event_type VARCHAR(128) NOT NULL,
+    module VARCHAR(64) NOT NULL,
+    code VARCHAR(64) NOT NULL,
+    name VARCHAR(128),
+    description VARCHAR(500),
+    aggregate_id VARCHAR(128),
+    occurred_at BIGINT NOT NULL,
+    trace_id VARCHAR(128),
+    ordering_key VARCHAR(128),
+    idempotency_key VARCHAR(128),
+    payload_json TEXT,
+    status VARCHAR(32) NOT NULL DEFAULT 'NEW',
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    next_retry_time TIMESTAMP,
+    lease_expire_time TIMESTAMP,
+    published_time TIMESTAMP,
+    last_error_message TEXT,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_event_outbox_event_id ON event_outbox (event_id);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_status_next_retry ON event_outbox (status, next_retry_time);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_lease_expire_time ON event_outbox (lease_expire_time);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_event_type ON event_outbox (event_type);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_aggregate_id ON event_outbox (aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_create_time ON event_outbox (create_time);
+
+COMMENT ON TABLE event_outbox IS '事件Outbox表';
+COMMENT ON COLUMN event_outbox.id IS 'Outbox行主键，UUID v7';
+COMMENT ON COLUMN event_outbox.event_id IS '事件实例唯一标识';
+COMMENT ON COLUMN event_outbox.event_type IS '业务事件类型';
+COMMENT ON COLUMN event_outbox.module IS '事件所属模块编码';
+COMMENT ON COLUMN event_outbox.code IS '模块内事件编码';
+COMMENT ON COLUMN event_outbox.name IS '事件名称';
+COMMENT ON COLUMN event_outbox.description IS '事件描述';
+COMMENT ON COLUMN event_outbox.aggregate_id IS '业务聚合ID';
+COMMENT ON COLUMN event_outbox.occurred_at IS '事件发生时间戳(epoch毫秒)';
+COMMENT ON COLUMN event_outbox.trace_id IS '链路标识';
+COMMENT ON COLUMN event_outbox.ordering_key IS '顺序键';
+COMMENT ON COLUMN event_outbox.idempotency_key IS '幂等键';
+COMMENT ON COLUMN event_outbox.payload_json IS '事件载荷JSON';
+COMMENT ON COLUMN event_outbox.status IS 'Relay状态';
+COMMENT ON COLUMN event_outbox.retry_count IS 'Relay重试次数';
+COMMENT ON COLUMN event_outbox.next_retry_time IS '下次重试时间';
+COMMENT ON COLUMN event_outbox.lease_expire_time IS '租约过期时间';
+COMMENT ON COLUMN event_outbox.published_time IS '发布成功时间';
+COMMENT ON COLUMN event_outbox.last_error_message IS '最近一次错误信息';
+COMMENT ON COLUMN event_outbox.create_time IS '创建时间';
+COMMENT ON COLUMN event_outbox.update_time IS '更新时间';
+
+CREATE TABLE IF NOT EXISTS event_consume_record (
+    id CHAR(32) PRIMARY KEY,
+    consumer_name VARCHAR(128) NOT NULL,
+    event_id VARCHAR(64) NOT NULL,
+    idempotency_key VARCHAR(128) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    error_message TEXT,
+    consume_time TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_event_consume_record_idempotency ON event_consume_record (consumer_name, idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_event_consume_record_event_id ON event_consume_record (event_id);
+CREATE INDEX IF NOT EXISTS idx_event_consume_record_status ON event_consume_record (status);
+CREATE INDEX IF NOT EXISTS idx_event_consume_record_create_time ON event_consume_record (create_time);
+
+COMMENT ON TABLE event_consume_record IS '事件消费幂等记录表';
+COMMENT ON COLUMN event_consume_record.id IS '消费记录主键，UUID v7';
+COMMENT ON COLUMN event_consume_record.consumer_name IS '消费者名称';
+COMMENT ON COLUMN event_consume_record.event_id IS '事件ID';
+COMMENT ON COLUMN event_consume_record.idempotency_key IS '消费幂等键';
+COMMENT ON COLUMN event_consume_record.status IS '消费状态';
+COMMENT ON COLUMN event_consume_record.error_message IS '错误信息';
+COMMENT ON COLUMN event_consume_record.consume_time IS '消费成功时间';
+COMMENT ON COLUMN event_consume_record.create_time IS '创建时间';
+COMMENT ON COLUMN event_consume_record.update_time IS '更新时间';
+
+-- ============================================================================
+-- Module: storage
+-- Source: storage test schema and runtime entities
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS storage_upload_task (
+    id CHAR(32) PRIMARY KEY,
+    task_mode VARCHAR(20) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_extension VARCHAR(50),
+    file_mime_type VARCHAR(100),
+    file_size BIGINT,
+    file_hash VARCHAR(64),
+    chunk_size INTEGER,
+    chunk_count INTEGER,
+    uploaded_chunk_count INTEGER NOT NULL DEFAULT 0,
+    temp_storage_key VARCHAR(500),
+    status VARCHAR(20) NOT NULL,
+    upload_user_id CHAR(32),
+    last_chunk_time TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_storage_upload_task_status ON storage_upload_task (status);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_task_user ON storage_upload_task (upload_user_id);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_task_create_time ON storage_upload_task (create_time);
+
+COMMENT ON TABLE storage_upload_task IS '存储上传任务表';
+COMMENT ON COLUMN storage_upload_task.id IS '主键，UUID v7';
+COMMENT ON COLUMN storage_upload_task.task_mode IS '上传模式';
+COMMENT ON COLUMN storage_upload_task.file_name IS '文件名';
+COMMENT ON COLUMN storage_upload_task.file_extension IS '文件扩展名';
+COMMENT ON COLUMN storage_upload_task.file_mime_type IS 'MIME类型';
+COMMENT ON COLUMN storage_upload_task.file_size IS '文件大小';
+COMMENT ON COLUMN storage_upload_task.file_hash IS '文件哈希';
+COMMENT ON COLUMN storage_upload_task.chunk_size IS '分片大小';
+COMMENT ON COLUMN storage_upload_task.chunk_count IS '分片总数';
+COMMENT ON COLUMN storage_upload_task.uploaded_chunk_count IS '已上传分片数';
+COMMENT ON COLUMN storage_upload_task.temp_storage_key IS '临时存储Key';
+COMMENT ON COLUMN storage_upload_task.status IS '上传任务状态';
+COMMENT ON COLUMN storage_upload_task.upload_user_id IS '上传用户ID';
+COMMENT ON COLUMN storage_upload_task.last_chunk_time IS '最后分片上传时间';
+COMMENT ON COLUMN storage_upload_task.create_time IS '创建时间';
+COMMENT ON COLUMN storage_upload_task.update_time IS '更新时间';
+
+CREATE TABLE IF NOT EXISTS storage_upload_part (
+    id CHAR(32) PRIMARY KEY,
+    task_id CHAR(32) NOT NULL,
+    part_number INTEGER NOT NULL,
+    part_hash VARCHAR(64),
+    part_storage_key VARCHAR(500) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    upload_time TIMESTAMP NOT NULL,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_storage_upload_part_task_no ON storage_upload_part (task_id, part_number);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_part_task ON storage_upload_part (task_id);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_part_status ON storage_upload_part (status);
+
+COMMENT ON TABLE storage_upload_part IS '存储上传分片表';
+COMMENT ON COLUMN storage_upload_part.id IS '主键，UUID v7';
+COMMENT ON COLUMN storage_upload_part.task_id IS '上传任务ID';
+COMMENT ON COLUMN storage_upload_part.part_number IS '分片序号';
+COMMENT ON COLUMN storage_upload_part.part_hash IS '分片哈希';
+COMMENT ON COLUMN storage_upload_part.part_storage_key IS '分片存储Key';
+COMMENT ON COLUMN storage_upload_part.status IS '分片状态';
+COMMENT ON COLUMN storage_upload_part.upload_time IS '上传时间';
+COMMENT ON COLUMN storage_upload_part.create_time IS '创建时间';
+COMMENT ON COLUMN storage_upload_part.update_time IS '更新时间';
+
+CREATE TABLE IF NOT EXISTS storage_file (
+    id CHAR(32) PRIMARY KEY,
+    file_name VARCHAR(255) NOT NULL,
+    file_extension VARCHAR(50),
+    file_mime_type VARCHAR(100),
+    file_size BIGINT NOT NULL,
+    file_hash VARCHAR(64) NOT NULL,
+    storage_provider VARCHAR(32) NOT NULL,
+    storage_key VARCHAR(500) NOT NULL,
+    storage_bucket VARCHAR(100),
+    source_entity VARCHAR(100) NOT NULL,
+    source_id CHAR(32) NOT NULL,
+    source_type VARCHAR(100),
+    upload_task_id CHAR(32) NOT NULL,
+    upload_user_id CHAR(32),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_storage_file_source ON storage_file (source_entity, source_id, source_type);
+CREATE INDEX IF NOT EXISTS idx_storage_file_upload_task ON storage_file (upload_task_id);
+CREATE INDEX IF NOT EXISTS idx_storage_file_hash ON storage_file (file_hash);
+CREATE INDEX IF NOT EXISTS idx_storage_file_storage_key ON storage_file (storage_key);
+CREATE INDEX IF NOT EXISTS idx_storage_file_create_time ON storage_file (create_time);
+
+COMMENT ON TABLE storage_file IS '正式文件表';
+COMMENT ON COLUMN storage_file.id IS '主键，UUID v7';
+COMMENT ON COLUMN storage_file.file_name IS '文件名';
+COMMENT ON COLUMN storage_file.file_extension IS '文件扩展名';
+COMMENT ON COLUMN storage_file.file_mime_type IS 'MIME类型';
+COMMENT ON COLUMN storage_file.file_size IS '文件大小';
+COMMENT ON COLUMN storage_file.file_hash IS '文件哈希';
+COMMENT ON COLUMN storage_file.storage_provider IS '存储Provider';
+COMMENT ON COLUMN storage_file.storage_key IS '存储Key';
+COMMENT ON COLUMN storage_file.storage_bucket IS '存储Bucket';
+COMMENT ON COLUMN storage_file.source_entity IS '来源业务实体';
+COMMENT ON COLUMN storage_file.source_id IS '来源业务ID';
+COMMENT ON COLUMN storage_file.source_type IS '来源类型';
+COMMENT ON COLUMN storage_file.upload_task_id IS '上传任务ID';
+COMMENT ON COLUMN storage_file.upload_user_id IS '上传用户ID';
+COMMENT ON COLUMN storage_file.create_time IS '创建时间';
+COMMENT ON COLUMN storage_file.update_time IS '更新时间';
+
+CREATE TABLE IF NOT EXISTS storage_content (
+    storage_key VARCHAR(500) PRIMARY KEY,
+    content BYTEA NOT NULL,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE storage_content IS '数据库文件内容表';
+COMMENT ON COLUMN storage_content.storage_key IS '存储Key';
+COMMENT ON COLUMN storage_content.content IS '文件内容';
+COMMENT ON COLUMN storage_content.create_time IS '创建时间';
+COMMENT ON COLUMN storage_content.update_time IS '更新时间';

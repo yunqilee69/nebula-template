@@ -13,19 +13,18 @@
 ## 快速启动
 
 ```bash
-# 1. 启动依赖（首次自动建库并导入 ../docs/sql/init/ 下的初始化脚本）
+# 1. 启动依赖（首次自动建库并导入 ../docs/sql/init/mysql/ 下的初始化脚本）
 docker compose up -d
 
 # 2. 启动后端（默认 localhost:8080）
 mvn spring-boot:run
 ```
 
-> 若你的 shell（`~/.zshrc` 等）里导出了指向远程环境的 `NEBULA_APP_DATASOURCE_*` / `NEBULA_APP_REDIS_*` / `NEBULA_STORAGE_*`，它们会覆盖 `application.yml` 的本地默认值（Spring 的既定优先级）。本地联调前先取消，或直接注释掉这些导出行：
+> 若你的 shell（`~/.zshrc` 等）里导出了指向远程环境的 `NEBULA_APP_DATASOURCE_*` / `NEBULA_APP_REDIS_*`，它们会覆盖 `application.yml` 的本地默认值（Spring 的既定优先级）。本地联调前先取消，或直接注释掉这些导出行：
 >
 > ```bash
 > unset NEBULA_APP_DATASOURCE_URL NEBULA_APP_DATASOURCE_USERNAME NEBULA_APP_DATASOURCE_PASSWORD \
->       NEBULA_APP_REDIS_HOST NEBULA_APP_REDIS_PORT NEBULA_APP_REDIS_USERNAME NEBULA_APP_REDIS_PASSWORD \
->       NEBULA_STORAGE_TEMPORARY_TYPE NEBULA_STORAGE_FORMAL_TYPE
+>       NEBULA_APP_REDIS_HOST NEBULA_APP_REDIS_PORT NEBULA_APP_REDIS_USERNAME NEBULA_APP_REDIS_PASSWORD
 > ```
 >
 > 第 1 步的 `docker compose` 不受影响：本机依赖栈只读取 `NEBULA_LOCAL_*`（见下表），与应用的 `NEBULA_APP_*` 变量隔离。
@@ -46,7 +45,7 @@ mvn spring-boot:run
 
 本机依赖栈（`docker-compose.yml`）使用独立的 `NEBULA_LOCAL_*` 变量，避免被宿主机上导出的远程连接信息改写：`NEBULA_LOCAL_MYSQL_ROOT_PASSWORD` / `_MYSQL_DATABASE` / `_MYSQL_USER` / `_MYSQL_PASSWORD` / `_MYSQL_PORT` / `_REDIS_PORT`。
 
-PostgreSQL 初始化脚本见仓库根 `docs/sql/init/`（`*-postgresql.sql`），脚本目录组织见 `docs/sql/README.md`。
+PostgreSQL 初始化脚本见仓库根 `docs/sql/init/postgresql/`，脚本目录组织见 `docs/sql/README.md`。
 
 ## 升级
 

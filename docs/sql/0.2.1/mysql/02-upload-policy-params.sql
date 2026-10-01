@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Nebula - Upgrade Script
--- From: 0.2.0  To: 0.2.1 (MySQL)
+-- 目标版本：0.2.1（MySQL，自 0.2.0 升级）
 -- Purpose: 移除无效的 spring.servlet.multipart.* 参数，新增 storage.upload.* 上传策略参数
 -- Notes:
 --   1. 可重复执行（DELETE 幂等，INSERT 使用 ON DUPLICATE KEY UPDATE）。

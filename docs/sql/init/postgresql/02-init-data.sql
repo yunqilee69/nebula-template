@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Nebula - Database Initial Data Script
--- File: 02-init-data-postgresql.sql
+-- File: 02-init-data.sql
 -- Purpose: Initialize all module seed data (PostgreSQL)
--- Usage: psql -d nebula -f 02-init-data-postgresql.sql
+-- Usage: psql -d nebula -f 02-init-data.sql
 -- Notes:
 --   1. Target database: PostgreSQL 14+.
---   2. Execute this script after 01-init-structure-postgresql.sql.
+--   2. Execute this script after 01-init-structure.sql.
 --   3. SQL sections are grouped by module for easier future maintenance.
 -- ============================================================================
 
@@ -918,6 +918,7 @@ INSERT INTO sys_param (
     ('01959f0aa4d37c0d91a7d9af9c7d1014', 'login.oauth2.enabled', 'OAuth2登录开关', 'OAuth2登录总开关', 'true', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1015', 'login.oauth2.allow-register', 'OAuth2注册开关', 'OAuth2注册开关', 'true', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1020', 'login.oauth2.provider.github.enabled', 'GitHub登录开关', 'GitHub登录提供商开关', 'false', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1025', 'login.oauth2.provider.wechat.enabled', '微信登录开关', '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道', 'false', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1026', 'notify.email.smtp-host', 'SMTP服务器地址', '通知模块邮件SMTP服务器地址', '', 'STRING', NULL, 'notify', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1027', 'notify.email.smtp-port', 'SMTP端口', '通知模块邮件SMTP端口', '587', 'INT', NULL, 'notify', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1028', 'notify.email.security', 'SMTP加密方式', 'SMTP加密方式，可选 NONE、STARTTLS、SSL', 'STARTTLS', 'STRING', NULL, 'notify', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),

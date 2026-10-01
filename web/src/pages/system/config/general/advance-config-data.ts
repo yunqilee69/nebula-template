@@ -99,6 +99,7 @@ export const TAB_CONFIGS: ConfigTab[] = [
           { field: 'oauth2Enabled', paramKey: 'login.oauth2.enabled', paramName: 'OAuth2 登录开关', description: 'OAuth2 登录总开关', dataType: DataType.BOOLEAN },
           { field: 'oauth2AllowRegister', paramKey: 'login.oauth2.allow-register', paramName: 'OAuth2 注册开关', description: 'OAuth2 注册开关', dataType: DataType.BOOLEAN },
           { field: 'oauth2GithubEnabled', paramKey: 'login.oauth2.provider.github.enabled', paramName: 'GitHub 登录', description: 'GitHub 登录提供商开关', dataType: DataType.BOOLEAN },
+          { field: 'oauth2WechatEnabled', paramKey: 'login.oauth2.provider.wechat.enabled', paramName: '微信登录', description: '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道，需为已启用渠道配置各自凭据（web.* / mini.*）', dataType: DataType.BOOLEAN },
         ],
       },
     ],
@@ -225,6 +226,7 @@ function assignConfigValue(dto: GeneralConfigDTO, field: keyof GeneralConfigDTO,
     case 'oauth2Enabled':
     case 'oauth2AllowRegister':
     case 'oauth2GithubEnabled':
+    case 'oauth2WechatEnabled':
       dto[field] = parseBooleanValue(value);
       return;
     case 'usernamePasswordMinLength':

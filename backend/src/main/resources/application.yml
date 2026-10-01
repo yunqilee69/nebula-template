@@ -20,10 +20,11 @@ spring:
       - org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # 默认值与 backend/docker-compose.yml 对齐，零配置即可本地启动
-    url: ${NEBULA_APP_DATASOURCE_URL:jdbc:mysql://localhost:3306/nebula?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
-    username: ${NEBULA_APP_DATASOURCE_USERNAME:nebula}
-    password: ${NEBULA_APP_DATASOURCE_PASSWORD:nebula}
+    # 默认值与 backend/docker-compose.yml 对齐，零配置即可本地启动；
+    # 环境差异（生产凭据、微信 secret 等）通过 application-local.yml 覆盖（已 gitignore）
+    url: jdbc:mysql://localhost:3306/nebula?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: nebula
+    password: nebula
     type: com.alibaba.druid.pool.DruidDataSource
     druid:
       initial-size: 5
@@ -34,10 +35,8 @@ spring:
       validation-query: SELECT 1
   data:
     redis:
-      host: ${NEBULA_APP_REDIS_HOST:localhost}
-      port: ${NEBULA_APP_REDIS_PORT:6379}
-      username: ${NEBULA_APP_REDIS_USERNAME:}
-      password: ${NEBULA_APP_REDIS_PASSWORD:}
+      host: localhost
+      port: 6379
       database: 0
 
 nebula:
@@ -51,7 +50,6 @@ nebula:
     #     - http://localhost:8081
     #     - https://*.your-domain.com
     #   allow-credentials: true
-    # 也可用环境变量：NEBULA_WEB_CORS_ALLOWED_ORIGINS=http://a.com,https://b.com
   cache:
     type: redis
     default-ttl: 300
@@ -66,20 +64,31 @@ nebula:
     oauth2:
       providers:
         github:
-          enabled: ${NEBULA_AUTH_GITHUB_ENABLED:false}
-          client-id: ${NEBULA_AUTH_GITHUB_CLIENT_ID:}
-          client-secret: ${NEBULA_AUTH_GITHUB_CLIENT_SECRET:}
-          scope: ${NEBULA_AUTH_GITHUB_SCOPE:read:user user:email}
-          redirect-uri: ${NEBULA_AUTH_GITHUB_REDIRECT_URI:http://localhost:8080/api/auth/github/callback}
-          frontend-callback-uri: ${NEBULA_AUTH_GITHUB_FRONTEND_CALLBACK_URI:http://localhost:5173/login/github-callback}
+          enabled: false
+          client-id:
+          client-secret:
+          scope: read:user user:email
+          redirect-uri: http://localhost:8080/api/auth/github/callback
+          frontend-callback-uri: http://localhost:5173/login/github-callback
           frontend-callback-allowlist:
-            - ${NEBULA_AUTH_GITHUB_FRONTEND_CALLBACK_ORIGIN:http://localhost:5173}
+            - http://localhost:5173
+        wechat:
+          # 运行时以系统参数 login.oauth2.provider.wechat.enabled 为准，此处仅承载凭据与接口地址
+          enabled: false
+          mini:
+            app-id:
+            app-secret:
+          web:
+            app-id:
+            app-secret:
+            redirect-uri:
+            frontend-callback-uri: /login/wechat-callback
       bind:
-        frontend-callback-uri: ${NEBULA_AUTH_OAUTH2_BIND_FRONTEND_CALLBACK_URI:http://localhost:5173/profile/bind-callback}
+        frontend-callback-uri: http://localhost:5173/profile/bind-callback
     security:
       jwt:
-        # ⚠️ 生产环境必须通过环境变量 NEBULA_AUTH_JWT_SECRET 覆盖（至少 32 字节随机串）
-        secret: ${NEBULA_AUTH_JWT_SECRET:nebula-template-dev-jwt-secret-change-me-0123456789abcdef}
+        # 本地开发默认值；生产环境必须在 application-local.yml 中覆盖（至少 32 字节随机串）
+        secret: nebula-template-dev-jwt-secret-change-me-0123456789abcdef
         expire-hours: 24
         refresh-expire-hours: 168
       captcha:
@@ -90,23 +99,14 @@ nebula:
       # 手机/邮箱验证码发送器：框架只提供 VerificationCodeSender 扩展点，
       # 业务工程实现该接口并注册为 Bean 即可对接短信/邮件网关。
       # 未注册发送器时发送验证码会失败；本地联调可临时开启此项，把验证码打到日志（生产禁用）。
-      log-enabled: ${NEBULA_AUTH_CODE_LOG_ENABLED:false}
+      log-enabled: false
   storage:
     mode: local
-    temporary:
-      type: ${NEBULA_STORAGE_TEMPORARY_TYPE:filesystem}
-      minio:
-        endpoint: ${NEBULA_STORAGE_TEMPORARY_MINIO_ENDPOINT:http://localhost:9000}
-        access-key: ${NEBULA_STORAGE_TEMPORARY_MINIO_ACCESS_KEY:}
-        secret-key: ${NEBULA_STORAGE_TEMPORARY_MINIO_SECRET_KEY:}
-        bucket: ${NEBULA_STORAGE_TEMPORARY_MINIO_BUCKET:nebula-temp}
-    formal:
-      type: ${NEBULA_STORAGE_FORMAL_TYPE:filesystem}
-      minio:
-        endpoint: ${NEBULA_STORAGE_FORMAL_MINIO_ENDPOINT:http://localhost:9000}
-        access-key: ${NEBULA_STORAGE_FORMAL_MINIO_ACCESS_KEY:}
-        secret-key: ${NEBULA_STORAGE_FORMAL_MINIO_SECRET_KEY:}
-        bucket: ${NEBULA_STORAGE_FORMAL_MINIO_BUCKET:nebula}
+    # 临时区：上传过程中的文件与分片，落各操作系统临时目录下的 nebula 子目录
+    temp-dir: ${java.io.tmpdir}/nebula
+    # 正式区：绑定成功后文件内容写入 storage_content 表
+    content:
+      type: db
 
 org:
   quartz:

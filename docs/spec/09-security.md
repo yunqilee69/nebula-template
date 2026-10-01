@@ -307,7 +307,25 @@ nebula:
         client-id: github-client-id
         client-secret: xxx               # 加密存储或环境变量
         redirect-uri: https://example.com/api/auth/github/callback
+      providers:
+        wechat:
+          enabled: true
+          mini:                           # 小程序渠道，无浏览器重定向
+            app-id: wx-mini-app-id
+            app-secret: ${NEBULA_AUTH_WECHAT_MINI_APP_SECRET}   # 必须环境变量注入
+          web:                            # 开放平台网站应用（网页扫码授权）
+            app-id: wx-web-app-id
+            app-secret: ${NEBULA_AUTH_WECHAT_WEB_APP_SECRET}
+            redirect-uri: https://api.example.com/api/auth/wechat/web/callback
 ```
+
+**微信登录的安全约束**：
+
+- `session_key` 是加密密钥，**禁止落库、禁止进日志**；provider 只把它用于可能的解密，不写入 `provider_attributes`
+- `code`、`openid`、`unionid` 在日志中一律脱敏（前 4 位 + `****` + 后 4 位）
+- 小程序直连式登录没有 `state` 回跳，CSRF 防护由「code 一次性 + 5 分钟有效」与微信侧校验承担；不要为其复用绑定流程的 state 机制
+- 网站应用（扫码）渠道与 GitHub 走同一套 `state` 机制，回调 state 一次性领取，避免重放
+- 微信验证过的手机号可用于合并到既有账号（控制微信者即控制该手机号），属业界通行做法，但需产品侧知情
 
 **State 参数防 CSRF**：
 
@@ -953,6 +971,14 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 | `nebula.auth.oauth2.github.enabled` | GitHub 开关 | 是 |
 | `nebula.auth.oauth2.github.client-id` | GitHub Client ID | 是 |
 | `nebula.auth.oauth2.github.client-secret` | GitHub Client Secret | 是 |
+| `nebula.auth.oauth2.providers.wechat.enabled` | 微信登录开关（网站应用扫码 + 小程序两渠道共用） | 否 |
+| `nebula.auth.oauth2.providers.wechat.mini.app-id` | 小程序 AppID | 启用小程序渠道时必填 |
+| `nebula.auth.oauth2.providers.wechat.mini.app-secret` | 小程序 AppSecret | 启用小程序渠道时必填 |
+| `nebula.auth.oauth2.providers.wechat.web.app-id` | 网站应用（扫码）AppID | 启用网站应用渠道时必填 |
+| `nebula.auth.oauth2.providers.wechat.web.app-secret` | 网站应用（扫码）AppSecret | 启用网站应用渠道时必填 |
+| `nebula.auth.oauth2.providers.wechat.web.redirect-uri` | 扫码回调地址 | 启用网站应用渠道时必填 |
+
+微信 `app-secret` 必须通过环境变量注入（`NEBULA_AUTH_WECHAT_MINI_APP_SECRET` / `NEBULA_AUTH_WECHAT_WEB_APP_SECRET`），禁止提交到仓库。
 
 ### 7.6 白名单接口速查
 
@@ -961,7 +987,8 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 | 固定 | `/api/auth/login` | 登录 |
 | 固定 | `/api/auth/register` | 注册 |
 | 固定 | `/api/auth/refresh` | Token 刷新 |
-| 固定 | `/api/auth/wechat/*` | 微信 OAuth2 |
+| 固定 | `/api/auth/wechat/mini-login` | 微信小程序登录（小程序直连，无重定向） |
+| 固定 | `/api/auth/wechat/web/*` | 微信网站应用扫码登录（重定向式，与 GitHub 同一套 state 机制） |
 | 固定 | `/v3/api-docs/*` | API 文档 |
 | 配置 | `/api/public/**` | 自定义公开接口 |
 

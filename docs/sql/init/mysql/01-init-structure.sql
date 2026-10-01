@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Nebula - Database Structure Initialization Script
--- File: 01-init-structure-mysql.sql
+-- File: 01-init-structure.sql
 -- Purpose: Initialize all module table structures (MySQL)
--- Usage: mysql -u root -p nebula < 01-init-structure-mysql.sql
+-- Usage: mysql -u root -p nebula < 01-init-structure.sql
 -- Notes:
 --   1. Target database: MySQL 8.0+.
---   2. Execute this script before 02-init-data-mysql.sql.
+--   2. Execute this script before 02-init-data.sql.
 --   3. SQL sections are grouped by module for easier future maintenance.
 --   4. This script assumes the target database already exists.
 -- ============================================================================

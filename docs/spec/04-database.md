@@ -693,7 +693,7 @@ Nebula 项目同时支持 PostgreSQL 和 MySQL 两种数据库。默认使用 Po
 
 | 模块 | 文件位置 |
 |---|---|
-| 主数据库 | `docs/sql/init/01-init-structure-mysql.sql` |
+| 主数据库 | `docs/sql/init/mysql/01-init-structure.sql` |
 | Scheduler | `nebula-scheduler-core/src/main/resources/db/schema/02-scheduler-schema-mysql.sql` |
 | Audit | `nebula-audit-core/src/main/resources/db/schema/01-audit-schema-mysql.sql` |
 | Auth Login Record | `nebula-auth-core/src/main/resources/db/schema/02-auth-login-record-schema-mysql.sql` |
@@ -745,8 +745,8 @@ nebula:
 #### 3. 执行初始化脚本
 
 ```bash
-mysql -u root -p nebula < sql/init/01-init-structure-mysql.sql
-mysql -u root -p nebula < sql/init/02-init-data-mysql.sql
+mysql -u root -p nebula < sql/init/mysql/01-init-structure.sql
+mysql -u root -p nebula < sql/init/mysql/02-init-data.sql
 ```
 
 ### 详细说明

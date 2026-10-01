@@ -142,8 +142,11 @@ OAuth2 Provider 使用 SPI 插件结构：
 ```text
 nebula-auth/
 ├── nebula-auth-oauth2-provider        # SPI 契约层
-└── nebula-auth-oauth2-provider-github # GitHub 插件
+├── nebula-auth-oauth2-provider-github # GitHub 插件（浏览器重定向式）
+└── nebula-auth-oauth2-provider-wechat # 微信插件（小程序直连式 + 开放平台扫码重定向式）
 ```
+
+插件通过 `OAuth2ProviderClient#supportsBinding()` 声明是否支持「已登录用户绑定」，通过 `buildAuthorizeUrl(state)` 生成重定向式授权页地址：GitHub 与微信扫码渠道返回 `true` / 授权地址，微信小程序渠道因无浏览器重定向环节返回 `false` / `null`，绑定列表会自动隐藏该类 provider。同一 provider 覆盖多渠道时（如微信），渠道由 `OAuth2LoginContext.params` 中的 `channel` 参数区分。
 
 插件包可以同时包含 ProviderClient、Controller、FeignClient。插件若需要区分 local/remote，应通过独立依赖、独立自动配置或明确的启用属性控制，不能依赖配置动态导入模块实现。
 
@@ -192,7 +195,7 @@ nebula-auth/
 
 | 层级 | 允许依赖 | 禁止依赖 |
 |---|---|---|
-| `*-api` | `base-common` | `core`、`local`、`remote`、`service`、其他模块 `*-api` |
+| `*-api` | `base-common`、其他模块 `*-api`（仅限契约复用，且不得成环） | `core`、`local`、`remote`、`service`、其他模块 `*-core` |
 | `*-core` | `*-api`、`base-common`、`base-mybatis`、`base-cache`、其他模块 `*-api` | `local`、`remote`、`service`、其他模块 `*-core` |
 | `*-local` | `*-api`、`*-core`、`base-web` | `remote`、其他模块 `*-local` |
 | `*-remote` | `*-api`、`base-cloud`、`spring-cloud-openfeign` | `core`、`local`、其他模块 `*-remote` |

@@ -18,9 +18,14 @@
 #   git add -A && git commit -m "build: 版本号升至 0.1.1" && git push
 #
 # 发版（节奏由维护者决定；tag 必须与当前 revision 一致，否则 release.yml 校验失败）：
-#   确认 master 的 revision 已是待发布版本 X.Y.Z，然后：
+#   0) 收口增量 SQL：docs/sql/unreleased/ 非空时，先把它更名成本次发布的版本号
+#      （目录名即目标版本，与 CHANGELOG 的 [X.Y.Z] 段落是同一时机、同一动作，见 docs/sql/README.md）：
+#        git mv docs/sql/unreleased docs/sql/X.Y.Z
+#      漏掉这步会让该版增量脚本滞留在 unreleased/：已发布版本的目录不会再接收脚本，
+#      按 docs/sql/README.md 升级的用户将拿不到本版需要执行的 SQL。
+#   1) 确认 master 的 revision 已是待发布版本 X.Y.Z，然后：
 #   git tag vX.Y.Z && git push origin vX.Y.Z   # tag 触发 release.yml 发布到 Central
-#   发布成功后，如需 backend 模板锁定该版本：
+#   2) 发布成功后，如需 backend 模板锁定该版本：
 #   scripts/set-version.sh X.Y.Z --with-backend
 #
 set -euo pipefail

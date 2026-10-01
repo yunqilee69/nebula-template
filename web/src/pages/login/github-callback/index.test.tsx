@@ -32,7 +32,11 @@ function createMockAuthService(partial?: Partial<AuthService>): AuthService {
     getCurrentUser: partial?.getCurrentUser ?? vi.fn(),
     prepareGitHubRedirect: partial?.prepareGitHubRedirect ?? vi.fn(),
     getGitHubLoginStatus: partial?.getGitHubLoginStatus ?? vi.fn(),
-    completeGitHubRedirectCallback: partial?.completeGitHubRedirectCallback ?? vi.fn(),
+        completeGitHubRedirectCallback: partial?.completeGitHubRedirectCallback ?? vi.fn(),
+    prepareWechatWebRedirect: partial?.prepareWechatWebRedirect ?? vi.fn(),
+    getWechatWebLoginStatus: partial?.getWechatWebLoginStatus ?? vi.fn(),
+    completeWechatWebCallback: partial?.completeWechatWebCallback ?? vi.fn(),
+    claimWechatWebToken: partial?.claimWechatWebToken ?? vi.fn(),
   };
 }
 

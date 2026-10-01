@@ -1,4 +1,4 @@
-import { GithubOutlined, KeyOutlined, LoginOutlined, MailOutlined, MobileOutlined } from '@ant-design/icons';
+import { GithubOutlined, KeyOutlined, LoginOutlined, MailOutlined, MobileOutlined, WechatFilled } from '@ant-design/icons';
 import { Alert, Button, Flex, Form, Input, Tabs, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -13,12 +13,14 @@ import type {
   LoginResp,
   NebulaExtraLoginBadge,
   GitHubLoginStatusResp,
+  WechatWebStatusResp,
 } from '@/types/auth';
 import type { AuthService } from '@/api/auth';
 import { AuthShell } from '@/layouts/auth-shell';
 import { useAuthStore } from '@/stores/auth-store';
 import { prepareOAuthRedirect } from './oauth-redirect';
 import { OAuthRedirectPanel } from './oauth-redirect-panel';
+import { WechatWebPanel } from './wechat-web-panel';
 import { AuthLoadingState } from './auth-loading-state';
 import { normalizeAuthReturnPath } from './auth-return-path';
 import { redirectToAuthorizeUrl } from './wechat-redirect-navigation';
@@ -28,6 +30,7 @@ const builtInLabels: Record<BuiltInLoginMethodKey, string> = {
   phone: '手机号登录',
   email: '邮箱登录',
   github: 'GitHub',
+  wechat: '微信扫码',
 };
 
 type LoginResult = LoginResp;
@@ -39,6 +42,7 @@ type LoginMethodDescriptor =
   | { key: string; label: string; kind: 'extra'; badge: NebulaExtraLoginBadge };
 
 type LoginSuccessHandler = (result: LoginResult) => void | Promise<void>;
+type WechatWebSuccessHandler = (result: WechatWebStatusResp) => void | Promise<void>;
 type ExtraSuccessHandler = (result?: ExtraLoginResult) => void | Promise<void>;
 
 const formLoginMethodKeys = new Set<BuiltInLoginMethodKey>(['password', 'phone', 'email']);
@@ -61,6 +65,12 @@ function isDirectRedirectOAuthDescriptor(
   method: LoginMethodDescriptor,
 ): method is Extract<LoginMethodDescriptor, { kind: 'built-in' }> & { method: 'github' } {
   return method.kind === 'built-in' && method.method === 'github';
+}
+
+function isWechatWebDescriptor(
+  method: LoginMethodDescriptor,
+): method is Extract<LoginMethodDescriptor, { kind: 'built-in' }> & { method: 'wechat' } {
+  return method.kind === 'built-in' && method.method === 'wechat';
 }
 
 function buildLoginMethodDescriptors(
@@ -97,6 +107,8 @@ function getLoginMethodIcon(method: LoginMethodDescriptor): ReactNode {
       return <MailOutlined aria-hidden />;
     case 'github':
       return <GithubOutlined aria-hidden />;
+    case 'wechat':
+      return <WechatFilled aria-hidden />;
   }
 }
 
@@ -261,13 +273,23 @@ function LoginMethodSwitcher({
     [formMethods],
   );
   const initialOAuthMethodKey = useMemo(
-    () => (initialFormMethodKey ? null : oauthMethods.find((method) => !isDirectRedirectOAuthDescriptor(method))?.key ?? null),
+    () => (initialFormMethodKey ? null : oauthMethods.find((method) => !isDirectRedirectOAuthDescriptor(method) && !isWechatWebDescriptor(method))?.key ?? null),
     [initialFormMethodKey, oauthMethods],
   );
   const [activeFormMethodKey, setActiveFormMethodKey] = useState<string | undefined>(initialFormMethodKey);
   const [activeOAuthMethodKey, setActiveOAuthMethodKey] = useState<string | null>(initialOAuthMethodKey);
   const [directRedirectLoadingKey, setDirectRedirectLoadingKey] = useState<string | null>(null);
   const [directRedirectError, setDirectRedirectError] = useState<string | null>(null);
+
+  // 微信扫码轮询返回的会话里包着 loginResult，拆包后走统一登录成功处理
+  const onWechatWebLoginSuccess = useCallback(
+    async (result: WechatWebStatusResp) => {
+      if (result.loginResult) {
+        await onLoginSuccess(result.loginResult);
+      }
+    },
+    [onLoginSuccess],
+  );
 
   useEffect(() => {
     setActiveFormMethodKey(initialFormMethodKey);
@@ -335,6 +357,7 @@ function LoginMethodSwitcher({
           method={activeOAuthMethod.method}
           authService={authService}
           onSuccess={onLoginSuccess}
+          onWechatSuccess={onWechatWebLoginSuccess}
           config={config}
         />
       ) : null;
@@ -345,6 +368,7 @@ function LoginMethodSwitcher({
         method={activeFormMethod.method}
         authService={authService}
         onSuccess={onLoginSuccess}
+        onWechatSuccess={onWechatWebLoginSuccess}
         config={config}
       />
     ) : null;
@@ -421,10 +445,11 @@ interface LoginMethodPanelProps {
   method: BuiltInLoginMethodKey;
   authService: AuthService;
   onSuccess: LoginSuccessHandler;
+  onWechatSuccess: WechatWebSuccessHandler;
   config: AuthInitResp | null;
 }
 
-function LoginMethodPanel({ method, authService, onSuccess, config }: LoginMethodPanelProps) {
+function LoginMethodPanel({ method, authService, onSuccess, onWechatSuccess, config }: LoginMethodPanelProps) {
   switch (method) {
     case 'password':
       return <PasswordPanel authService={authService} onSuccess={onSuccess} />;
@@ -434,6 +459,8 @@ function LoginMethodPanel({ method, authService, onSuccess, config }: LoginMetho
       return <EmailPanel authService={authService} onSuccess={onSuccess} sendInterval={config?.emailSendIntervalSeconds ?? 60} />;
     case 'github':
       return <OAuthRedirectPanel authService={authService} provider="github" />;
+    case 'wechat':
+      return <WechatWebPanel authService={authService} onSuccess={onWechatSuccess} />;
   }
 }
 

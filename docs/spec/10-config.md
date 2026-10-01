@@ -405,6 +405,17 @@ nebula:
     oauth2:
       enabled: ${AUTH_OAUTH2_ENABLED:true}
       register-allowed: ${AUTH_OAUTH2_REGISTER_ALLOWED:true}
+      providers:
+        wechat:
+          enabled: ${NEBULA_AUTH_WECHAT_ENABLED:false}
+          mini:
+            app-id: ${NEBULA_AUTH_WECHAT_MINI_APP_ID:}
+            app-secret: ${NEBULA_AUTH_WECHAT_MINI_APP_SECRET:}   # 生产环境必须通过环境变量注入
+          web:
+            app-id: ${NEBULA_AUTH_WECHAT_WEB_APP_ID:}
+            app-secret: ${NEBULA_AUTH_WECHAT_WEB_APP_SECRET:}
+            redirect-uri: ${NEBULA_AUTH_WECHAT_WEB_REDIRECT_URI:}
+            frontend-callback-uri: ${NEBULA_AUTH_WECHAT_WEB_FRONTEND_CALLBACK_URI:/login/wechat-callback}
 
 spring:
   datasource:

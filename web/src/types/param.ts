@@ -102,6 +102,7 @@ export interface GeneralConfigDTO {
   oauth2Enabled?: boolean;
   oauth2AllowRegister?: boolean;
   oauth2GithubEnabled?: boolean;
+  oauth2WechatEnabled?: boolean;
   // 审计
   auditRequestMaxLength?: number;
   auditResponseMaxLength?: number;

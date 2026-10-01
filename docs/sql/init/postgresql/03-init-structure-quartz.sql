@@ -1,8 +1,8 @@
 -- ============================================================================
 -- Nebula - Quartz Scheduler Database Initialization Script
--- File: 01-init-structure-quartz-postgresql.sql
+-- File: 03-init-structure-quartz.sql
 -- Purpose: Initialize Quartz scheduler tables for JDBC persistence (PostgreSQL)
--- Usage: psql -d <database> -f 01-init-structure-quartz-postgresql.sql
+-- Usage: psql -d <database> -f 03-init-structure-quartz.sql
 -- Notes:
 --   1. Target database: PostgreSQL 14+.
 --   2. 表建在**当前连接的库**中，不切换数据库：

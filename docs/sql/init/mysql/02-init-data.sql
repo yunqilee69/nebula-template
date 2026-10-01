@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Nebula - Database Initial Data Script
--- File: 02-init-data-mysql.sql
+-- File: 02-init-data.sql
 -- Purpose: Initialize all module seed data (MySQL)
--- Usage: mysql -u root -p nebula < 02-init-data-mysql.sql
+-- Usage: mysql -u root -p nebula < 02-init-data.sql
 -- Notes:
 --   1. Target database: MySQL 8.0+.
---   2. Execute this script after 01-init-structure-mysql.sql.
+--   2. Execute this script after 01-init-structure.sql.
 --   3. SQL sections are grouped by module for easier future maintenance.
 -- ============================================================================
 
@@ -915,6 +915,7 @@ INSERT INTO sys_param (
     ('01959f0aa4d37c0d91a7d9af9c7d1014', 'login.oauth2.enabled', 'OAuth2登录开关', 'OAuth2登录总开关', 'true', 'BOOLEAN', NULL, 'auth', 1, NOW(), NOW()),
     ('01959f0aa4d37c0d91a7d9af9c7d1015', 'login.oauth2.allow-register', 'OAuth2注册开关', 'OAuth2注册开关', 'true', 'BOOLEAN', NULL, 'auth', 1, NOW(), NOW()),
     ('01959f0aa4d37c0d91a7d9af9c7d1020', 'login.oauth2.provider.github.enabled', 'GitHub登录开关', 'GitHub登录提供商开关', 'false', 'BOOLEAN', NULL, 'auth', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1025', 'login.oauth2.provider.wechat.enabled', '微信登录开关', '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道', 'false', 'BOOLEAN', NULL, 'auth', 1, NOW(), NOW()),
     ('01959f0aa4d37c0d91a7d9af9c7d1021', 'audit.request.max.length', '审计请求参数最大长度', '审计请求参数JSON最大字符数', '4000', 'INT', NULL, 'audit', 1, NOW(), NOW()),
     ('01959f0aa4d37c0d91a7d9af9c7d1022', 'audit.response.max.length', '审计响应数据最大长度', '审计响应数据JSON最大字符数', '4000', 'INT', NULL, 'audit', 1, NOW(), NOW()),
     ('01959f0aa4d37c0d91a7d9af9c7d1023', 'audit.retention.days', '审计记录保留天数', '审计记录定时清理保留天数', '180', 'INT', NULL, 'audit', 1, NOW(), NOW()),

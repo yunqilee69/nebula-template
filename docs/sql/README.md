@@ -2,29 +2,45 @@
 
 本目录统一存放 nebula 的数据库脚本，分为**全量初始化**和**版本升级**两类。
 
+两类脚本都按数据库方言分子目录（`mysql/`、`postgresql/`），文件名不再带方言后缀：部署时先进入所用数据库的方言目录，再整目录按文件名顺序执行即可，无需逐个甄别文件后缀。
+
+版本升级目录以**目标版本**命名——`0.2.1/` 表示「升级到 `0.2.1` 要执行什么脚本」；尚未发版的脚本先放 `unreleased/`，发版时整体更名为新版本号。
+
 ## 目录结构
 
 ```text
 docs/sql/
-├── init/          # 最新的全量初始化脚本（跟随当前版本，始终可用）
-├── <版本号>/       # 从该版本升级到更新版本所需的增量脚本（尚不存在，有升级脚本时创建）
+├── init/                  # 最新的全量初始化脚本（跟随当前版本，始终可用）
+│   ├── mysql/             # MySQL 方言
+│   └── postgresql/        # PostgreSQL 方言
+├── unreleased/            # 尚未发版的增量脚本（发版时整体更名为新版本号）
+│   ├── mysql/
+│   └── postgresql/
+├── <版本号>/               # 目标版本目录：升级到该版本所需的增量脚本
+│   ├── mysql/
+│   └── postgresql/
 └── README.md
 ```
 
 ## init/ —— 全量初始化
 
-`init/` 目录**永远是最新版本的全量初始化脚本**：新环境部署时，按文件名顺序逐个执行即可得到与当前版本一致的完整库结构。
+`init/` 目录**永远是最新版本的全量初始化脚本**：新环境部署时，进入所用数据库的方言目录，按文件名顺序逐个执行即可得到与当前版本一致的完整库结构。
 
-| 文件 | 说明 |
+| 文件（`init/mysql/` 与 `init/postgresql/` 同名） | 说明 |
 | --- | --- |
-| `01-init-structure-mysql.sql` | 业务库全量建表（MySQL） |
-| `01-init-structure-postgresql.sql` | 业务库全量建表（PostgreSQL） |
-| `01-init-structure-quartz-mysql.sql` | Quartz JDBC 持久化表结构（MySQL，建在**当前库**，仅启用 JDBC 持久化时执行，见下文） |
-| `01-init-structure-quartz-postgresql.sql` | Quartz JDBC 持久化表结构（PostgreSQL，建在**当前库**，仅启用 JDBC 持久化时执行，见下文） |
-| `02-init-data-mysql.sql` | 初始化数据：种子用户、菜单、字典、参数等（MySQL） |
-| `02-init-data-postgresql.sql` | 初始化数据（PostgreSQL） |
+| `01-init-structure.sql` | 业务库全量建表 |
+| `02-init-data.sql` | 初始化数据：种子用户、菜单、字典、参数等 |
+| `03-init-structure-quartz.sql` | Quartz JDBC 持久化表结构（建在**当前库**，仅启用 JDBC 持久化时执行，见下文） |
 
-执行顺序：先 `01-init-structure-*`，后 `02-init-data-*`；业务库脚本按数据库类型二选一，Quartz 脚本按调度引擎选型决定是否执行（见下节）。
+执行顺序与文件名顺序一致：先建表（`01`），再灌数据（`02`），Quartz 表（`03`）按调度引擎选型决定是否执行。也可以整目录一次导入：
+
+```bash
+# MySQL：按文件名顺序导入 init/mysql/ 下全部脚本
+for f in docs/sql/init/mysql/*.sql; do mysql -u root -p nebula < "$f"; done
+
+# PostgreSQL：按文件名顺序导入 init/postgresql/ 下全部脚本
+for f in docs/sql/init/postgresql/*.sql; do psql -d nebula -f "$f"; done
+```
 
 版本升级**不要**重复执行 `init/` 下的脚本——那是给全新环境用的。
 
@@ -34,43 +50,56 @@ docs/sql/
 
 | | Quartz（默认） | XXL-JOB |
 | --- | --- | --- |
-| 表所在库 | 与调度器数据源同库：单体应用即业务库（`01-init-structure-quartz-*.sql` 建在当前连接的库）；调度器独立部署时为其自身数据源所在库 | **独立部署的 XXL Admin 数据库**（不在 nebula 主库，`init/` 中无对应脚本） |
-| 初始化脚本 | 本仓库 `init/01-init-structure-quartz-mysql.sql` / `01-init-structure-quartz-postgresql.sql` | 官方 [`tables_xxl_job.sql`](https://github.com/xuxueli/xxl-job/blob/master/doc/db/tables_xxl_job.sql)，随 XXL Admin 部署执行 |
+| 表所在库 | 与调度器数据源同库：单体应用即业务库（`03-init-structure-quartz.sql` 建在当前连接的库）；调度器独立部署时为其自身数据源所在库 | **独立部署的 XXL Admin 数据库**（不在 nebula 主库，`init/` 中无对应脚本） |
+| 初始化脚本 | 本仓库 `init/mysql/03-init-structure-quartz.sql` / `init/postgresql/03-init-structure-quartz.sql` | 官方 [`tables_xxl_job.sql`](https://github.com/xuxueli/xxl-job/blob/master/doc/db/tables_xxl_job.sql)，随 XXL Admin 部署执行 |
 | 数据库支持 | 本仓库提供 MySQL / PostgreSQL 双方言脚本 | 官方仅提供 MySQL 脚本 |
 | 默认存储 | 默认 RAMJobStore（进程内单节点，**无需建表**）；启用 JDBC 持久化（`org.quartz.jobStore.class=JobStoreTX`）时才需执行建表脚本 | XXL Admin 自管 |
 
 选型速查：
 
 - 默认 **Quartz + RAM 存储**（`nebula.scheduler.engine` 缺省即生效）：无需执行任何引擎脚本，无需额外部署
-- 选 **Quartz + JDBC 持久化**：按数据库类型对**调度器数据源所在库**执行 `01-init-structure-quartz-mysql.sql` 或 `01-init-structure-quartz-postgresql.sql`（单体应用即业务库，docker-compose 已随业务库初始化自动执行）
+- 选 **Quartz + JDBC 持久化**：按数据库类型对**调度器数据源所在库**执行 `init/mysql/03-init-structure-quartz.sql` 或 `init/postgresql/03-init-structure-quartz.sql`（单体应用即业务库，docker-compose 已随业务库初始化自动执行）
 - 选 **XXL-JOB**：不执行 `init/` 中的 Quartz 脚本；单独部署 XXL Admin 并用官方脚本初始化其 MySQL 库
 
 ## 版本目录 —— 增量升级
 
-版本目录（如 `0.1.0/`）存放**从该版本升级到更新版本**需要执行的增量脚本。
+版本目录（如 `0.2.1/`）以**目标版本**命名，存放**升级到该版本**需要执行的增量脚本，同样按方言分子目录。它与 `CHANGELOG.md` 的版本段落对应：某个版本目录里的内容，应当是发版时该版 CHANGELOG 段落中需要落库的部分，两者一起整理。
 
-升级规则：**按版本顺序，从起始版本目录开始，逐个执行目录内的 SQL（按文件名顺序），直到到达目标版本。**
+开发中的脚本放在 `unreleased/` 目录，**发版时**再整体更名为新版本号——与 CHANGELOG 中 `[Unreleased]` 段落改写为 `[X.Y.Z] - 日期` 是同一时机、同一动作：
 
-以从 `0.1.0` 升级到 `1.0.0` 为例：
+```bash
+# 发布 X.Y.Z 时执行（unreleased/ 为空则跳过，随后按需重建空的 unreleased/）
+git mv docs/sql/unreleased docs/sql/X.Y.Z
+```
 
-1. 按文件名顺序逐个执行 `docs/sql/0.1.0/` 下的脚本（如 `01-xxx-mysql.sql`、`02-xxx-mysql.sql`……）
-2. 若 `0.1.0` 与 `1.0.0` 之间还有其他版本目录（如 `0.2.0/`），执行完 `0.1.0/` 后继续按版本顺序执行 `0.2.0/`
-3. 到达 `1.0.0` 后停止，**不执行** `1.0.0/` 目录下的脚本（那是留给下次升级用的）
+升级规则：**从当前版本之后的下一个版本目录开始，按版本号升序逐个执行，直到目标版本目录为止（含目标版本自身）。**
+
+以从 `0.1.0` 升级到 `0.2.1` 为例（假设使用 MySQL）：
+
+1. 目标版本是 `0.2.1`，区间内只有 `0.2.1/` 一个目录（`0.1.0`、`0.2.0` 没有需要落库的变更，故不存在这两个目录）
+2. 进入 `docs/sql/0.2.1/mysql/`，按文件名顺序逐个执行（`01-xxx.sql`、`02-xxx.sql`……）
+3. 执行完毕即到达 `0.2.1`；若之后还有 `0.3.0/`、`0.4.0/` 等目录，继续按版本号升序执行到目标版本为止
+
+`unreleased/` 是不带版本号的例外：其中的脚本尚未随任何版本发布，**升级时不要执行**，仅用于在开发/预发环境上提前验证。
 
 约定：
 
-- 每个版本目录内的脚本按文件名前缀（`01-`、`02-`……）排序执行，同一目录内先后依赖由前缀保证
-- 双方言脚本成对提供：`NN-描述-mysql.sql` / `NN-描述-postgresql.sql`，按所用数据库执行对应方言
+- 目录名即目标版本；`unreleased/` 是唯一不以版本号命名的目录
+- 每个版本目录内先选方言子目录，再按文件名前缀（`01-`、`02-`……）排序执行，先后依赖由前缀保证
+- 两个方言子目录内的脚本同名成对（`NN-描述.sql`），按所用数据库进入对应目录执行
+- 同一版本内不同变更合并进同一目录，序号在目录内唯一即可（不同版本目录之间可以重名）
 - 每个脚本应可重复执行或自带存在性判断（`IF NOT EXISTS` / `ON CONFLICT` 等），避免中断后重跑失败
 
 ## 当前状态
 
 当前版本为 `0.2.1`。
 
-- `0.1.0/`：从 `0.1.0` 升级到 `0.2.0` 的增量脚本；已在 `0.2.0` 及之后的环境忽略。
-- `0.2.0/`：从 `0.2.0` 升级到 `0.2.1` 的增量脚本（移除失效的 `spring.servlet.multipart.*` 参数、新增 `storage.upload.*` 上传策略参数）；已在 `0.2.1` 的环境忽略。
+- `0.2.1/`：升级到 `0.2.1` 所需的增量脚本（`auth_login_record` 端类型列；移除失效的 `spring.servlet.multipart.*` 参数、新增 `storage.upload.*` 上传策略参数）；版本低于 `0.2.1` 的环境执行本目录脚本即可对齐。
+- `unreleased/`：尚未发版的增量脚本（新增微信登录提供商开关参数 `login.oauth2.provider.wechat.enabled`，默认关闭；该开关覆盖网站应用扫码与小程序两个渠道）；发版时整体更名为新版本号。
 
-从 `0.2.0` 升级到 `0.2.1` 时，除执行 `0.2.0/` 下的脚本外，还需确认应用 `application.yml` 的静态传输口径不小于业务上限：
+`0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
+
+从 `0.2.0` 升级到 `0.2.1` 时，除执行 `0.2.1/` 下的脚本外，还需确认应用 `application.yml` 的静态传输口径不小于业务上限：
 
 ```yaml
 spring.servlet.multipart.max-file-size: 110MB    # >= storage.upload.max-file-size（默认 100MB）
@@ -80,4 +109,4 @@ server.tomcat.max-part-header-size: 10KB          # 长文件名场景，默认 
 
 `nebula-storage` 启动时会自检该口径，静态口径小于业务上限将直接启动失败。
 
-后续版本发布时，在本目录新建对应版本目录并放入升级脚本，同时同步刷新 `init/` 至最新全量。
+后续版本发布时，先把升级脚本放进 `unreleased/`（含 `mysql/`、`postgresql/` 两个方言子目录），发版时再整体更名为新版本目录，同时同步刷新 `init/` 至最新全量。

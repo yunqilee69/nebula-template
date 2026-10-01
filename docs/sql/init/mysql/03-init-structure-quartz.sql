@@ -1,8 +1,8 @@
 -- ============================================================================
 -- Nebula - Quartz Scheduler Database Initialization Script
--- File: 01-init-structure-quartz-mysql.sql
+-- File: 03-init-structure-quartz.sql
 -- Purpose: Initialize Quartz scheduler tables for JDBC persistence (MySQL)
--- Usage: mysql -u <user> -p <database> < 01-init-structure-quartz-mysql.sql
+-- Usage: mysql -u <user> -p <database> < 03-init-structure-quartz.sql
 -- Notes:
 --   1. Target database: MySQL 8.0+.
 --   2. 表建在**当前连接的库**中，不切换数据库：

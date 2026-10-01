@@ -87,6 +87,12 @@ export interface AuthInitResp {
   oauth2Enabled?: boolean;
   oauth2RegisterAllowed?: boolean;
   githubEnabled?: boolean;
+  /** 微信提供商级开关，覆盖网站应用与小程序两个渠道 */
+  wechatEnabled?: boolean;
+  /** 网站应用渠道是否可用：浏览器扫码登录入口按此展示 */
+  wechatWebEnabled?: boolean;
+  /** 小程序渠道是否可用 */
+  wechatMiniEnabled?: boolean;
 }
 
 export interface FrontendConfigResp {
@@ -251,4 +257,43 @@ export interface GitHubCallbackResp {
   errorCode?: GitHubCallbackErrorCode;
 }
 
-export type BuiltInLoginMethodKey = 'password' | 'phone' | 'email' | 'github';
+export type BuiltInLoginMethodKey = 'password' | 'phone' | 'email' | 'github' | 'wechat';
+
+export type WechatLoginStatus = GitHubLoginStatus;
+
+export interface WechatWebPrepareReq {
+  redirectAfterLogin?: string;
+}
+
+export interface WechatWebPrepareResp {
+  loginId: string;
+  state: string;
+  status: WechatLoginStatus;
+  authorizeUrl: string;
+}
+
+export interface WechatWebStatusResp {
+  loginId: string;
+  status: WechatLoginStatus;
+  state?: string;
+  loginResult?: LoginResp;
+  returnPath?: string;
+}
+
+export interface WechatWebCallbackReq {
+  code?: string;
+  state?: string;
+}
+
+export interface WechatWebCallbackResp {
+  loginId?: string;
+  status: WechatLoginStatus;
+  returnPath?: string;
+  errorCode?: GitHubCallbackErrorCode;
+  frontendRedirect?: string;
+}
+
+export interface WechatWebClaimTokenReq {
+  code: string;
+  state: string;
+}
