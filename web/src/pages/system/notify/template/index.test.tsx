@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useDictCacheStore } from '@/stores/dict-cache-store';
 import type { UserResp } from '@/types/auth-management';
 import type { DictItemTreeResp } from '@/types/dict';
-import type { NotifyTemplateDetailResp, NotifyTemplateResp, ReceiverItem } from '@/types/notify';
+import type { NotifyCategoryResp, NotifyTemplateDetailResp, NotifyTemplateResp, ReceiverItem } from '@/types/notify';
 import { TemplateManagementPage } from './index';
 import type { NotifyTemplateService } from './template-page-helpers';
 
@@ -142,6 +142,14 @@ function createPage(data: readonly NotifyTemplateResp[]): NebulaPageResp<NotifyT
   return { data: [...data], total: data.length };
 }
 
+const notifyCategories: readonly NotifyCategoryResp[] = [
+  { id: 'cat-security', code: 'SECURITY', name: '安全与账号', sort: 10, builtin: true, enabled: true },
+  { id: 'cat-todo', code: 'TODO', name: '待办与审批', sort: 20, builtin: true, enabled: true },
+  { id: 'cat-business', code: 'BUSINESS', name: '业务提醒', sort: 30, builtin: true, enabled: true },
+  { id: 'cat-announcement', code: 'ANNOUNCEMENT', name: '公告与运营', sort: 40, builtin: true, enabled: true },
+  { id: 'cat-default', code: 'DEFAULT', name: '其他通知', sort: 90, builtin: true, enabled: true },
+];
+
 function createService(overrides: Partial<NotifyTemplateService> = {}): NotifyTemplateService {
   return {
     pageNotifyTemplates: vi.fn().mockResolvedValue(createPage([builtinTemplate, customTemplate])),
@@ -150,6 +158,7 @@ function createService(overrides: Partial<NotifyTemplateService> = {}): NotifyTe
     updateNotifyTemplate: vi.fn().mockResolvedValue('template-custom'),
     deleteNotifyTemplate: vi.fn().mockResolvedValue(undefined),
     pageNotifyChannelTargets: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+    listNotifyCategories: vi.fn().mockResolvedValue(notifyCategories),
     sendNotify: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
@@ -255,5 +264,33 @@ describe('TemplateManagementPage', () => {
     const drawer = sendTitles.map((element) => element.closest('.ant-drawer')).find((element) => element instanceof HTMLElement);
     if (!(drawer instanceof HTMLElement)) throw new Error('Unable to find send drawer');
     expect(within(drawer).getByLabelText('通知模板')).toBeInTheDocument();
+  });
+
+  it('shows the template category and submits a re-categorised template', async () => {
+    const user = userEvent.setup();
+    const service = createService({
+      getNotifyTemplate: vi.fn().mockResolvedValue({ ...customTemplateDetail, categoryCode: 'BUSINESS' }),
+    });
+    renderPage(service);
+
+    const row = await waitFor(() => getRow('ORDER_APPROVED'));
+    expect(within(row).getByText('其他通知')).toBeInTheDocument();
+
+    await user.click(within(row).getByRole('button', { name: /编辑/ }));
+    await waitFor(() => expect(service.getNotifyTemplate).toHaveBeenCalledWith('template-custom'));
+
+    const categorySelect = await screen.findByRole('combobox', { name: '通知类别' });
+    expect(categorySelect).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTitle('业务提醒')).toBeInTheDocument());
+    await user.click(categorySelect);
+    await user.click(await screen.findByText('安全与账号', { selector: '.ant-select-item-option-content' }));
+    await user.click(screen.getByRole('button', { name: /保\s*存/ }));
+
+    await waitFor(() => {
+      expect(service.updateNotifyTemplate).toHaveBeenCalledWith(
+        'template-custom',
+        expect.objectContaining({ categoryCode: 'SECURITY' }),
+      );
+    });
   });
 });

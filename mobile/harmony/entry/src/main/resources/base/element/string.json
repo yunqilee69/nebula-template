@@ -1,0 +1,7 @@
+{
+  "string": [
+    { "name": "module_desc", "value": "NEBULA 移动端基座" },
+    { "name": "ability_desc", "value": "NEBULA RN 容器" },
+    { "name": "ability_label", "value": "NebulaMobile" }
+  ]
+}

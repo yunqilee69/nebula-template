@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { Cascader, Checkbox, Col, Form, Input, InputNumber, Modal, Row, Select, Switch } from 'antd';
 import type { FormInstance } from 'antd';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
+import { NebulaIconPicker } from '@/components/ne-icon-picker';
 import type { MenuStatus, MenuType } from '@/types/menu';
 
 export interface MenuFormValues {
@@ -93,7 +94,9 @@ export function MenuFormModal({
   ], [t]);
 
   const typeValue = Form.useWatch('type', form);
-  const isExternalType = typeValue === 'EXTERNAL';
+  const normalizedType = typeValue?.toUpperCase();
+  const isPageType = normalizedType === 'MENU';
+  const isUrlType = normalizedType === 'IFRAME' || normalizedType === 'EXTERNAL';
 
   const fillEmptyField = useCallback(
     (field: keyof MenuFormValues, value: string | undefined) => {
@@ -169,26 +172,28 @@ export function MenuFormModal({
               />
             </Form.Item>
           </Col>
-          <Col xs={24} md={12}>
-            <Form.Item
-              name="component"
-              label={t('auth.menuManagement.fields.component')}
-            >
-              <Select
-                allowClear
-                showSearch
-                options={componentOptions}
-                optionFilterProp="label"
-                placeholder={t('auth.menuManagement.placeholders.component')}
-                onSelect={handleComponentChange}
-                filterOption={(input, option) => {
-                  const label = typeof option?.label === 'string' ? option.label : '';
-                  const value = typeof option?.value === 'string' ? option.value : '';
-                  return `${label} ${value}`.toLowerCase().includes(input.toLowerCase());
-                }}
-              />
-            </Form.Item>
-          </Col>
+          {isPageType && (
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="component"
+                label={t('auth.menuManagement.fields.component')}
+              >
+                <Select
+                  allowClear
+                  showSearch
+                  options={componentOptions}
+                  optionFilterProp="label"
+                  placeholder={t('auth.menuManagement.placeholders.component')}
+                  onSelect={handleComponentChange}
+                  filterOption={(input, option) => {
+                    const label = typeof option?.label === 'string' ? option.label : '';
+                    const value = typeof option?.value === 'string' ? option.value : '';
+                    return `${label} ${value}`.toLowerCase().includes(input.toLowerCase());
+                  }}
+                />
+              </Form.Item>
+            </Col>
+          )}
           <Col xs={24} md={12}>
             <Form.Item
               name="name"
@@ -217,16 +222,36 @@ export function MenuFormModal({
             <Form.Item
               name="path"
               label={t('auth.menuManagement.fields.path')}
+              rules={isPageType ? [{ required: true, message: t('auth.menuManagement.validation.pathRequired') }] : undefined}
             >
               <Input placeholder={t('auth.menuManagement.placeholders.path')} />
             </Form.Item>
           </Col>
+          {isUrlType && (
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="externalUrl"
+                label={t('auth.menuManagement.fields.externalUrl')}
+                rules={[
+                  { required: true, message: t('auth.menuManagement.validation.externalUrlRequired') },
+                  {
+                    validator: (_, value: string | undefined) => {
+                      if (!value || isValidHttpUrl(value)) return Promise.resolve();
+                      return Promise.reject(new Error(t('auth.menuManagement.validation.externalUrlFormat')));
+                    },
+                  },
+                ]}
+              >
+                <Input placeholder={t('auth.menuManagement.placeholders.externalUrl')} />
+              </Form.Item>
+            </Col>
+          )}
           <Col xs={24} md={12}>
             <Form.Item
               name="icon"
               label={t('auth.menuManagement.fields.icon')}
             >
-              <Input placeholder={t('auth.menuManagement.placeholders.icon')} />
+              <NebulaIconPicker />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
@@ -281,25 +306,6 @@ export function MenuFormModal({
               <Input />
             </Form.Item>
           </Col>
-          {isExternalType && (
-            <Col span={24}>
-              <Form.Item
-                name="externalUrl"
-                label={t('auth.menuManagement.fields.externalUrl')}
-                rules={[
-                  { required: true, message: t('auth.menuManagement.validation.externalUrlRequired') },
-                  {
-                    validator: (_, value: string | undefined) => {
-                      if (!value || isValidHttpUrl(value)) return Promise.resolve();
-                      return Promise.reject(new Error(t('auth.menuManagement.validation.externalUrlFormat')));
-                    },
-                  },
-                ]}
-              >
-                <Input placeholder={t('auth.menuManagement.placeholders.externalUrl')} />
-              </Form.Item>
-            </Col>
-          )}
           <Col span={24}>
             <Form.Item
               name="remark"

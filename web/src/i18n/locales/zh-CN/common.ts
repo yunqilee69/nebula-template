@@ -47,4 +47,11 @@ export const common: NebulaCommonMessages = {
     userAgent: '原始 User-Agent',
   },
   notProvided: '未填写',
+  iconPicker: {
+    title: '选择图标',
+    searchPlaceholder: '搜索图标名称，如 user、setting',
+    empty: '未找到匹配图标',
+    inputPlaceholder: '请输入图标',
+    triggerAriaLabel: '选择图标',
+  },
 };

@@ -1,0 +1,53 @@
+# 依赖、构建产物、原生工程产物：不提交，也不进模板仓同步。
+# 三端工程的依赖与本地产物（node_modules / Pods / .gradle / ohos build）一律不入仓。
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# iOS
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/.xcode.env.local
+*.xcworkspace/xcuserdata/
+# bundler 本地安装目录（Gemfile 走系统 CocoaPods 时不会生成）
+vendor/bundle/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+# 新架构（Fabric/TurboModules）的 C++ 中间产物
+android/.cxx/
+android/app/.cxx/
+*.apk
+*.aab
+
+# 鸿蒙 / RNOH（工程目录 mobile/harmony；历史目录 ohos/ 规则保留）
+ohos/build/
+ohos/.hvigor/
+ohos/node_modules/
+ohos/oh_modules/
+harmony/build/
+harmony/.hvigor/
+harmony/.clang-format
+harmony/oh_modules/
+harmony/entry/build/
+harmony/entry/.cxx/
+harmony/entry/oh_modules/
+harmony/.preview/
+harmony/third/react-native-safe-area-context/oh_modules/
+
+# 本地敏感配置（推送凭据、地图 Key 等只走环境变量或构建注入，禁止入库入仓）
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+# 鸿蒙调试签名材料：本地产物不入库（口令亦不入库），生成步骤见 harmony/sign/README.md
+harmony/sign/

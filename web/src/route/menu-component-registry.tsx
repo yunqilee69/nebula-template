@@ -183,4 +183,13 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     loader: () =>
       import('@/pages/system/notify/channel-target').then((module) => ({ default: module.ChannelTargetManagementPage })),
   },
+  CategoryManagementPage: {
+    component: 'CategoryManagementPage',
+    defaultName: '通知类别',
+    defaultCode: 'NOTIFY_CATEGORY',
+    defaultPath: '/system/notify/category',
+    defaultIcon: 'TagsOutlined',
+    loader: () =>
+      import('@/pages/system/notify/category').then((module) => ({ default: module.CategoryManagementPage })),
+  },
 });

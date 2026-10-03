@@ -1,9 +1,10 @@
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input, Modal, Switch, Tabs, Typography } from 'antd';
+import { Button, Card, Form, Input, Modal, Select, Switch, Tabs, Typography } from 'antd';
 import type { FormInstance } from 'antd';
 import type { ReactNode } from 'react';
 import { DictLabel } from '@/components/dict-select';
 import type { UpdateNotifyTemplateVariantReq } from '@/types/notify';
+import type { NotifyCategoryOption } from '../notify-category-options';
 import type { NotifyTemplateFormState, NotifyTemplateFormValues } from './template-page-helpers';
 import { ALL_CHANNEL_TYPES, NOTIFY_CHANNEL_TYPE } from './template-page-helpers';
 import { BuiltinVariableHelp, WeComWebhookHelp, FeishuWebhookHelp, DingTalkWebhookHelp } from './template-variable-panel';
@@ -14,6 +15,7 @@ interface TemplateFormModalProps {
   readonly open: boolean;
   readonly submitting: boolean;
   readonly detailLoading: boolean;
+  readonly categoryOptions: readonly NotifyCategoryOption[];
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
 }
@@ -41,6 +43,7 @@ export function TemplateFormModal({
   open,
   submitting,
   detailLoading,
+  categoryOptions,
   onSubmit,
   onCancel,
 }: TemplateFormModalProps) {
@@ -75,6 +78,13 @@ export function TemplateFormModal({
             rules={[{ required: true, whitespace: true, message: '模板名称不能为空' }]}
           >
             <Input placeholder="请输入模板名称" />
+          </Form.Item>
+          <Form.Item
+            name="categoryCode"
+            label="通知类别"
+            extra="决定用户能否在消息设置里按类别关闭这类通知；不选则归入「其他通知」"
+          >
+            <Select allowClear placeholder="请选择通知类别" options={[...categoryOptions]} />
           </Form.Item>
         </div>
 

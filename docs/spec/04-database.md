@@ -657,6 +657,7 @@ LEFT JOIN auth_permission p ON ...
 | `sys_dict_item` | 字典项 | `id`, `dict_code`, `name`, `item_value`, `is_enabled` |
 | `sys_param` | 系统参数 | `id`, `param_key`, `param_value`, `data_type`, `is_builtin` |
 | `sys_notify_template` | 通知模板 | `id`, `template_code`, `template_name`, `channel_type` |
+| `sys_notify_category` | 通知类别（内置 + 自定义） | `id`, `code`, `name`, `allowed_channels`, `is_builtin` |
 | `sys_notify_record` | 通知记录 | `id`, `channel_type`, `receiver`, `send_status` |
 | `sys_site_message` | 站内信 | `id`, `receiver_user_id`, `title`, `read_status` |
 | `sys_announcement` | 公告 | `id`, `title`, `status`, `publish_time`, `is_pinned` |

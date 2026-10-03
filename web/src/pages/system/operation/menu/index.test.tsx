@@ -207,6 +207,7 @@ describe('MenuManagementPage', () => {
 
     await user.type(dialog.getByPlaceholderText('请输入菜单名称'), '角色管理');
     await user.type(dialog.getByPlaceholderText('请输入菜单编码'), 'ROLE_MANAGEMENT');
+    await user.type(dialog.getByPlaceholderText('请输入路径'), '/system/role');
     await user.click(getSaveButton());
 
     await waitFor(() => {
@@ -235,6 +236,7 @@ describe('MenuManagementPage', () => {
 
     await user.type(dialog.getByPlaceholderText('请输入菜单名称'), '角色管理');
     await user.type(dialog.getByPlaceholderText('请输入菜单编码'), 'ROLE_MANAGEMENT');
+    await user.type(dialog.getByPlaceholderText('请输入路径'), '/system/role');
     await user.click(getSaveButton());
 
     await waitFor(() => {
@@ -393,5 +395,59 @@ describe('MenuManagementPage', () => {
       expect(dialog.getByPlaceholderText('请输入路径')).toHaveValue('/custom/users');
       expect(dialog.getByPlaceholderText('请输入图标')).toHaveValue('CustomIcon');
     });
+  });
+
+  it('shows external url field for iframe type and submits it with externalFlag', async () => {
+    const user = userEvent.setup();
+    const createMenu = vi.fn().mockResolvedValue('iframe-menu');
+    const menuService = createMenuService({
+      getMenuTree: vi.fn().mockResolvedValue([]),
+      createMenu,
+    });
+
+    renderMenuManagementPage(menuService);
+
+    await screen.findByRole('button', { name: /新增/ });
+    await user.click(screen.getByRole('button', { name: /新增/ }));
+    const dialog = within(screen.getByRole('dialog', { name: '新增菜单' }));
+
+    await user.click(dialog.getByLabelText('菜单类型'));
+    await user.click(await screen.findByText('内嵌'));
+
+    expect(dialog.getByPlaceholderText('请输入外链地址')).toBeInTheDocument();
+    expect(dialog.queryByLabelText('组件')).not.toBeInTheDocument();
+
+    await user.type(dialog.getByPlaceholderText('请输入菜单名称'), '内嵌页面');
+    await user.type(dialog.getByPlaceholderText('请输入菜单编码'), 'IFRAME_PAGE');
+    await user.type(dialog.getByPlaceholderText('请输入外链地址'), 'https://example.com/embed');
+    await user.click(getSaveButton());
+
+    await waitFor(() => {
+      expect(createMenu).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'IFRAME',
+        externalFlag: true,
+        externalUrl: 'https://example.com/embed',
+        component: undefined,
+      }));
+    });
+  });
+
+  it('fills icon via visual picker modal', async () => {
+    const user = userEvent.setup();
+    const menuService = createMenuService({
+      getMenuTree: vi.fn().mockResolvedValue([]),
+    });
+
+    renderMenuManagementPage(menuService);
+
+    await screen.findByRole('button', { name: /新增/ });
+    await user.click(screen.getByRole('button', { name: /新增/ }));
+    const dialog = within(screen.getByRole('dialog', { name: '新增菜单' }));
+
+    await user.click(dialog.getByLabelText('选择图标'));
+    const alertIcon = await screen.findByTitle('AlertOutlined');
+    await user.click(alertIcon);
+
+    expect(dialog.getByPlaceholderText('请输入图标')).toHaveValue('AlertOutlined');
   });
 });

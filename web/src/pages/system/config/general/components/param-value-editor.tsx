@@ -87,6 +87,7 @@ export function ParamValueEditor({ dataType, optionCode, value, onChange }: Para
         return (
           <Input.Password
             className={styles.editor}
+            placeholder="留空表示不修改"
             value={value}
             onChange={(event) => onChange(event.target.value)}
           />

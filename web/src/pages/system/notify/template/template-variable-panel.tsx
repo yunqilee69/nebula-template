@@ -1,10 +1,9 @@
-import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Button, Divider, Table, Tooltip, Typography } from 'antd';
+import { Divider, Table, Typography } from 'antd';
 import { createStyles } from 'antd-style';
 import type { ColumnsType } from 'antd/es/table';
-import type { ReactNode } from 'react';
 import { WECOM_WEBHOOK_HELP_LINK, FEISHU_WEBHOOK_HELP_LINK, DINGTALK_WEBHOOK_HELP_LINK } from './template-page-helpers';
 import type { TemplateVariable } from '@/types/notify';
+import { HelpIcon } from '@/components/help-icon';
 import { SYSTEM_TEMPLATE_VARIABLES } from './template-page-helpers';
 
 const builtinVariableColumns: ColumnsType<TemplateVariable> = [
@@ -20,25 +19,6 @@ const builtinVariableColumns: ColumnsType<TemplateVariable> = [
     render: (description: string | undefined) => description ?? '-',
   },
 ];
-
-interface HelpIconProps {
-  readonly title: ReactNode;
-  readonly ariaLabel: string;
-}
-
-export function HelpIcon({ title, ariaLabel }: HelpIconProps) {
-  return (
-    <Tooltip placement="bottom" title={title}>
-      <Button
-        type="text"
-        size="small"
-        icon={<QuestionCircleOutlined />}
-        aria-label={ariaLabel}
-        className="text-[var(--nebula-color-text-secondary)]"
-      />
-    </Tooltip>
-  );
-}
 
 export function BuiltinVariableHelp() {
   return (

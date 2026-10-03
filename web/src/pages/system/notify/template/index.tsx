@@ -1,6 +1,6 @@
 import { PlusOutlined, SendOutlined } from '@ant-design/icons';
 import { Button, Drawer, Form } from 'antd';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AuthManagementService } from '@/api/auth-management';
 import { authManagementService as defaultAuthManagementService } from '@/api/auth-management';
 import { Access } from '@/components/access';
@@ -8,6 +8,8 @@ import { NebulaProTable } from '@/components/nebula-pro-table';
 import type { NebulaProTableAction } from '@/components/nebula-pro-table';
 import { useNotice } from '@/hooks/use-notice';
 import { NotificationSendPanel } from '@/pages/system/notify/components/notification-send-panel';
+import { toNotifyCategoryOptions } from '@/pages/system/notify/notify-category-options';
+import type { NotifyCategoryOption } from '@/pages/system/notify/notify-category-options';
 import { notifyService as defaultNotifyService } from '@/services/notify';
 import type { NotifyTemplateDetailResp, NotifyTemplateResp } from '@/types/notify';
 import { TemplateDetailModal } from './template-detail-modal';
@@ -46,6 +48,22 @@ export function TemplateManagementPage({
   const [sendDrawerOpen, setSendDrawerOpen] = useState(false);
   const [sendTemplateId, setSendTemplateId] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState<readonly NotifyCategoryOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void service.listNotifyCategories()
+      .then((categories) => {
+        if (!cancelled) setCategoryOptions(toNotifyCategoryOptions(categories));
+      })
+      .catch((error: unknown) => {
+        // 类别列表只影响展示与下拉，拉取失败时退回「按 code 原样显示」，不阻塞模板页
+        console.error('Failed to load notify categories', error instanceof Error ? error.message : String(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [service]);
 
   const requestTemplates = useCallback(
     (params: NotifyTemplateTableQuery & { readonly pageNum: number; readonly pageSize: number }) => (
@@ -155,7 +173,8 @@ export function TemplateManagementPage({
     }
   }, [notice, service]);
 
-  const columns = useMemo(() => createTemplateColumns({ openDetail, openEditForm, removeTemplate }), [
+  const columns = useMemo(() => createTemplateColumns({ openDetail, openEditForm, removeTemplate, categoryOptions }), [
+    categoryOptions,
     openDetail,
     openEditForm,
     removeTemplate,
@@ -189,6 +208,7 @@ export function TemplateManagementPage({
         open={formOpen}
         submitting={submitting}
         detailLoading={detailLoading}
+        categoryOptions={categoryOptions}
         onSubmit={() => void submitTemplate()}
         onCancel={closeForm}
       />
@@ -196,6 +216,7 @@ export function TemplateManagementPage({
         open={detailOpen}
         loading={detailLoading}
         detail={detail}
+        categoryOptions={categoryOptions}
         onCancel={() => setDetailOpen(false)}
       />
       <Drawer

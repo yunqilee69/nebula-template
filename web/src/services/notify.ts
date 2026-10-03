@@ -5,10 +5,13 @@ import type {
   AnnouncementPageReq,
   AnnouncementResp,
   CreateAnnouncementReq,
+  CreateNotifyCategoryReq,
   CreateNotifyChannelTargetReq,
   CreateNotifyTemplateReq,
   CurrentAnnouncementPageReq,
   CurrentAnnouncementResp,
+  NotifyCategoryPageReq,
+  NotifyCategoryResp,
   NotifyChannelTargetPageReq,
   NotifyChannelTargetResp,
   NotifyRecordDetailResp,
@@ -25,6 +28,7 @@ import type {
   SiteMessageResp,
   UnreadSiteMessageCount,
   UpdateAnnouncementReq,
+  UpdateNotifyCategoryReq,
   UpdateNotifyChannelTargetReq,
   UpdateNotifyTemplateReq,
 } from '@/types/notify';
@@ -52,6 +56,12 @@ export interface NotifyService {
   readonly pageNotifyChannelTargets: (
     data: NotifyChannelTargetPageReq,
   ) => Promise<NebulaPageResp<NotifyChannelTargetResp>>;
+  readonly createNotifyCategory: (data: CreateNotifyCategoryReq) => Promise<string>;
+  readonly updateNotifyCategory: (id: string, data: UpdateNotifyCategoryReq) => Promise<string>;
+  readonly deleteNotifyCategory: (id: string) => Promise<void>;
+  readonly getNotifyCategory: (id: string) => Promise<NotifyCategoryResp>;
+  readonly pageNotifyCategories: (data: NotifyCategoryPageReq) => Promise<NebulaPageResp<NotifyCategoryResp>>;
+  readonly listNotifyCategories: () => Promise<readonly NotifyCategoryResp[]>;
   readonly sendNotify: (data: SendNotifyReq) => Promise<NotifySendResultList>;
   readonly testEmailNotify: (data: TestEmailNotifyReq) => Promise<void>;
   readonly getNotifyRecord: (id: string) => Promise<NotifyRecordDetailResp>;
@@ -118,6 +128,18 @@ export const notifyService: NotifyService = {
       url: '/api/notify/channel-targets/page',
       data,
     }),
+  createNotifyCategory: (data) =>
+    request<string>({ method: 'POST', url: '/api/notify/categories', data }),
+  updateNotifyCategory: (id, data) =>
+    request<string>({ method: 'PUT', url: `/api/notify/categories/${id}`, data }),
+  deleteNotifyCategory: (id) =>
+    request<void>({ method: 'DELETE', url: `/api/notify/categories/${id}` }),
+  getNotifyCategory: (id) =>
+    request<NotifyCategoryResp>({ method: 'GET', url: `/api/notify/categories/${id}` }),
+  pageNotifyCategories: (data) =>
+    request<NebulaPageResp<NotifyCategoryResp>>({ method: 'POST', url: '/api/notify/categories/page', data }),
+  listNotifyCategories: () =>
+    request<readonly NotifyCategoryResp[]>({ method: 'GET', url: '/api/notify/categories/list' }),
   sendNotify: (data) =>
     request<NotifySendResultList>({ method: 'POST', url: '/api/notify/send', data }),
   testEmailNotify: (data) =>

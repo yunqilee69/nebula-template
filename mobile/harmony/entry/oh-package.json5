@@ -1,0 +1,13 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "RNOH entry 模块",
+  "main": "",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@rnoh/react-native-openharmony": "file:../node_modules/@react-native-oh/react-native-harmony/react_native_openharmony.har",
+    "@react-native-oh-tpl/react-native-safe-area-context": "file:../third/react-native-safe-area-context"
+  }
+}

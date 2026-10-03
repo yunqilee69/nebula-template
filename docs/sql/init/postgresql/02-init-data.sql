@@ -417,6 +417,27 @@ INSERT INTO auth_menu (
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
+    -- 通知类别
+    (
+        '0196dbe0a6f17000a000000000000030',
+        '通知类别',
+        '0196dbe0a6f17000a000000000000020',
+        '/system/notify/category',
+        23,
+        'NOTIFY_CATEGORY',
+        'TagsOutlined',
+        'CategoryManagementPage',
+        'MENU',
+        1,
+        FALSE,
+        NULL,
+        TRUE,
+        TRUE,
+        NULL,
+        'Built-in notify category management menu',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    ),
     -- 权限管理 (二级菜单组)
     (
         '0196dbe0a6f17000a000000000000009',
@@ -760,7 +781,11 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000226', '0196dbe0a6f17000a000000000000027', 'AUTH_ONLINE_USER_KICK_OUT_ALL', '踢出用户全部会话', 'kick-out-all', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000101', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_CREATE', '新增渠道目标', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000102', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_EDIT', '编辑渠道目标', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000103', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_DELETE', '删除渠道目标', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('0196dbe0a6f17000a000000000000103', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_DELETE', '删除渠道目标', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000104', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_CREATE', '新增通知类别', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000105', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_EDIT', '编辑通知类别', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000106', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_DELETE', '删除通知类别', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000107', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_QUERY', '查询通知类别', 'query', 4, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (code) DO UPDATE SET
     menu_id = EXCLUDED.menu_id,
     name = EXCLUDED.name,
@@ -820,8 +845,30 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- ============================================================================
 -- Module: notify
--- Purpose: Seed built-in notification templates
+-- Purpose: Seed built-in notification categories and templates
 -- ============================================================================
+-- 内置通知类别：模板的归类维度，用于按类控制用户是否接收。
+-- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=TRUE 不可删除。
+INSERT INTO sys_notify_category (
+    id, code, name, description, is_mandatory, is_default_enabled, sort, allowed_channels, is_builtin, is_enabled, remark, create_time, update_time
+) VALUES
+    ('019cf114a00070008000000000000046', 'SECURITY', '安全与账号', '登录异常、密码变更等账号安全提醒', TRUE, TRUE, 10, 'SITE,EMAIL,PUSH', TRUE, TRUE, '强制类别：忽略用户偏好，始终放行', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a00070008000000000000047', 'TODO', '待办与审批', '指派给你的待办、审批与流转提醒', FALSE, TRUE, 20, 'SITE,PUSH', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a00070008000000000000048', 'BUSINESS', '业务提醒', '订单、库存等业务状态变化提醒', FALSE, TRUE, 30, 'SITE,PUSH', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a00070008000000000000049', 'ANNOUNCEMENT', '公告通知', '系统公告与运营通知', FALSE, TRUE, 40, 'SITE', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a0007000800000000000004a', 'DEFAULT', '其他通知', '未归类通知的兜底类别', FALSE, TRUE, 90, 'SITE,EMAIL,PUSH', TRUE, TRUE, '未指定类别的模板与临时消息归入此类', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    is_mandatory = EXCLUDED.is_mandatory,
+    is_default_enabled = EXCLUDED.is_default_enabled,
+    sort = EXCLUDED.sort,
+    allowed_channels = EXCLUDED.allowed_channels,
+    is_builtin = EXCLUDED.is_builtin,
+    is_enabled = EXCLUDED.is_enabled,
+    remark = EXCLUDED.remark,
+    update_time = EXCLUDED.update_time;
+
 INSERT INTO sys_notify_template (
     id, template_code, template_name, remark, create_time, update_time
 ) VALUES (

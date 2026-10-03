@@ -47,4 +47,11 @@ export const common: NebulaCommonMessages = {
     userAgent: 'Raw User-Agent',
   },
   notProvided: 'Not provided',
+  iconPicker: {
+    title: 'Choose Icon',
+    searchPlaceholder: 'Search icon name, e.g. user, setting',
+    empty: 'No matching icons',
+    inputPlaceholder: 'Enter icon',
+    triggerAriaLabel: 'Pick icon',
+  },
 };

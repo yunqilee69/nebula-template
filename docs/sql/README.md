@@ -36,11 +36,23 @@ docs/sql/
 
 ```bash
 # MySQL：按文件名顺序导入 init/mysql/ 下全部脚本
-for f in docs/sql/init/mysql/*.sql; do mysql -u root -p nebula < "$f"; done
+for f in docs/sql/init/mysql/*.sql; do mysql --default-character-set=utf8mb4 -u root -p nebula < "$f"; done
 
 # PostgreSQL：按文件名顺序导入 init/postgresql/ 下全部脚本
 for f in docs/sql/init/postgresql/*.sql; do psql -d nebula -f "$f"; done
 ```
+
+> **字符集：导入中文时最容易踩的坑。** 脚本文件本身是 UTF-8，但写入是否乱码取决于**导入时的会话字符集**。若客户端以 `latin1`（cp1252）连接——命令行客户端的默认字符集可能跟随系统 locale，部分 GUI 客户端的「文件编码」默认也不是 UTF-8——中文菜单、字典、参数名会被双重编码成 `å…¶ä»–é€šçŸ¥` 这类乱码，且**不报任何错**。
+>
+> - MySQL 命令行显式加 `--default-character-set=utf8mb4`（见上面的导入命令）；
+> - PostgreSQL 侧确认 `client_encoding` 为 `UTF8`（`psql` 内可用 `\encoding UTF8`）；
+> - 用 GUI 客户端导入 `.sql` 文件时，把文件编码显式设为 UTF-8。
+>
+> 导入后建议复核一句，期望返回 `登录日志` 与 `通知类别`：
+>
+> ```sql
+> SELECT code, name FROM auth_menu WHERE code IN ('system-monitor-login-log', 'NOTIFY_CATEGORY');
+> ```
 
 版本升级**不要**重复执行 `init/` 下的脚本——那是给全新环境用的。
 
@@ -92,10 +104,15 @@ git mv docs/sql/unreleased docs/sql/X.Y.Z
 
 ## 当前状态
 
-当前版本为 `0.2.1`。
+当前版本为 `0.2.2`。
 
 - `0.2.1/`：升级到 `0.2.1` 所需的增量脚本（`auth_login_record` 端类型列；移除失效的 `spring.servlet.multipart.*` 参数、新增 `storage.upload.*` 上传策略参数）；版本低于 `0.2.1` 的环境执行本目录脚本即可对齐。
-- `unreleased/`：尚未发版的增量脚本（新增微信登录提供商开关参数 `login.oauth2.provider.wechat.enabled`，默认关闭；该开关覆盖网站应用扫码与小程序两个渠道）；发版时整体更名为新版本号。
+- `0.2.2/`：升级到 `0.2.2` 所需的增量脚本（新增微信登录提供商开关参数 `login.oauth2.provider.wechat.enabled`，默认关闭；该开关覆盖网站应用扫码与小程序两个渠道）。
+- `unreleased/`：尚未发版的增量脚本，发版时整体更名为新版本号：
+  - `01-notify-category-preference.sql`：通知类别可管理化与订阅偏好（新增 `sys_notify_category` 并写入 5 条内置类别、`category_code` 列、用户偏好表；**删除**免打扰表 `sys_notify_user_setting`；新增「通知类别」菜单与按钮权限）；
+  - `02-app-release.sql`：应用版本发布记录表 `frontend_app_release`；
+  - `03-notify-push-device.sql`：移动推送设备注册表与逐设备投递明细表；
+  - `04-storage-file-variant.sql`：存储派生版本表 `storage_file_variant`。
 
 `0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
 

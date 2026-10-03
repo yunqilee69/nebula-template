@@ -55,6 +55,13 @@ export interface NebulaCommonMessages {
     userAgent: string;
   };
   notProvided: string;
+  iconPicker: {
+    title: string;
+    searchPlaceholder: string;
+    empty: string;
+    inputPlaceholder: string;
+    triggerAriaLabel: string;
+  };
 }
 
 export interface NebulaTabContextMenuMessages {
@@ -527,6 +534,30 @@ export interface NebulaProfileInfoMessages {
     password: string;
     oauth2: string;
     loginRecords: string;
+    notifyPreference: string;
+  };
+  notifyPreference: {
+    description: string;
+    mandatoryTag: string;
+    channel: {
+      site: string;
+      email: string;
+      push: string;
+    };
+    actions: {
+      save: string;
+      reset: string;
+      resetConfirmTitle: string;
+      resetConfirmContent: string;
+    };
+    empty: string;
+    feedback: {
+      loadFailed: string;
+      saveSuccess: string;
+      saveFailed: string;
+      resetSuccess: string;
+      resetFailed: string;
+    };
   };
   actions: {
     save: string;

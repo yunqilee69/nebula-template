@@ -258,6 +258,24 @@ CREATE TABLE IF NOT EXISTS frontend_user_preference (
     UNIQUE KEY uk_frontend_preference_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='前端用户偏好表';
 
+CREATE TABLE IF NOT EXISTS frontend_app_release (
+    id CHAR(32) NOT NULL,
+    platform VARCHAR(16) NOT NULL COMMENT '平台：IOS/ANDROID/OHOS/H5',
+    channel VARCHAR(32) NOT NULL COMMENT '分发渠道，如 APP_STORE/HUAWEI/APP_GALLERY/INTERNAL/WEB；客户端未传时取平台默认渠道',
+    version_code INT NOT NULL COMMENT '整数构建号，比较用；不要用字符串版本号比较',
+    version_name VARCHAR(64) NOT NULL COMMENT '展示用版本号，如 1.4.1',
+    min_supported_version_code INT DEFAULT NULL COMMENT '最低可接受构建号，低于此值的客户端必须强制升级',
+    download_url VARCHAR(1000) DEFAULT NULL COMMENT '下载地址；声明了最低支持版本时必须提供',
+    release_notes VARCHAR(2000) DEFAULT NULL COMMENT '更新说明',
+    release_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '发布状态：DRAFT/PUBLISHED/WITHDRAWN，仅 PUBLISHED 参与"最新版本"计算',
+    published_at DATETIME DEFAULT NULL COMMENT '发布时间',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_app_release (platform, channel, version_code),
+    KEY idx_app_release_latest (platform, channel, release_status, version_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='应用版本发布记录表';
+
 -- ============================================================================
 -- Module: notify
 -- Source: notify/01-notify-schema-mysql.sql
@@ -267,10 +285,12 @@ CREATE TABLE IF NOT EXISTS sys_notify_template (
     template_code VARCHAR(100) NOT NULL COMMENT '模板编码',
     template_name VARCHAR(100) NOT NULL COMMENT '模板名称',
     remark VARCHAR(500) COMMENT '备注',
+    category_code VARCHAR(32) DEFAULT NULL COMMENT '通知类别 code：SECURITY/TODO/BUSINESS/ANNOUNCEMENT/DEFAULT，空值归入 DEFAULT',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_notify_template_code (template_code)
+    UNIQUE KEY uk_notify_template_code (template_code),
+    KEY idx_notify_template_category (category_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知模板表';
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_field (
@@ -325,10 +345,11 @@ CREATE TABLE IF NOT EXISTS sys_notify_record (
     template_variant_id VARCHAR(64) COMMENT '模板渠道变体ID',
     target_id VARCHAR(64) COMMENT '渠道目标ID',
     receiver_user_id VARCHAR(64) COMMENT '接收用户ID',
+    category_code VARCHAR(32) DEFAULT NULL COMMENT '通知类别 code，历史记录为空',
     subject_text VARCHAR(255) COMMENT '标题文本',
     content_text TEXT NOT NULL COMMENT '内容文本',
     receiver VARCHAR(255) NOT NULL COMMENT '接收人',
-    send_status VARCHAR(20) COMMENT '发送状态',
+    send_status VARCHAR(20) COMMENT '发送状态：SUCCESS/FAILED/SUPPRESSED（SUPPRESSED=被用户偏好抑制未投递）',
     fail_reason VARCHAR(500) COMMENT '失败原因',
     send_time DATETIME COMMENT '发送时间',
     ext_json TEXT COMMENT '扩展信息',
@@ -344,6 +365,26 @@ CREATE TABLE IF NOT EXISTS sys_notify_record (
     KEY idx_notify_record_receiver (receiver),
     KEY idx_notify_record_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知发送记录表';
+
+-- 通知类别：模板的归类维度，用于按类控制用户是否接收（消息设置页的开关分组）。
+-- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=1 的内置类别不可删除。
+CREATE TABLE IF NOT EXISTS sys_notify_category (
+    id VARCHAR(64) NOT NULL,
+    code VARCHAR(32) NOT NULL COMMENT '类别编码，唯一且创建后不可修改',
+    name VARCHAR(50) NOT NULL COMMENT '类别名称',
+    description VARCHAR(200) DEFAULT NULL COMMENT '类别说明，用于设置页展示',
+    is_mandatory TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否强制类别：忽略用户偏好，始终放行',
+    is_default_enabled TINYINT(1) NOT NULL DEFAULT 1 COMMENT '用户无偏好记录时的默认开关',
+    sort INT NOT NULL DEFAULT 100 COMMENT '设置页排序号，值越小越靠前',
+    allowed_channels VARCHAR(255) NOT NULL COMMENT '允许使用的渠道，逗号分隔，如 SITE,PUSH',
+    is_builtin TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否内置类别：不可删、编码不可改',
+    is_enabled TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用；停用后不出现在设置页、不可被新模板选中',
+    remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_notify_category_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知类别表';
 
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) NOT NULL,
@@ -407,6 +448,65 @@ CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
     KEY idx_announcement_read_user (user_id),
     KEY idx_announcement_read_time (read_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告已读记录表';
+
+CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
+    id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
+    category_code VARCHAR(32) NOT NULL COMMENT '通知类别 code',
+    channel VARCHAR(32) NOT NULL COMMENT '渠道：SITE/EMAIL/PUSH',
+    is_enabled TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否接收',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_notify_user_preference (user_id, category_code, channel),
+    KEY idx_notify_user_preference_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户通知订阅偏好表';
+
+-- 移动推送设备注册表。
+-- device_id 全局唯一：一台设备同时只归属一个用户；换人登录同一台设备走**重归属**而不是新增行，
+-- 否则已登出的用户仍会收到该设备的推送（串号泄露）。
+-- push_token 是可定位到设备的个人数据：注销时清空，日志中不得完整打印。
+CREATE TABLE IF NOT EXISTS sys_notify_push_device (
+    id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL COMMENT '所属用户ID，来自登录态，不接受客户端传入',
+    device_id VARCHAR(128) NOT NULL COMMENT '客户端生成的稳定设备标识，全局唯一',
+    platform VARCHAR(16) NOT NULL COMMENT '平台：IOS/ANDROID/OHOS',
+    vendor VARCHAR(32) NOT NULL COMMENT '推送厂商通道：APNS/HMS/XIAOMI/OPPO/VIVO/HONOR/AGGREGATOR',
+    push_token VARCHAR(512) DEFAULT NULL COMMENT '厂商推送token，个人数据；注销时清空',
+    is_notification_enabled TINYINT(1) NOT NULL DEFAULT 0 COMMENT '用户是否已授予通知权限；拒绝授权也注册并置0',
+    device_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '设备状态：ACTIVE/INVALID/UNREGISTERED，仅 ACTIVE 参与扇出',
+    app_version VARCHAR(64) DEFAULT NULL COMMENT '客户端版本号',
+    app_build INT DEFAULT NULL COMMENT '客户端构建号',
+    os_version VARCHAR(64) DEFAULT NULL COMMENT '系统版本',
+    device_model VARCHAR(128) DEFAULT NULL COMMENT '设备型号',
+    last_active_time DATETIME DEFAULT NULL COMMENT '最后活跃时间，用于老化清理失效设备（卸载不会调用注销）',
+    invalid_reason VARCHAR(255) DEFAULT NULL COMMENT '失效原因，由厂商反馈回填',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_notify_push_device (device_id),
+    KEY idx_notify_push_device_user_status (user_id, device_status),
+    KEY idx_notify_push_device_token (push_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='移动推送设备注册表';
+
+-- 逐设备推送投递明细。一次 PUSH 发送会扇出到多台设备，sys_notify_record 上只有一个汇总答案，
+-- 排障要能回答"是哪台设备、哪个厂商、什么原因失败的"。刻意不落 push_token。
+CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
+    id VARCHAR(64) NOT NULL,
+    record_id VARCHAR(64) NOT NULL COMMENT '关联 sys_notify_record.id（channel_type=PUSH）',
+    device_id VARCHAR(128) NOT NULL COMMENT '设备标识',
+    user_id VARCHAR(64) DEFAULT NULL COMMENT '设备所属用户ID',
+    vendor VARCHAR(32) DEFAULT NULL COMMENT '推送厂商通道',
+    send_status VARCHAR(20) NOT NULL COMMENT '投递结果：SUCCESS/FAILED/SUPPRESSED',
+    fail_reason VARCHAR(500) DEFAULT NULL COMMENT '失败或跳过原因（见 NotifyPushReasons）',
+    message_id VARCHAR(128) DEFAULT NULL COMMENT '厂商返回的消息ID，用于排障对账',
+    send_time DATETIME DEFAULT NULL COMMENT '投递时间；未实际投递（跳过）时为空',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    KEY idx_notify_push_detail_record (record_id),
+    KEY idx_notify_push_detail_device (device_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='逐设备推送投递明细表';
 
 -- ============================================================================
 -- Module: param
@@ -668,5 +768,21 @@ CREATE TABLE IF NOT EXISTS storage_content (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (storage_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数据库文件内容表';
+
+CREATE TABLE IF NOT EXISTS storage_file_variant (
+    id CHAR(32) NOT NULL,
+    file_id CHAR(32) NOT NULL COMMENT '源文件ID',
+    variant VARCHAR(50) NOT NULL COMMENT '派生标识，如 thumb',
+    content_key VARCHAR(500) NOT NULL COMMENT '派生内容存储Key',
+    width INT DEFAULT NULL COMMENT '宽（图片类）',
+    height INT DEFAULT NULL COMMENT '高（图片类）',
+    file_size BIGINT DEFAULT NULL COMMENT '字节数',
+    file_hash VARCHAR(64) DEFAULT NULL COMMENT '内容哈希',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_file_variant (file_id, variant),
+    KEY idx_file_variant_hash (file_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件派生版本表';
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -445,6 +445,38 @@ COMMENT ON COLUMN frontend_user_preference.sidebar_layout_code IS '预设侧边�
 COMMENT ON COLUMN frontend_user_preference.create_time IS '创建时间';
 COMMENT ON COLUMN frontend_user_preference.update_time IS '更新时间';
 
+CREATE TABLE IF NOT EXISTS frontend_app_release (
+    id CHAR(32) PRIMARY KEY,
+    platform VARCHAR(16) NOT NULL,
+    channel VARCHAR(32) NOT NULL,
+    version_code INT NOT NULL,
+    version_name VARCHAR(64) NOT NULL,
+    min_supported_version_code INT,
+    download_url VARCHAR(1000),
+    release_notes VARCHAR(2000),
+    release_status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
+    published_at TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_app_release ON frontend_app_release (platform, channel, version_code);
+CREATE INDEX IF NOT EXISTS idx_app_release_latest ON frontend_app_release (platform, channel, release_status, version_code);
+
+COMMENT ON TABLE frontend_app_release IS '应用版本发布记录表';
+COMMENT ON COLUMN frontend_app_release.id IS '主键，UUID';
+COMMENT ON COLUMN frontend_app_release.platform IS '平台：IOS/ANDROID/OHOS/H5';
+COMMENT ON COLUMN frontend_app_release.channel IS '分发渠道；客户端未传时取平台默认渠道';
+COMMENT ON COLUMN frontend_app_release.version_code IS '整数构建号，比较用；不要用字符串版本号比较';
+COMMENT ON COLUMN frontend_app_release.version_name IS '展示用版本号，如 1.4.1';
+COMMENT ON COLUMN frontend_app_release.min_supported_version_code IS '最低可接受构建号，低于此值的客户端必须强制升级';
+COMMENT ON COLUMN frontend_app_release.download_url IS '下载地址；声明了最低支持版本时必须提供';
+COMMENT ON COLUMN frontend_app_release.release_notes IS '更新说明';
+COMMENT ON COLUMN frontend_app_release.release_status IS '发布状态：DRAFT/PUBLISHED/WITHDRAWN，仅 PUBLISHED 参与"最新版本"计算';
+COMMENT ON COLUMN frontend_app_release.published_at IS '发布时间';
+COMMENT ON COLUMN frontend_app_release.create_time IS '创建时间';
+COMMENT ON COLUMN frontend_app_release.update_time IS '更新时间';
+
 -- ============================================================================
 -- Module: notify
 -- Source: notify/01-notify-schema-mysql.sql
@@ -454,17 +486,20 @@ CREATE TABLE IF NOT EXISTS sys_notify_template (
     template_code VARCHAR(100) NOT NULL,
     template_name VARCHAR(100) NOT NULL,
     remark VARCHAR(500),
+    category_code VARCHAR(32),
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_template_code ON sys_notify_template (template_code);
+CREATE INDEX IF NOT EXISTS idx_notify_template_category ON sys_notify_template (category_code);
 
 COMMENT ON TABLE sys_notify_template IS '通知模板表';
 COMMENT ON COLUMN sys_notify_template.id IS '主键';
 COMMENT ON COLUMN sys_notify_template.template_code IS '模板编码';
 COMMENT ON COLUMN sys_notify_template.template_name IS '模板名称';
 COMMENT ON COLUMN sys_notify_template.remark IS '备注';
+COMMENT ON COLUMN sys_notify_template.category_code IS '通知类别 code：SECURITY/TODO/BUSINESS/ANNOUNCEMENT/DEFAULT，空值归入 DEFAULT';
 COMMENT ON COLUMN sys_notify_template.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_template.update_time IS '更新时间';
 
@@ -553,6 +588,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_record (
     template_variant_id VARCHAR(64),
     target_id VARCHAR(64),
     receiver_user_id VARCHAR(64),
+    category_code VARCHAR(32),
     subject_text VARCHAR(255),
     content_text TEXT NOT NULL,
     receiver VARCHAR(255) NOT NULL,
@@ -580,15 +616,51 @@ COMMENT ON COLUMN sys_notify_record.template_code IS '模板编码';
 COMMENT ON COLUMN sys_notify_record.template_variant_id IS '模板渠道变体ID';
 COMMENT ON COLUMN sys_notify_record.target_id IS '渠道目标ID';
 COMMENT ON COLUMN sys_notify_record.receiver_user_id IS '接收用户ID';
+COMMENT ON COLUMN sys_notify_record.category_code IS '通知类别 code，历史记录为空';
 COMMENT ON COLUMN sys_notify_record.subject_text IS '标题文本';
 COMMENT ON COLUMN sys_notify_record.content_text IS '内容文本';
 COMMENT ON COLUMN sys_notify_record.receiver IS '接收人';
-COMMENT ON COLUMN sys_notify_record.send_status IS '发送状态';
+COMMENT ON COLUMN sys_notify_record.send_status IS '发送状态：SUCCESS/FAILED/SUPPRESSED（SUPPRESSED=被用户偏好抑制未投递）';
 COMMENT ON COLUMN sys_notify_record.fail_reason IS '失败原因';
 COMMENT ON COLUMN sys_notify_record.send_time IS '发送时间';
 COMMENT ON COLUMN sys_notify_record.ext_json IS '扩展信息';
 COMMENT ON COLUMN sys_notify_record.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_record.update_time IS '更新时间';
+
+-- 通知类别：模板的归类维度，用于按类控制用户是否接收（消息设置页的开关分组）。
+-- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=TRUE 的内置类别不可删除。
+CREATE TABLE IF NOT EXISTS sys_notify_category (
+    id VARCHAR(64) PRIMARY KEY,
+    code VARCHAR(32) NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    description VARCHAR(200),
+    is_mandatory BOOLEAN NOT NULL DEFAULT FALSE,
+    is_default_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    sort INT NOT NULL DEFAULT 100,
+    allowed_channels VARCHAR(255) NOT NULL,
+    is_builtin BOOLEAN NOT NULL DEFAULT FALSE,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    remark VARCHAR(500),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_category_code ON sys_notify_category (code);
+
+COMMENT ON TABLE sys_notify_category IS '通知类别表';
+COMMENT ON COLUMN sys_notify_category.id IS '主键';
+COMMENT ON COLUMN sys_notify_category.code IS '类别编码，唯一且创建后不可修改';
+COMMENT ON COLUMN sys_notify_category.name IS '类别名称';
+COMMENT ON COLUMN sys_notify_category.description IS '类别说明，用于设置页展示';
+COMMENT ON COLUMN sys_notify_category.is_mandatory IS '是否强制类别：忽略用户偏好，始终放行';
+COMMENT ON COLUMN sys_notify_category.is_default_enabled IS '用户无偏好记录时的默认开关';
+COMMENT ON COLUMN sys_notify_category.sort IS '设置页排序号，值越小越靠前';
+COMMENT ON COLUMN sys_notify_category.allowed_channels IS '允许使用的渠道，逗号分隔，如 SITE,PUSH';
+COMMENT ON COLUMN sys_notify_category.is_builtin IS '是否内置类别：不可删、编码不可改';
+COMMENT ON COLUMN sys_notify_category.is_enabled IS '是否启用；停用后不出现在设置页、不可被新模板选中';
+COMMENT ON COLUMN sys_notify_category.remark IS '备注';
+COMMENT ON COLUMN sys_notify_category.create_time IS '创建时间';
+COMMENT ON COLUMN sys_notify_category.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) PRIMARY KEY,
@@ -693,6 +765,93 @@ COMMENT ON COLUMN sys_announcement_read_record.user_id IS '用户ID';
 COMMENT ON COLUMN sys_announcement_read_record.read_time IS '已读时间';
 COMMENT ON COLUMN sys_announcement_read_record.create_time IS '创建时间';
 COMMENT ON COLUMN sys_announcement_read_record.update_time IS '更新时间';
+
+CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    category_code VARCHAR(32) NOT NULL,
+    channel VARCHAR(32) NOT NULL,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_user_preference ON sys_notify_user_preference (user_id, category_code, channel);
+CREATE INDEX IF NOT EXISTS idx_notify_user_preference_user ON sys_notify_user_preference (user_id);
+
+COMMENT ON TABLE sys_notify_user_preference IS '用户通知订阅偏好表';
+COMMENT ON COLUMN sys_notify_user_preference.id IS '主键';
+COMMENT ON COLUMN sys_notify_user_preference.user_id IS '用户ID';
+COMMENT ON COLUMN sys_notify_user_preference.category_code IS '通知类别 code';
+COMMENT ON COLUMN sys_notify_user_preference.channel IS '渠道：SITE/EMAIL/PUSH';
+COMMENT ON COLUMN sys_notify_user_preference.is_enabled IS '是否接收';
+COMMENT ON COLUMN sys_notify_user_preference.create_time IS '创建时间';
+COMMENT ON COLUMN sys_notify_user_preference.update_time IS '更新时间';
+
+-- 移动推送设备注册表。
+-- device_id 全局唯一：一台设备同时只归属一个用户；换人登录同一台设备走**重归属**而不是新增行，
+-- 否则已登出的用户仍会收到该设备的推送（串号泄露）。
+-- push_token 是可定位到设备的个人数据：注销时清空，日志中不得完整打印。
+CREATE TABLE IF NOT EXISTS sys_notify_push_device (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    device_id VARCHAR(128) NOT NULL,
+    platform VARCHAR(16) NOT NULL,
+    vendor VARCHAR(32) NOT NULL,
+    push_token VARCHAR(512),
+    is_notification_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    device_status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+    app_version VARCHAR(64),
+    app_build INT,
+    os_version VARCHAR(64),
+    device_model VARCHAR(128),
+    last_active_time TIMESTAMP,
+    invalid_reason VARCHAR(255),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_push_device ON sys_notify_push_device (device_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_device_user_status ON sys_notify_push_device (user_id, device_status);
+CREATE INDEX IF NOT EXISTS idx_notify_push_device_token ON sys_notify_push_device (push_token);
+
+COMMENT ON TABLE sys_notify_push_device IS '移动推送设备注册表';
+COMMENT ON COLUMN sys_notify_push_device.user_id IS '所属用户ID，来自登录态，不接受客户端传入';
+COMMENT ON COLUMN sys_notify_push_device.device_id IS '客户端生成的稳定设备标识，全局唯一';
+COMMENT ON COLUMN sys_notify_push_device.platform IS '平台：IOS/ANDROID/OHOS';
+COMMENT ON COLUMN sys_notify_push_device.vendor IS '推送厂商通道：APNS/HMS/XIAOMI/OPPO/VIVO/HONOR/AGGREGATOR';
+COMMENT ON COLUMN sys_notify_push_device.push_token IS '厂商推送token，个人数据；注销时清空';
+COMMENT ON COLUMN sys_notify_push_device.is_notification_enabled IS '用户是否已授予通知权限；拒绝授权也注册并置false';
+COMMENT ON COLUMN sys_notify_push_device.device_status IS '设备状态：ACTIVE/INVALID/UNREGISTERED，仅 ACTIVE 参与扇出';
+COMMENT ON COLUMN sys_notify_push_device.last_active_time IS '最后活跃时间，用于老化清理失效设备（卸载不会调用注销）';
+COMMENT ON COLUMN sys_notify_push_device.invalid_reason IS '失效原因，由厂商反馈回填';
+
+-- 逐设备推送投递明细。一次 PUSH 发送会扇出到多台设备，sys_notify_record 上只有一个汇总答案，
+-- 排障要能回答"是哪台设备、哪个厂商、什么原因失败的"。刻意不落 push_token。
+CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
+    id VARCHAR(64) PRIMARY KEY,
+    record_id VARCHAR(64) NOT NULL,
+    device_id VARCHAR(128) NOT NULL,
+    user_id VARCHAR(64),
+    vendor VARCHAR(32),
+    send_status VARCHAR(20) NOT NULL,
+    fail_reason VARCHAR(500),
+    message_id VARCHAR(128),
+    send_time TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notify_push_detail_record ON sys_notify_push_record_detail (record_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_detail_device ON sys_notify_push_record_detail (device_id);
+
+COMMENT ON TABLE sys_notify_push_record_detail IS '逐设备推送投递明细表';
+COMMENT ON COLUMN sys_notify_push_record_detail.record_id IS '关联 sys_notify_record.id（channel_type=PUSH）';
+COMMENT ON COLUMN sys_notify_push_record_detail.device_id IS '设备标识';
+COMMENT ON COLUMN sys_notify_push_record_detail.send_status IS '投递结果：SUCCESS/FAILED/SUPPRESSED';
+COMMENT ON COLUMN sys_notify_push_record_detail.fail_reason IS '失败或跳过原因（见 NotifyPushReasons）';
+COMMENT ON COLUMN sys_notify_push_record_detail.message_id IS '厂商返回的消息ID，用于排障对账';
+COMMENT ON COLUMN sys_notify_push_record_detail.send_time IS '投递时间；未实际投递（跳过）时为空';
 
 -- ============================================================================
 -- Module: param
@@ -1087,3 +1246,31 @@ COMMENT ON COLUMN storage_content.storage_key IS '存储Key';
 COMMENT ON COLUMN storage_content.content IS '文件内容';
 COMMENT ON COLUMN storage_content.create_time IS '创建时间';
 COMMENT ON COLUMN storage_content.update_time IS '更新时间';
+
+CREATE TABLE IF NOT EXISTS storage_file_variant (
+    id CHAR(32) PRIMARY KEY,
+    file_id CHAR(32) NOT NULL,
+    variant VARCHAR(50) NOT NULL,
+    content_key VARCHAR(500) NOT NULL,
+    width INT,
+    height INT,
+    file_size BIGINT,
+    file_hash VARCHAR(64),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_file_variant ON storage_file_variant (file_id, variant);
+CREATE INDEX IF NOT EXISTS idx_file_variant_hash ON storage_file_variant (file_hash);
+
+COMMENT ON TABLE storage_file_variant IS '文件派生版本表';
+COMMENT ON COLUMN storage_file_variant.id IS '主键，UUID';
+COMMENT ON COLUMN storage_file_variant.file_id IS '源文件ID';
+COMMENT ON COLUMN storage_file_variant.variant IS '派生标识，如 thumb';
+COMMENT ON COLUMN storage_file_variant.content_key IS '派生内容存储Key';
+COMMENT ON COLUMN storage_file_variant.width IS '宽（图片类）';
+COMMENT ON COLUMN storage_file_variant.height IS '高（图片类）';
+COMMENT ON COLUMN storage_file_variant.file_size IS '字节数';
+COMMENT ON COLUMN storage_file_variant.file_hash IS '内容哈希';
+COMMENT ON COLUMN storage_file_variant.create_time IS '创建时间';
+COMMENT ON COLUMN storage_file_variant.update_time IS '更新时间';

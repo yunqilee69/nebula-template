@@ -1,0 +1,7 @@
+# 依赖与构建产物：不提交，也不进模板仓同步（工作流已排除 node_modules，这里双保险）
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.npm/

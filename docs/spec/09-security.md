@@ -535,6 +535,55 @@ if (permissions.contains("MENU:user-management:Allow")) {
 }
 ```
 
+#### 2.3.3 客户端接口面准入（client scope）
+
+按钮权限回答「这个操作需要什么权限」，但它**只对加了注解的方法生效**（见 §2.3.1 与 `ButtonPermissionChecker`）。
+客户端作用域补的是另一层：**这一整类客户端能到哪**，粗粒度、默认拒绝、不依赖逐接口维护。
+
+判定入口是 `ClientScopeInterceptor`（`/api/**`），顺序固定为：作用域 → 按钮权限。顺序不可调换——
+作用域更粗且默认拒绝，先判才能让被拦的请求报出正确的原因（`18003` 而不是 `18002`）。
+
+**两条独立要求，新增接口时都要满足，缺一条接口就不可达或挡不住**：
+
+1. 新增**写/管理**接口必须带 `@NebulaPermission`（用该模块的 `*ButtonCodes` 常量，风格见
+   `AuthButtonCodes`），否则任何已登录账号都能调——这是 §6.3 的禁止项。
+2. 新增**面向受限客户端**的接口必须同步该作用域的 `allow` 白名单，否则默认不可达（表现为 `18003`）。
+   白名单是配置、不是注解——不登记就等于不开放，这是有意的。
+
+**面向当前用户的接口不加权限码**：`/announcements/current/**`、`/site-messages/**`、`/profile*`、
+`/frontend/preferences/**` 等靠登录态与 `userId` 过滤，加了权限码反而会让普通用户看不到自己的消息。
+各模块的 `*ButtonPermissionCoverageTest` 用反向断言守住这条边界：任何映射端点必须带码，
+或显式登记在"有意免权限"白名单并说明理由。
+
+**失败取态（两种情形相反，禁止互相套用）**：
+
+| 情形 | 取态 | 理由 |
+|---|---|---|
+| Resolver 抛异常 / 拦截器内部异常 | **拒绝**（fail-closed） | 安全边界出问题时宁可挡住 |
+| Resolver 返回的作用域未在配置中声明 | 按 `default-scope` 处理并记 WARN | 这是配置缺失而非安全未知；按拒绝处理会让一次漏配导致整类客户端不可用 |
+
+**默认不改变现有行为**：`default-scope` 默认 `INTERNAL`（不限制），框架默认
+`DefaultClientScopeResolver` 恒返回它。只有业务侧显式提供 `IClientScopeResolver` 把某类账号判为
+受限作用域之后才开始拦截。业务实现**必须**显式声明 `@Order` 且小于 `Ordered.LOWEST_PRECEDENCE`，
+否则与默认实现同级、判定顺序不确定，启动期直接失败（`18004`）。
+
+**灰度**：`nebula.auth.client-scope.dry-run=true` 时命中拒绝规则只记 WARN 日志、仍放行。
+生产建议先 dry-run 观察，确认无误拦再切拒绝。
+
+```yaml
+nebula:
+  auth:
+    client-scope:
+      enabled: true
+      dry-run: false
+      default-scope: INTERNAL
+      scopes:
+        CUSTOMER:
+          allow:
+            - /api/client/**
+            - /api/frontend/init
+```
+
 ---
 
 ### 2.4 权限变更同步
@@ -751,6 +800,7 @@ public SecurityFilterChain protectedSecurityFilterChain(HttpSecurity http,
 | `/api/auth/refresh` | Token 刷新 |
 | `/api/auth/wechat/*` | 微信 OAuth2 相关接口 |
 | `/api/frontend/init` | 前端初始化 |
+| `/api/frontend/app-release/check` | 客户端版本检查（升级提示须早于登录才能生效，含强制升级的阻断） |
 | `/api/storage/download-signed` | 签名下载 |
 | `/v3/api-docs/*` | OpenAPI 文档 |
 | `/swagger-ui/*` | Swagger UI |
@@ -904,11 +954,14 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 
 ### 6.3 权限校验禁止
 
-- ❌ 接口无权限注解（应使用 `@PreAuthorize`）
+- ❌ 接口无权限校验（写/管理接口应使用 `@NebulaPermission`，框架预置的角色/权限组合校验用 `@PreAuthorize`；匿名接口必须登记在 `AuthProperties` 固定放行名单）
 - ❌ 业务逻辑硬编码角色判断
 - ❌ 权限变更未同步用户时间戳
 - ❌ 使用硬编码字符串校验权限（应使用常量）
 - ❌ 超级管理员判断未使用 `FULL_PERMISSION_CODE`
+- ❌ 新增写/管理接口不加 `@NebulaPermission`（受限客户端与低权限内部用户都挡不住）
+- ❌ 新增面向受限客户端的接口未同步该作用域的 `allow` 白名单（接口默认不可达，表现为 `18003`）
+- ❌ 调整作用域与按钮权限的判定顺序（作用域必须先判，见 §2.3.3）
 
 ### 6.4 OAuth2 安全禁止
 
@@ -923,6 +976,17 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 - ❌ 登录失败未记录失败次数
 - ❌ 登录成功未清除失败记录
 - ❌ 账号锁定未配置时长
+
+### 6.6 移动推送与设备安全禁止
+
+- ❌ 移动推送凭据（APNs 私钥、HMS / 厂商 AppSecret、聚合通道密钥）写入配置库或仓库（只走环境变量）
+- ❌ 在日志中打印完整的推送 token（`pushToken` 可定位到具体设备，属个人数据；排障用 `deviceId`）
+- ❌ 推送正文或标题携带敏感业务数据（金额、身份信息、完整单据明细）——通知栏在锁屏上可见
+- ❌ 推送扇出不按 `userId` 过滤设备（跨用户投递即串号泄露）
+- ❌ 设备归属取自请求体（只能取自登录态；否则任何登录用户都能改他人设备）
+- ❌ 用户注销设备后保留 `pushToken`（无正当用途，只扩大个人数据泄露面）
+- ❌ 把"服务端配置事故"当作"token 失效"回收设备（如 topic 配错、自身 JWT 过期；会一次刷空设备表）
+- ❌ 推送投递失败向上抛出并回滚业务事务（推送是提醒而非业务载体）
 
 ---
 
@@ -952,6 +1016,8 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 | `hasRole('ADMIN')` | `@PreAuthorize("hasRole('ADMIN')")` | 角色校验 |
 | `hasAuthority('code')` | `@PreAuthorize("hasAuthority('MENU:user:Allow')")` | 权限编码校验 |
 | `hasRole('ADMIN') or hasAuthority('*:*:*')` | 组合校验 | 管理接口 |
+| `@NebulaPermission(ButtonCodes.X)` | `@NebulaPermission(NotifyButtonCodes.NOTIFY_SEND)` | 框架模块写/管理接口（细粒度按钮权限） |
+| 客户端作用域 | `nebula.auth.client-scope.scopes.<SCOPE>.allow` | 受限客户端的粗粒度接口面（默认拒绝，§2.3.3） |
 
 ### 7.4 登录安全配置速查
 

@@ -129,7 +129,7 @@ export const TAB_CONFIGS: ConfigTab[] = [
           { field: 'notifyEmailSmtpPort', paramKey: 'notify.email.smtp-port', paramName: 'SMTP端口', description: '邮件SMTP端口，常见为 465 或 587', dataType: DataType.INT },
           { field: 'notifyEmailSecurity', paramKey: 'notify.email.security', paramName: 'SMTP加密方式', description: '支持 NONE、STARTTLS、SSL', dataType: DataType.STRING, optionCode: 'notify_email_security' },
           { field: 'notifyEmailUsername', paramKey: 'notify.email.username', paramName: '邮箱账号', description: 'SMTP登录账号，同时作为邮件发件人', dataType: DataType.STRING },
-          { field: 'notifyEmailPassword', paramKey: 'notify.email.password', paramName: '邮箱密码', description: 'SMTP登录密码或邮箱授权码', dataType: DataType.STRING, optionCode: 'password' },
+          { field: 'notifyEmailPassword', paramKey: 'notify.email.password', paramName: '邮箱密码', description: 'SMTP登录密码或邮箱授权码，留空表示不修改', dataType: DataType.STRING, optionCode: 'password' },
         ],
       },
     ],

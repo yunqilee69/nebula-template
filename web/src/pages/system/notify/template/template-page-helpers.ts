@@ -58,6 +58,7 @@ export type NotifyTemplateService = Pick<
   | 'updateNotifyTemplate'
   | 'deleteNotifyTemplate'
   | 'pageNotifyChannelTargets'
+  | 'listNotifyCategories'
   | 'sendNotify'
 >;
 
@@ -71,6 +72,7 @@ export interface NotifyTemplateFormValues {
   readonly templateCode: string;
   readonly templateName: string;
   readonly remark?: string;
+  readonly categoryCode?: string;
   readonly fields?: readonly NotifyTemplateFieldReq[];
   readonly variants: readonly UpdateNotifyTemplateVariantReq[];
 }
@@ -164,15 +166,18 @@ export function toNotifyTemplateFormValues(
     fields: detail.fields ?? [],
     variants: detail.variants ?? [],
     ...(detail.remark ? { remark: detail.remark } : {}),
+    ...(detail.categoryCode ? { categoryCode: detail.categoryCode } : {}),
   };
 }
 
 function optionalTemplateFields(
   values: NotifyTemplateFormValues,
-): Pick<CreateNotifyTemplateReq, 'remark'> {
+): Pick<CreateNotifyTemplateReq, 'remark' | 'categoryCode'> {
   const remark = normalizeOptionalText(values.remark);
+  const categoryCode = normalizeOptionalText(values.categoryCode);
   return {
     ...(remark ? { remark } : {}),
+    ...(categoryCode ? { categoryCode } : {}),
   };
 }
 

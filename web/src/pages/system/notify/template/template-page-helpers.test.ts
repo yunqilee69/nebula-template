@@ -3,7 +3,11 @@ import {
   SYSTEM_TEMPLATE_VARIABLES,
   buildNotifyTemplatePageReq,
   extractCustomTemplateVariables,
+  toCreateNotifyTemplateReq,
+  toNotifyTemplateFormValues,
+  toUpdateNotifyTemplateReq,
 } from './template-page-helpers';
+import type { NotifyTemplateFormValues } from './template-page-helpers';
 
 describe('extractCustomTemplateVariables', () => {
   it('deduplicates custom variables in first-appearance order and excludes notify variables', () => {
@@ -70,5 +74,49 @@ describe('buildNotifyTemplatePageReq', () => {
       templateName: '审批提醒',
       channelType: 'SITE',
     });
+  });
+});
+
+describe('notify template category', () => {
+  const values: NotifyTemplateFormValues = {
+    templateCode: 'ORDER_APPROVED',
+    templateName: '订单审批通过',
+    categoryCode: 'BUSINESS',
+    variants: [],
+  };
+
+  it('submits the selected category when creating a template', () => {
+    expect(toCreateNotifyTemplateReq(values)).toMatchObject({ categoryCode: 'BUSINESS' });
+  });
+
+  it('submits the category when updating so an existing template can be re-categorised', () => {
+    expect(toUpdateNotifyTemplateReq(values)).toMatchObject({ categoryCode: 'BUSINESS' });
+  });
+
+  it('omits a blank category so the backend keeps the DEFAULT fallback', () => {
+    expect(toCreateNotifyTemplateReq({ ...values, categoryCode: undefined })).not.toHaveProperty('categoryCode');
+    expect(toCreateNotifyTemplateReq({ ...values, categoryCode: '   ' })).not.toHaveProperty('categoryCode');
+    expect(toUpdateNotifyTemplateReq({ ...values, categoryCode: '   ' })).not.toHaveProperty('categoryCode');
+  });
+
+  it('loads the stored category into the edit form', () => {
+    const formValues = toNotifyTemplateFormValues({
+      id: 'template-1',
+      templateCode: 'ORDER_APPROVED',
+      templateName: '订单审批通过',
+      categoryCode: 'SECURITY',
+    });
+
+    expect(formValues).toMatchObject({ categoryCode: 'SECURITY' });
+  });
+
+  it('leaves the category empty in the edit form when the template is uncategorised', () => {
+    const formValues = toNotifyTemplateFormValues({
+      id: 'template-1',
+      templateCode: 'PASSWORD_RESET',
+      templateName: '用户密码重置通知',
+    });
+
+    expect(formValues).not.toHaveProperty('categoryCode');
   });
 });

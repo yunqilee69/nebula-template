@@ -117,5 +117,8 @@ export interface GeneralConfigDTO {
   notifyEmailSmtpPort?: number;
   notifyEmailSecurity?: string;
   notifyEmailUsername?: string;
+  /** SMTP 密码：仅用于写入，响应不回显明文；留空表示不修改 */
   notifyEmailPassword?: string;
+  /** SMTP 密码是否已配置（读接口返回） */
+  notifyEmailPasswordConfigured?: boolean;
 }

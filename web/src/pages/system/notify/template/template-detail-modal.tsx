@@ -2,6 +2,8 @@ import { Descriptions, Modal, Table, Tabs, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DictLabel } from '@/components/dict-select';
 import type { NotifyTemplateDetailResp, NotifyTemplateFieldResp, NotifyTemplateVariantResp } from '@/types/notify';
+import { resolveNotifyCategoryLabel } from '../notify-category-options';
+import type { NotifyCategoryOption } from '../notify-category-options';
 import { NOTIFY_CHANNEL_TYPE } from './template-page-helpers';
 import { BuiltinVariableHelp } from './template-variable-panel';
 
@@ -9,6 +11,7 @@ interface TemplateDetailModalProps {
   readonly open: boolean;
   readonly loading: boolean;
   readonly detail?: NotifyTemplateDetailResp;
+  readonly categoryOptions: readonly NotifyCategoryOption[];
   readonly onCancel: () => void;
 }
 
@@ -42,6 +45,7 @@ export function TemplateDetailModal({
   open,
   loading,
   detail,
+  categoryOptions,
   onCancel,
 }: TemplateDetailModalProps) {
   return (
@@ -62,6 +66,7 @@ export function TemplateDetailModal({
               <Typography.Text code copyable>{detail.templateCode}</Typography.Text>
             </Descriptions.Item>
             <Descriptions.Item label="模板名称">{detail.templateName}</Descriptions.Item>
+            <Descriptions.Item label="通知类别">{resolveNotifyCategoryLabel(detail.categoryCode, categoryOptions)}</Descriptions.Item>
             <Descriptions.Item label="备注" span={2}>{textOrDash(detail.remark)}</Descriptions.Item>
           </Descriptions>
           <Table<NotifyTemplateFieldResp>

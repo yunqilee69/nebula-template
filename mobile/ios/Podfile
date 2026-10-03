@@ -1,0 +1,183 @@
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'NebulaMobile' do
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # RN 0.77 起默认启用 New Architecture；本工程暂按旧架构运行（与 0.76 行为一致）
+    :new_arch_enabled => false,
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  target 'NebulaMobileTests' do
+    inherit! :complete
+    # Pods for testing
+  end
+
+  post_install do |installer|
+    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+
+    # glog 0.3.5 的 git tarball 不带 configure 脚本，config.h 只有占位内容，
+    # 编译会报 _START_GOOGLE_NAMESPACE_/_XOPEN_SOURCE 错误。此处按 macOS arm64
+    # 检测结果生成完整 config.h，并补上 _XOPEN_SOURCE（ucontext 例程必需）。
+    glog_config = File.join(__dir__, 'Pods', 'glog', 'src', 'config.h')
+    if File.exist?(File.dirname(glog_config))
+      File.write(glog_config, <<~GLOG_CONFIG)
+        #include <TargetConditionals.h>
+        #ifdef __APPLE__
+        #include <Availability.h>
+        #endif
+
+        #define GOOGLE_NAMESPACE google
+        #define _START_GOOGLE_NAMESPACE_ namespace google {
+        #define _END_GOOGLE_NAMESPACE_ }
+
+        #define HAVE_DLADDR 1
+        #define HAVE_DLFCN_H 1
+        #define HAVE_EXECINFO_H 1
+        #define HAVE_FCNTL 1
+        #define HAVE_GLOB_H 1
+        #define HAVE_INTTYPES_H 1
+        #define HAVE_LIBPTHREAD 1
+        #define HAVE_MEMORY_H 1
+        #define HAVE_NAMESPACES 1
+        #define HAVE_OSX 1
+        #define HAVE_PREAD 1
+        #define HAVE_PTHREAD 1
+        #define HAVE_PWD_H 1
+        #define HAVE_PWRITE 1
+        #define HAVE_SIGACTION 1
+        #define HAVE_SIGALTSTACK 1
+        #define HAVE_STDINT_H 1
+        #define HAVE_STDLIB_H 1
+        #define HAVE_STRING_H 1
+        #define HAVE_STRINGS_H 1
+        #define HAVE_SYS_TIME_H 1
+        #define HAVE_SYS_TYPES_H 1
+        #define HAVE_SYS_UCONTEXT_H 1
+        #define HAVE_SYSCALL 1
+        #define HAVE_SYSLOG_H 1
+        #define HAVE_UCONTEXT_H 1
+        #define HAVE_UNISTD_H 1
+        #define HAVE_USING_OPERATOR 1
+        #define HAVE___ATTRIBUTE__ 1
+        #define HAVE___BUILTIN_EXPECT 1
+
+        #ifdef __LP64__
+        #define PC_FROM_UCONTEXT uc_mcontext->__ss.__pc
+        #else
+        #define PC_FROM_UCONTEXT uc_mcontext->__ss.__eip
+        #endif
+
+        #define STDC_HEADERS 1
+        #define PACKAGE_NAME "glog"
+        #define PACKAGE_VERSION "0.3.5"
+        #define PACKAGE_STRING "glog 0.3.5"
+        #define PACKAGE_TARNAME "glog-0.3.5"
+        #define PACKAGE_BUGREPORT "opensource@google.com"
+        #define GLOG_VERSION "0.3.5"
+        #define GLOG_NO_EXPORT
+        #define GLOG_STATIC_LIB 1
+        #define GLOG_EXPORT
+        #define GOOGLE_GLOG_DLL_DECL
+        #define GOOGLE_GLOG_DLL_DECL_FOR_UNITTESTS
+        #define STL_NAMESPACE std
+      GLOG_CONFIG
+      # macOS 的 strcasecmp 在 <strings.h>，显式引入
+      cfg = File.read(glog_config)
+      unless cfg.include?('include <strings.h>')
+        cfg = cfg.sub("#include <TargetConditionals.h>", "#include <TargetConditionals.h>\n#include <strings.h>")
+        File.write(glog_config, cfg)
+      end
+      Pod::UI.puts 'glog config.h 已按 macOS arm64 生成'.green
+      # macOS 新 SDK 移除了 sys_nerr/sys_errlist，patch 掉 glog 0.3.5 对它们的引用（走返回 -1 的保守路径）
+      logging_cc = File.join(__dir__, 'Pods', 'glog', 'src', 'logging.cc')
+      if File.exist?(logging_cc)
+        File.chmod(0o644, logging_cc)
+        src = File.read(logging_cc)
+        patched = src.gsub('if (reinterpret_cast<intptr_t>(rc) < sys_nerr) {',
+                           'if (reinterpret_cast<intptr_t>(rc) < 0) {')
+        File.write(logging_cc, patched) if patched != src
+      end
+      # macOS 26 SDK 移除了 syscall()，glog 0.3.5 的 GetTID 用 pthread_threadid_np 替代
+      utilities_cc = File.join(__dir__, 'Pods', 'glog', 'src', 'utilities.cc')
+      if File.exist?(utilities_cc)
+        File.chmod(0o644, utilities_cc)
+        src = File.read(utilities_cc)
+        unless src.include?('pthread_threadid_np')
+          patched = src.gsub(<<~OLD, <<~NEW)
+            static bool lacks_gettid = false;
+            if (!lacks_gettid) {
+              pid_t tid = syscall(__NR_gettid);
+              if (tid != -1) {
+                return tid;
+              }
+              lacks_gettid = true;
+            }
+          OLD
+            static bool lacks_gettid = false;
+            if (!lacks_gettid) {
+              uint64_t tid64 = 0;
+              if (pthread_threadid_np(NULL, &tid64) == 0 && tid64 != 0) {
+                return (pid_t)tid64;
+              }
+              lacks_gettid = true;
+            }
+          NEW
+          File.write(utilities_cc, patched) if patched != src
+        end
+      end
+    end
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        defs = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+        case target.name
+        when 'glog'
+          defs << '_XOPEN_SOURCE=700'
+          # _XOPEN_SOURCE 会隐藏 Dl_info（dladdr 需要），需同时开 _DARWIN_C_SOURCE
+          defs << '_DARWIN_C_SOURCE=1'
+          # macOS SDK 无 SYS_gettid，占位一个必然失败的调用号，让 glog 走 pthread_self fallback
+          defs << 'SYS_gettid=99999999'
+        when 'fmt'
+          # Xcode 26 / clang 17 下 fmt 8.x consteval 检测误判（-fmodules 下 FMT_STRING 报错），
+          # 强制 FMT_USE_CONSTEVAL=0 走运行时解析
+          base_h = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'base.h')
+          if File.exist?(base_h)
+            File.chmod(0o644, base_h)
+            src = File.read(base_h)
+            unless src.include?('FMT_USE_CONSTEVAL_FORCE_OFF')
+              src = src.sub("#elif defined(__cpp_consteval)\n#  define FMT_USE_CONSTEVAL 1",
+                            "#elif defined(FMT_USE_CONSTEVAL_FORCE_OFF)\n#  define FMT_USE_CONSTEVAL 0\n#elif defined(__cpp_consteval)\n#  define FMT_USE_CONSTEVAL 1")
+              File.write(base_h, src)
+            end
+          end
+          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+          build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FMT_USE_CONSTEVAL_FORCE_OFF'
+        end
+      end
+    end
+  end
+end

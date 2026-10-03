@@ -160,7 +160,11 @@ function isMenuType(type: string | undefined): boolean {
 }
 
 function isExternalMenuType(type: string | undefined): boolean {
-  return type === 'EXTERNAL';
+  return type === 'EXTERNAL' || type === 'IFRAME';
+}
+
+function isMenuPageType(type: string | undefined): boolean {
+  return type === 'MENU';
 }
 
 function normalizeMenuType(type: string | undefined): string | undefined {
@@ -299,14 +303,15 @@ export function MenuManagementPage({
     }
 
     const externalFlag = isExternalMenuType(values.type);
+    const isPage = isMenuPageType(values.type);
     const payload: CreateMenuReq = {
       parentId: getParentIdFromPath(values.parentPath),
       name: values.name.trim(),
       code: values.code.trim(),
       type: values.type,
-      path: normalizeOptionalText(values.path),
+      path: isPage ? normalizeOptionalText(values.path) : undefined,
       icon: normalizeOptionalText(values.icon),
-      component: normalizeOptionalText(values.component),
+      component: isPage ? normalizeOptionalText(values.component) : undefined,
       sort: values.sort,
       status: values.status,
       hidden: values.hidden,

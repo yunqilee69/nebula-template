@@ -4,18 +4,22 @@ import { Access } from '@/components/access';
 import { DictSelect } from '@/components/dict-select';
 import type { NebulaProColumns } from '@/components/nebula-pro-table';
 import type { NotifyTemplateResp } from '@/types/notify';
+import { resolveNotifyCategoryLabel } from '../notify-category-options';
+import type { NotifyCategoryOption } from '../notify-category-options';
 import { NOTIFY_CHANNEL_TYPE } from './template-page-helpers';
 
 interface TemplateColumnActions {
   readonly openDetail: (record: NotifyTemplateResp) => void;
   readonly openEditForm: (record: NotifyTemplateResp) => void;
   readonly removeTemplate: (record: NotifyTemplateResp) => void;
+  readonly categoryOptions: readonly NotifyCategoryOption[];
 }
 
-export function createTemplateColumns({ openDetail, openEditForm, removeTemplate }: TemplateColumnActions): NebulaProColumns<NotifyTemplateResp>[] {
+export function createTemplateColumns({ openDetail, openEditForm, removeTemplate, categoryOptions }: TemplateColumnActions): NebulaProColumns<NotifyTemplateResp>[] {
   return [
     { title: '模板编码', dataIndex: 'templateCode', fixed: 'left', width: 160, sorter: true },
     { title: '模板名称', dataIndex: 'templateName', width: 180, sorter: true, responsive: ['sm'] },
+    { title: '通知类别', dataIndex: 'categoryCode', width: 130, search: false, render: (_, record) => resolveNotifyCategoryLabel(record.categoryCode, categoryOptions) },
     { title: '通知渠道', dataIndex: 'channelType', hideInTable: true, formItemRender: () => <DictSelect dictCode={NOTIFY_CHANNEL_TYPE} placeholder="请选择通知渠道" showDisabled={false} /> },
     { title: '备注', dataIndex: 'remark', width: 220, search: false, responsive: ['lg'] },
     { title: '创建时间', dataIndex: 'createTime', width: 170, valueType: 'dateTime', search: false, sorter: true, responsive: ['xl'] },

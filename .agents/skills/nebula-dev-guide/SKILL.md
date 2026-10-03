@@ -93,9 +93,9 @@
    - 填写完成时间
    - 所有功能点状态: `已完成`
 
-2. **重命名文件**:
-   - 原文件: `docs/dev/{date}-{feature}.md`
-   - 新文件: `docs/dev/{date}-{feature}.done.md`
+2. **处理功能书**（功能书是开发期文档，交付后不长期保留）:
+   - 功能内容已发布到 `cludix-doc`（`docs/projects/nebula`）→ 删除 `docs/dev/{date}-{feature}.md`
+   - 尚未发布 → 重命名为 `docs/dev/{date}-{feature}.done.md`，待发布后删除
 
 **完成条件**: 归档完成，告知用户
 
