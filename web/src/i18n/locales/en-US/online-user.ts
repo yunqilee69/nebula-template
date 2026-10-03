@@ -20,10 +20,15 @@ export const onlineUser: NebulaOnlineUserMessages = {
     expireTime: 'Expiry time',
     remainingTtlSeconds: 'Remaining TTL',
     actions: 'Actions',
+    tokenType: 'Token type',
   },
   actions: {
     kickOut: 'Kick out',
     kickOutAll: 'Kick out all sessions',
+  },
+  tokenType: {
+    accessToken: 'Access token',
+    refreshToken: 'Refresh token',
   },
   tooltip: {
     clientTypeSource: 'Detected from',

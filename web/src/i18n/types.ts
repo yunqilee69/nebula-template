@@ -1314,10 +1314,15 @@ export interface NebulaOnlineUserMessages {
     expireTime: string;
     remainingTtlSeconds: string;
     actions: string;
+    tokenType: string;
   };
   actions: {
     kickOut: string;
     kickOutAll: string;
+  };
+  tokenType: {
+    accessToken: string;
+    refreshToken: string;
   };
   tooltip: {
     clientTypeSource: string;

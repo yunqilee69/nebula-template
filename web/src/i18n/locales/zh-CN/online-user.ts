@@ -20,10 +20,15 @@ export const onlineUser: NebulaOnlineUserMessages = {
     expireTime: '过期时间',
     remainingTtlSeconds: '剩余 TTL',
     actions: '操作',
+    tokenType: '令牌类型',
   },
   actions: {
     kickOut: '踢出',
     kickOutAll: '踢出全部会话',
+  },
+  tokenType: {
+    accessToken: '鉴权Token',
+    refreshToken: '刷新Token',
   },
   tooltip: {
     clientTypeSource: '识别依据',

@@ -119,7 +119,7 @@ describe('OnlineUserPage', () => {
     await user.click(screen.getByRole('button', { name: /查\s*询/ }));
 
     await waitFor(() => {
-      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, username: 'alice' });
+      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, tokenType: 'ACCESS_TOKEN', username: 'alice' });
     });
   });
 
@@ -132,7 +132,7 @@ describe('OnlineUserPage', () => {
     await user.click(screen.getByRole('button', { name: /查\s*询/ }));
 
     await waitFor(() => {
-      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, loginIp: '203.0.113.11' });
+      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, tokenType: 'ACCESS_TOKEN', loginIp: '203.0.113.11' });
     });
   });
 
@@ -146,7 +146,33 @@ describe('OnlineUserPage', () => {
     await user.click(screen.getByRole('button', { name: /查\s*询/ }));
 
     await waitFor(() => {
-      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, clientType: 'MP_WEIXIN' });
+      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, tokenType: 'ACCESS_TOKEN', clientType: 'MP_WEIXIN' });
+    });
+  });
+
+  it('defaults the token type search filter to access tokens', async () => {
+    const service = renderPage();
+
+    await screen.findAllByText('alice');
+
+    expect(screen.getByLabelText('令牌类型')).toBeInTheDocument();
+    expect(await screen.findByTitle('鉴权Token')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, tokenType: 'ACCESS_TOKEN' });
+    });
+  });
+
+  it('queries refresh token sessions only after the token type filter is switched', async () => {
+    const user = userEvent.setup();
+    const service = renderPage();
+
+    await screen.findAllByText('alice');
+    await user.click(screen.getByLabelText('令牌类型'));
+    await user.click(await screen.findByTitle('刷新Token'));
+    await user.click(screen.getByRole('button', { name: /查\s*询/ }));
+
+    await waitFor(() => {
+      expect(service.pageOnlineUsers).toHaveBeenLastCalledWith({ pageNum: 1, pageSize: 10, tokenType: 'REFRESH_TOKEN' });
     });
   });
 

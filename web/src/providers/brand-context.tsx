@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, type PropsWithChildren, type ReactNode } from 'react';
+import NebulaLogoSvg from '@/assets/brand/nebula-logo.svg?react';
 import { nebulaTokens } from '@/providers/tokens';
 
 export interface NebulaBrandConfig {
@@ -22,6 +23,8 @@ export interface ResolvedNebulaBrandConfig {
 const defaultBrand: ResolvedNebulaBrandConfig = {
   name: nebulaTokens.brandName,
   title: nebulaTokens.brandName,
+  // 标记用 currentColor，颜色跟随侧边栏的 colorPrimary，深浅主题都不用另做一份
+  logo: <NebulaLogoSvg width={26} height={26} aria-hidden="true" />,
 };
 
 const NebulaBrandContext = createContext<ResolvedNebulaBrandConfig>(defaultBrand);
@@ -33,7 +36,7 @@ export function resolveNebulaBrand(brand?: NebulaBrandConfig): ResolvedNebulaBra
   return {
     name,
     title,
-    logo: brand?.logo,
+    logo: brand?.logo ?? defaultBrand.logo,
     faviconHref: brand?.faviconHref,
   };
 }

@@ -13,12 +13,17 @@ import {
   DEVICE_TYPE_LABEL_KEY,
 } from '@/enums/client-type';
 import { LOGIN_RECORD_TYPE_LABEL_KEY, LOGIN_RECORD_TYPE_VALUES } from '@/enums/login-record';
+import {
+  DEFAULT_ONLINE_USER_TOKEN_TYPE,
+  ONLINE_USER_TOKEN_TYPE_LABEL_KEY,
+  ONLINE_USER_TOKEN_TYPE_VALUES,
+} from '@/enums/online-user-token-type';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import { useNotice } from '@/hooks/use-notice';
 import type { NebulaMessageKey } from '@/i18n/types';
 import { onlineUserService, type OnlineUserService } from '@/services/online-user';
 import type { ClientType } from '@/types/client-type';
-import type { OnlineUserPageReq, OnlineUserResp } from '@/types/online-user';
+import type { OnlineUserPageReq, OnlineUserResp, OnlineUserTokenType } from '@/types/online-user';
 
 type Translate = (key: NebulaMessageKey) => string;
 
@@ -34,6 +39,7 @@ type OnlineUserSearchValues = {
   readonly phone?: string;
   readonly clientType?: ClientType;
   readonly loginIp?: string;
+  readonly tokenType?: OnlineUserTokenType;
 };
 
 function formatSeconds(value: number | undefined): string {
@@ -69,6 +75,7 @@ function buildQuery(values: OnlineUserSearchValues & NebulaPageReq): OnlineUserP
     ...(phone ? { phone } : {}),
     ...(values.clientType ? { clientType: values.clientType } : {}),
     ...(loginIp ? { loginIp } : {}),
+    ...(values.tokenType ? { tokenType: values.tokenType } : {}),
   };
 }
 
@@ -132,6 +139,13 @@ export function OnlineUserPage({ service: serviceProp }: OnlineUserPageProps) {
     [t],
   );
 
+  const tokenTypeValueEnum = useMemo(
+    () => Object.fromEntries(
+      ONLINE_USER_TOKEN_TYPE_VALUES.map((tokenType) => [tokenType, { text: t(ONLINE_USER_TOKEN_TYPE_LABEL_KEY[tokenType]) }]),
+    ),
+    [t],
+  );
+
   const renderCodeTags = useCallback((values: readonly string[] | undefined): React.ReactNode => {
     if (!values?.length) return '-';
 
@@ -145,6 +159,12 @@ export function OnlineUserPage({ service: serviceProp }: OnlineUserPageProps) {
   const columns = useMemo<NebulaProColumns<OnlineUserResp>[]>(() => [
     { title: t('onlineUser.columns.userId'), dataIndex: 'userId', hideInTable: true },
     { title: t('onlineUser.columns.username'), dataIndex: 'username', width: 140 },
+    {
+      title: t('onlineUser.columns.tokenType'), dataIndex: 'tokenType', hideInTable: true, valueType: 'select',
+      valueEnum: tokenTypeValueEnum,
+      initialValue: DEFAULT_ONLINE_USER_TOKEN_TYPE,
+      fieldProps: { 'aria-label': t('onlineUser.columns.tokenType'), allowClear: false },
+    },
     {
       title: t('onlineUser.columns.clientType'), dataIndex: 'clientType', width: 130, valueType: 'select',
       valueEnum: clientTypeValueEnum,
@@ -222,7 +242,7 @@ export function OnlineUserPage({ service: serviceProp }: OnlineUserPageProps) {
         </Space>
       ),
     },
-  ], [clientTypeValueEnum, kickOutAllSessions, kickOutUser, kickingKey, loginTypeValueEnum, renderCodeTags, t]);
+  ], [clientTypeValueEnum, kickOutAllSessions, kickOutUser, kickingKey, loginTypeValueEnum, renderCodeTags, t, tokenTypeValueEnum]);
 
   return (
     <div className="h-full flex flex-col gap-4">
