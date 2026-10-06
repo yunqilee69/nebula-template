@@ -100,3 +100,28 @@ export interface StorageSignedDownloadResp {
   signature?: string;
   url?: string;
 }
+
+/** 下载模式：DIRECT 直达对象存储；PROXY 经服务端代理（需带 Authorization）。 */
+export type StorageDownloadMode = 'DIRECT' | 'PROXY';
+
+/**
+ * 下载位置决议结果，对应后端 `StorageDownloadLocationResp`。
+ *
+ * <p>接口恒返回<b>数组</b>：按 fileId 解析只有一个元素；按 sourceEntity/sourceId 解析是该业务实体下全部附件，
+ * 可直接遍历渲染多项。DIRECT 的 url 是对象存储临时直链，本身即凭据，可直接交给图片组件原生加载；
+ * PROXY 的 url 需带 `Authorization` 以二进制方式获取。</p>
+ */
+export interface StorageDownloadLocation {
+  /** 正式文件ID。 */
+  fileId?: string;
+  /** 文件名，供列表页直接展示。 */
+  fileName?: string;
+  /** 文件 MIME 类型；请求派生版本时为该派生内容的类型。 */
+  fileMimeType?: string;
+  /** 文件字节数。 */
+  fileSize?: number;
+  mode: StorageDownloadMode;
+  url?: string;
+  /** DIRECT 模式下的直链失效时间戳（秒），客户端不应缓存到过期之后。 */
+  expiresAtEpochSecond?: number;
+}

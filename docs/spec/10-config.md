@@ -388,6 +388,33 @@ spring:
       port: 6379
 ```
 
+### 5.4 对象存储直连下载配置
+
+对象存储后端（`nebula.storage.content.type=s3|minio`）可选择让客户端直连对象存储取文件，绕开服务端转发。
+**默认关闭**：endpoint 常常只有内网可达，开启是运维显式动作，需先确认 bucket 对客户端可达并配好跨域规则。
+
+```yaml
+nebula:
+  storage:
+    content:
+      type: s3
+      s3:
+        endpoint: ${NEBULA_STORAGE_S3_ENDPOINT:}
+        bucket: ${NEBULA_STORAGE_S3_BUCKET:}
+        # false（默认）时所有下载经服务端流式转发；true 时登录态下载签发对象存储临时直链
+        direct-download-enabled: ${NEBULA_STORAGE_S3_DIRECT_DOWNLOAD_ENABLED:false}
+        # 直链有效期（秒），上限 3600，超出按上限截断
+        direct-download-expire-seconds: ${NEBULA_STORAGE_S3_DIRECT_DOWNLOAD_EXPIRE_SECONDS:300}
+```
+
+`minio` 后端使用同名键：`nebula.storage.content.minio.direct-download-enabled` / `direct-download-expire-seconds`。
+
+约束：
+
+1. `filesystem` 与 `db` 后端的内容对客户端不可达，**没有开关能让它们直连**，恒为服务端代理。
+2. 签名分享下载 `/api/storage/download-signed` 恒经服务端代理，以强制下载次数与时效，不受该开关影响。
+3. 直链 URL 本身即下载凭据，禁止写入日志、审计快照或错误信息（见 08-logging）。
+
 ---
 
 ## 六、敏感配置处理规范

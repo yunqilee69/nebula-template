@@ -808,6 +808,11 @@ public SecurityFilterChain protectedSecurityFilterChain(HttpSecurity http,
 | `/error` | 错误页面 |
 | `/health` | 健康检查 |
 
+> **下载位置接口不进入白名单**：`GET /api/storage/download-location` 与 `/api/storage/download` 一样要求登录态与
+> `STORAGE_FILE_QUERY` 权限。定位方式为 `fileId` 或 `sourceEntity` + `sourceId` 二选一，两种方式返回的都是数组。
+> 对象存储直连开启时，它返回的预签名直链本身即下载凭据（凭据在查询串、短时有效），
+> 因此**禁止将直链写入日志、审计快照或错误响应**；直链有效期应尽量短（见 10-config 5.4）。
+
 **追加白名单配置**：
 
 ```yaml

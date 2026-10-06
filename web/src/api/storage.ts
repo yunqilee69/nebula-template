@@ -38,6 +38,25 @@ export interface UploadSimpleFileOptions {
   onUploadProgress?: (event: UploadProgressEvent) => void;
 }
 
+/** 下载模式：DIRECT 直达对象存储；PROXY 经服务端代理（需带 Authorization）。 */
+export type StorageDownloadMode = 'DIRECT' | 'PROXY';
+
+export interface StorageDownloadLocation {
+  /** 正式文件ID；按业务归属批量解析时逐项返回。 */
+  fileId?: string;
+  /** 文件名，供列表页直接展示。 */
+  fileName?: string;
+  /** 文件 MIME 类型；请求派生版本时为该派生内容的类型。 */
+  fileMimeType?: string;
+  /** 文件字节数。 */
+  fileSize?: number;
+  mode: StorageDownloadMode;
+  /** DIRECT 为对象存储临时直链；PROXY 为服务端下载地址。 */
+  url?: string;
+  /** DIRECT 模式下的直链失效时间戳（秒）。 */
+  expiresAtEpochSecond?: number;
+}
+
 export interface StorageService {
   uploadSimpleFile: (file: File, options?: UploadSimpleFileOptions) => Promise<UploadTaskDetailResp>;
   createUploadTask: (req: CreateUploadTaskReq) => Promise<string>;
@@ -53,12 +72,23 @@ export interface StorageService {
   listFilesBySource: (req: ListStorageFilesBySourceReq) => Promise<StorageFileDetailResp[]>;
   deleteFile: (fileId: string) => Promise<void>;
   getDownloadUrl: (fileId: string, filename?: string) => string;
+  /** 解析下载位置：服务端决定走直链还是代理，客户端按 mode 分支消费。按 fileId 解析返回单元素数组。 */
+  getDownloadLocation: (fileId: string, filename?: string, variant?: string) => Promise<StorageDownloadLocation[]>;
+  /** 按业务归属批量解析下载位置：一次拿到该业务实体下全部附件的下载位置，可直接遍历渲染多项。 */
+  getDownloadLocationsBySource: (
+    req: ListStorageFilesBySourceReq,
+    variant?: string,
+  ) => Promise<StorageDownloadLocation[]>;
   downloadFile: (fileId: string, filename?: string) => Promise<Blob>;
 }
 
 const storageDownloadPath = '/api/storage/download';
 
-function buildStorageDownloadUrl(fileId: string, filename?: string) {
+/** 下载位置接口路径：模块内外共用，避免魔法字符串散落。 */
+export const STORAGE_DOWNLOAD_LOCATION_PATH = '/api/storage/download-location';
+
+/** 构造服务端代理下载地址（PROXY 模式与鉴权 blob 获取使用）。 */
+export function buildStorageDownloadUrl(fileId: string, filename?: string) {
   const searchParams = new URLSearchParams({ fileId });
   if (filename) searchParams.set('filename', filename);
   return `${storageDownloadPath}?${searchParams.toString()}`;
@@ -69,7 +99,9 @@ function normalizeOptionalText(value: string | undefined) {
   return nextValue ? nextValue : undefined;
 }
 
-export function parseStorageDownloadUrl(downloadUrl: string): { readonly fileId: string; readonly filename?: string } | undefined {
+export function parseStorageDownloadUrl(
+  downloadUrl: string,
+): { readonly fileId: string; readonly filename?: string; readonly variant?: string } | undefined {
   const url = new URL(downloadUrl, 'http://nebula.local');
   if (url.pathname !== storageDownloadPath) return undefined;
 
@@ -77,7 +109,12 @@ export function parseStorageDownloadUrl(downloadUrl: string): { readonly fileId:
   if (!fileId) return undefined;
 
   const filename = normalizeOptionalText(url.searchParams.get('filename') ?? undefined);
-  return filename ? { fileId, filename } : { fileId };
+  const variant = normalizeOptionalText(url.searchParams.get('variant') ?? undefined);
+  return {
+    fileId,
+    ...(filename ? { filename } : {}),
+    ...(variant ? { variant } : {}),
+  };
 }
 
 function normalizeSourceReq(req: ListStorageFilesBySourceReq): ListStorageFilesBySourceReq {
@@ -165,9 +202,45 @@ export function createStorageService(request: StorageRequestFn): StorageService 
       return buildStorageDownloadUrl(fileId, filename);
     },
 
-    downloadFile(fileId, filename) {
+    getDownloadLocation(fileId, filename, variant) {
+      return request<StorageDownloadLocation[]>({
+        url: STORAGE_DOWNLOAD_LOCATION_PATH,
+        method: 'get',
+        params: { fileId, filename, variant },
+      });
+    },
+
+    getDownloadLocationsBySource(req, variant) {
+      const source = normalizeSourceReq(req);
+      return request<StorageDownloadLocation[]>({
+        url: STORAGE_DOWNLOAD_LOCATION_PATH,
+        method: 'get',
+        params: {
+          sourceEntity: source.sourceEntity,
+          sourceId: source.sourceId,
+          sourceType: source.sourceType,
+          variant,
+        },
+      });
+    },
+
+    async downloadFile(fileId, filename) {
+      const [location] = await request<StorageDownloadLocation[]>({
+        url: STORAGE_DOWNLOAD_LOCATION_PATH,
+        method: 'get',
+        params: { fileId, filename },
+      });
+      if (location?.mode === 'DIRECT' && location.url) {
+        try {
+          // 直链凭据在 URL 上，不再带 Authorization；跨域取回后转 Blob
+          const response = await fetch(location.url);
+          if (response.ok) return await response.blob();
+        } catch {
+          // 直链不可达（过期/跨域/网络）时退回服务端代理，保证下载仍可用
+        }
+      }
       return request<Blob>({
-        url: buildStorageDownloadUrl(fileId, filename),
+        url: location?.mode === 'PROXY' && location.url ? location.url : buildStorageDownloadUrl(fileId, filename),
         method: 'get',
         responseType: 'blob',
       });

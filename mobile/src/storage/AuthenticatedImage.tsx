@@ -1,8 +1,9 @@
 /**
  * 鉴权图片组件。
  *
- * <p>服务端无直链、无预览接口：必须走带 token 的 blob 获取再渲染对象 URL，
- * <b>不使用裸图片 URL</b>。依赖 React Native 运行时，未在无 RN 工具链的环境编译
+ * <p>取图方式由服务端决议：对象存储开启直连时直接用其签发的临时直链渲染，
+ * 否则走带 token 的二进制获取再转对象 URL。组件只消费 loader 返回的可渲染地址，
+ * 不感知两种模式。依赖 React Native 运行时，未在无 RN 工具链的环境编译
  * （见功能说明书交付边界）；下载/缓存逻辑由 `storage/authenticated-image.ts` 承担并被单测覆盖。</p>
  */
 import { useEffect, useState } from 'react';

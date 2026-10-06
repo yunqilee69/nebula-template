@@ -17,6 +17,8 @@ test('EndpointsTest.pathsMatchServerContracts', () => {
   assert.equal(FRONTEND_ENDPOINTS.appReleaseCheck, '/api/frontend/app-release/check');
   assert.equal(STORAGE_ENDPOINTS.upload, '/api/storage/upload');
   assert.equal(STORAGE_ENDPOINTS.filesPage, '/api/storage/files/page');
+  assert.equal(STORAGE_ENDPOINTS.download, '/api/storage/download');
+  assert.equal(STORAGE_ENDPOINTS.downloadLocation, '/api/storage/download-location');
   assert.equal(NOTIFY_ENDPOINTS.preferencesCurrent, '/api/notify/preferences/current');
   assert.equal(NOTIFY_ENDPOINTS.siteMessagesUnreadCount, '/api/notify/site-messages/unread-count');
   assert.equal(NOTIFY_ENDPOINTS.pushDevices, '/api/notify/push-devices');

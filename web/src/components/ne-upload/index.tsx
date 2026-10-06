@@ -3,7 +3,7 @@ import { Button, Flex, Typography, Upload, message, theme as antdTheme } from 'a
 import type { UploadProps } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { buildAcceptAttribute, isExtensionAllowed, parseAllowedExtensions } from '@/api/storage';
+import { buildAcceptAttribute, buildStorageDownloadUrl, isExtensionAllowed, parseAllowedExtensions } from '@/api/storage';
 import { useUploadPolicyStore } from '@/stores/upload-policy-store';
 import type { ListStorageFilesBySourceReq, StorageFileDetailResp, UploadTaskDetailResp } from '../../types/storage';
 import type { NeImageUploadProps, NeUploadFile, NeUploadProps } from './types';
@@ -35,7 +35,7 @@ function mapTaskToFile(current: NeUploadFile, task: UploadTaskDetailResp): NeUpl
 }
 
 function mapStorageFileToUploadFile(file: StorageFileDetailResp): NeUploadFile {
-  const downloadUrl = `/api/storage/download?fileId=${encodeURIComponent(file.id)}&filename=${encodeURIComponent(file.fileName)}`;
+  const downloadUrl = buildStorageDownloadUrl(file.id, file.fileName);
   return {
     uid: file.id,
     name: file.fileName,

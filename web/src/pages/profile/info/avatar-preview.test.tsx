@@ -109,7 +109,13 @@ describe('ProfileInfoPage avatar previews', () => {
       task: uploadedAvatarTask,
       avatarUrl: uploadedAvatarUrl,
     });
-    vi.mocked(request).mockRejectedValue(new Error('download failed'));
+    // 位置解析成功（走代理），但随后的鉴权 blob 下载失败：预览应退回占位图而不报错
+    vi.mocked(request).mockImplementation((config) => {
+      if (config.url === '/api/storage/download-location') {
+        return Promise.resolve([{ mode: 'PROXY', url: uploadedAvatarUrl }] as never);
+      }
+      return Promise.reject(new Error('download failed'));
+    });
     mockObjectUrls('blob:selected-avatar', 'blob:header-avatar');
 
     renderProfileWithHeader(service, uploadAvatar);

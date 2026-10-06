@@ -32,6 +32,12 @@
             因此本文件在主干上始终指向“当前最新已发布版本”，勿手工填未发布版本。
         -->
         <nebula.version>0.2.3</nebula.version>
+        <!--
+            MapStruct 处理器版本：须与框架传递的 mapstruct 运行时版本保持一致
+            （见 nebula-dependency 的 mapstruct.version），否则处理器生成的代码
+            可能与运行时 API 不匹配。
+        -->
+        <mapstruct.version>1.6.0</mapstruct.version>
     </properties>
 
     <dependencies>
@@ -51,6 +57,23 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <!--
+            MapStruct 注解处理器：mapstruct 运行时 jar 由框架传递，但注解处理器不随依赖传递，
+            业务代码使用 @Mapper converter 时需在此显式声明。lombok-mapstruct-binding 用于
+            Lombok 与 MapStruct 处理器协同（Lombok 1.18.16+ 必需）。
+        -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct-processor</artifactId>
+            <version>${mapstruct.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok-mapstruct-binding</artifactId>
+            <version>0.2.0</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -58,6 +81,34 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!--
+                Lombok 与 MapStruct 同时使用时，处理器必须显式加入 annotationProcessorPaths：
+                - Lombok 必须排在 MapStruct 之前，否则 Lombok 生成的 getter/setter 不会被 MapStruct 识别
+                - lombok-mapstruct-binding 负责两者协同（Lombok 1.18.16+ 必需）
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>0.2.0</version>
+                        </path>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
         </plugins>
     </build>

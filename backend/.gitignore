@@ -3,3 +3,7 @@ target/
 .idea/
 .vscode/
 .DS_Store
+
+# 本地/生产覆盖配置（库连接、密钥等）：README 约定不入库，必须忽略
+application-local.yml
+application-local.yaml

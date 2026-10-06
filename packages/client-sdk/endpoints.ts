@@ -48,6 +48,7 @@ export const STORAGE_ENDPOINTS = {
   file: (fileId: string) => `/api/storage/files/${encodeURIComponent(fileId)}`,
   filesPage: '/api/storage/files/page',
   download: '/api/storage/download',
+  downloadLocation: '/api/storage/download-location',
   generateSignedUrl: '/api/storage/generate-signed-url',
   downloadSigned: '/api/storage/download-signed',
 } as const;

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildAcceptAttribute,
   createStorageService,
@@ -67,24 +67,114 @@ describe('createStorageService', () => {
     expect(service.getDownloadUrl('file-1', '合同.pdf')).toBe('/api/storage/download?fileId=file-1&filename=%E5%90%88%E5%90%8C.pdf');
   });
 
-  it('downloads files as blobs through the authenticated request client', async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('resolves the download location before fetching through the proxy', async () => {
     const blob = new Blob(['avatar'], { type: 'image/png' });
-    const request = vi.fn().mockResolvedValue(blob);
+    const request = vi.fn()
+      .mockResolvedValueOnce([{ mode: 'PROXY', url: '/api/storage/download?fileId=file-1&filename=avatar.png' }])
+      .mockResolvedValueOnce(blob);
     const service = createStorageService(request);
 
     await expect(service.downloadFile('file-1', 'avatar.png')).resolves.toBe(blob);
 
-    expect(request).toHaveBeenCalledWith({
+    expect(request).toHaveBeenNthCalledWith(1, {
+      url: '/api/storage/download-location',
+      method: 'get',
+      params: { fileId: 'file-1', filename: 'avatar.png' },
+    });
+    expect(request).toHaveBeenNthCalledWith(2, {
       url: '/api/storage/download?fileId=file-1&filename=avatar.png',
       method: 'get',
       responseType: 'blob',
     });
   });
 
-  it('parses storage download URLs for authenticated preview loading', () => {
+  it('fetches the object-storage direct link without Authorization when the server chooses DIRECT', async () => {
+    const blob = new Blob(['avatar'], { type: 'image/png' });
+    const request = vi.fn().mockResolvedValueOnce([{ mode: 'DIRECT', url: 'https://oss.example.com/hash/a.png?sig=1' }]);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => blob });
+    vi.stubGlobal('fetch', fetchMock);
+    const service = createStorageService(request);
+
+    await expect(service.downloadFile('file-1', 'avatar.png')).resolves.toBe(blob);
+
+    expect(fetchMock).toHaveBeenCalledWith('https://oss.example.com/hash/a.png?sig=1');
+    // 直链成功时不再发第二跳代理请求
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the proxy when the direct link is unreachable', async () => {
+    const blob = new Blob(['avatar'], { type: 'image/png' });
+    const request = vi.fn()
+      .mockResolvedValueOnce([{ mode: 'DIRECT', url: 'https://oss.example.com/hash/a.png?sig=1' }])
+      .mockResolvedValueOnce(blob);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
+    const service = createStorageService(request);
+
+    await expect(service.downloadFile('file-1', 'avatar.png')).resolves.toBe(blob);
+
+    expect(request).toHaveBeenNthCalledWith(2, {
+      url: '/api/storage/download?fileId=file-1&filename=avatar.png',
+      method: 'get',
+      responseType: 'blob',
+    });
+  });
+
+  it('gets the download location from the server', async () => {
+    const request = vi.fn().mockResolvedValue([{
+      fileId: 'file-1',
+      fileName: 'a.png',
+      mode: 'DIRECT',
+      url: 'https://oss.example.com/hash/a.png?sig=1',
+      expiresAtEpochSecond: 1760000300,
+    }]);
+    const service = createStorageService(request);
+
+    await expect(service.getDownloadLocation('file-1', undefined, 'thumb'))
+      .resolves.toMatchObject([{ fileId: 'file-1', mode: 'DIRECT' }]);
+
+    expect(request).toHaveBeenCalledWith({
+      url: '/api/storage/download-location',
+      method: 'get',
+      params: { fileId: 'file-1', filename: undefined, variant: 'thumb' },
+    });
+  });
+
+  it('resolves every attachment location of a business source in one call', async () => {
+    const request = vi.fn().mockResolvedValue([
+      { fileId: 'file-1', fileName: 'front.jpg', mode: 'DIRECT', url: 'https://oss.example.com/a.jpg?sig=1' },
+      { fileId: 'file-2', fileName: 'back.jpg', mode: 'PROXY', url: '/api/storage/download?fileId=file-2&variant=thumb' },
+    ]);
+    const service = createStorageService(request);
+
+    await expect(service.getDownloadLocationsBySource(
+      { sourceEntity: 'deliveryOrder', sourceId: '1870000000000000001', sourceType: 'signPhoto' },
+      'thumb',
+    )).resolves.toHaveLength(2);
+
+    expect(request).toHaveBeenCalledWith({
+      url: '/api/storage/download-location',
+      method: 'get',
+      params: {
+        sourceEntity: 'deliveryOrder',
+        sourceId: '1870000000000000001',
+        sourceType: 'signPhoto',
+        variant: 'thumb',
+      },
+    });
+  });
+
+  it('parses storage download URLs for preview loading, including variant', () => {
     expect(parseStorageDownloadUrl('/api/storage/download?fileId=file-1&filename=avatar.png')).toEqual({
       fileId: 'file-1',
       filename: 'avatar.png',
+    });
+    expect(parseStorageDownloadUrl('/api/storage/download?fileId=file-1&variant=thumb')).toEqual({
+      fileId: 'file-1',
+      variant: 'thumb',
     });
     expect(parseStorageDownloadUrl('https://cdn.example.com/avatar.png')).toBeUndefined();
   });

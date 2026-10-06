@@ -355,7 +355,9 @@ describe('ProfileInfoPage', () => {
       getProfile: vi.fn().mockResolvedValue({ ...profile, avatar: oldAvatarUrl }),
     });
     vi.mocked(request)
+      .mockResolvedValueOnce([{ mode: 'PROXY', url: oldAvatarUrl }])
       .mockResolvedValueOnce(new Blob(['old-avatar'], { type: 'image/png' }))
+      .mockResolvedValueOnce([{ mode: 'PROXY', url: newAvatarUrl }])
       .mockImplementationOnce(() => new Promise((resolve) => {
         resolveNewPreview = resolve;
       }));
