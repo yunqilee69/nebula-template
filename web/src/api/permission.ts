@@ -1,4 +1,5 @@
 import { request } from '@/request/request';
+import type { ApiResp } from '@/types/api-permission';
 import type { OrgTreeResp, RoleOptionResp, UserResp } from '@/types/auth-management';
 import type { ButtonPageReq, ButtonResp, MenuPageResp, MenuTreeResp } from '@/types/menu';
 import type {
@@ -23,6 +24,7 @@ export interface PermissionService {
   listSubjects: () => Promise<PermissionSubjectBundle>;
   listMenuTree: () => Promise<MenuTreeResp[]>;
   pageButtons: (params: ButtonPageReq) => Promise<MenuPageResp<ButtonResp>>;
+  listApis: () => Promise<ApiResp[]>;
   pageSubjectPermissions: (params: PermissionPageReq) => Promise<PageResp<PermissionGrantResp>>;
   createPermissions: (data: BatchCreatePermissionReq) => Promise<string[]>;
   createPermissionItems: (data: CreatePermissionCommand[]) => Promise<string[]>;
@@ -91,6 +93,10 @@ export const permissionService: PermissionService = {
       method: 'POST',
       data: params,
     });
+  },
+
+  listApis() {
+    return request<ApiResp[]>({ url: '/api/auth/apis/list', method: 'GET' });
   },
 
   pageSubjectPermissions(params) {

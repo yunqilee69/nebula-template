@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Col, Empty, Flex, Input, Row, Spin, Tag, Tree, Typography, theme as antdTheme } from 'antd';
+import { Button, Card, Col, Empty, Flex, Input, Row, Spin, Tag, Tree, Typography } from 'antd';
 import type { TreeProps } from 'antd';
 import { Access } from '@/components/access';
+import { PermissionEffectCheckbox } from '@/components/permission-effect-checkbox';
 import { AUTH_BUTTON_PERMISSION_CODES } from '@/constants/auth-button-codes';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import { useNotice } from '@/hooks/use-notice';
@@ -19,6 +20,11 @@ import type {
   SaveSubjectPermissionItem,
 } from '@/types/permission';
 import { SubjectSelector } from '@/components/subject-selector';
+import {
+  getNextPermissionEffect,
+  getPermissionEffectMessageKey,
+  toPermissionEffects,
+} from '@/utils/permission-effect';
 import { syncSubjectPermissions } from '@/utils/permission-sync';
 
 export interface ButtonPermissionPageProps {
@@ -138,27 +144,12 @@ function collectExpandableKeys(menus: PermissionMenuResource[]): string[] {
   });
 }
 
-function getNextPermissionEffect(effect: PermissionDraftEffect): PermissionDraftEffect {
-  if (effect === 'none') return 'Allow';
-  if (effect === 'Allow') return 'Deny';
-  return 'none';
-}
-
-function toPermissionEffects(grants: PermissionGrantResp[]): Record<string, PermissionDraftEffect> {
-  return Object.fromEntries(grants.map((grant) => [grant.resourceId, grant.effect]));
-}
-
-function getPermissionEffectMessageKey(effect: PermissionDraftEffect) {
-  if (effect === 'Allow') return 'auth.buttonPermission.effects.allow' as const;
-  if (effect === 'Deny') return 'auth.buttonPermission.effects.deny' as const;
-  return 'auth.buttonPermission.effects.none' as const;
-}
+const BUTTON_EFFECT_I18N_PREFIX = 'auth.buttonPermission.effects' as const;
 
 export function ButtonPermissionPage({ service: serviceProp }: ButtonPermissionPageProps) {
   const service = serviceProp ?? defaultPermissionService;
   const { t } = useNebulaI18n();
   const notice = useNotice();
-  const { token } = antdTheme.useToken();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -301,61 +292,36 @@ export function ButtonPermissionPage({ service: serviceProp }: ButtonPermissionP
       ),
       children: [
         ...toTreeNodes(menu.children ?? []),
-        ...menu.buttons.map((button) => ({
-          key: `button-${button.id}`,
-          selectable: false,
-          isLeaf: true,
-          title: (
-            <Flex align="center" gap={8}>
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={(permissionEffects[button.id] ?? 'none') === 'Allow' ? 'true' : (permissionEffects[button.id] ?? 'none') === 'Deny' ? 'mixed' : 'false'}
-                aria-label={`${button.name} ${t(getPermissionEffectMessageKey(permissionEffects[button.id] ?? 'none'))}`}
-                data-permission-effect={permissionEffects[button.id] ?? 'none'}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleToggleButton(button.id);
-                }}
-                style={{
-                  width: 16,
-                  height: 16,
-                  padding: 0,
-                  borderRadius: token.borderRadiusSM,
-                  border: `1px solid ${(permissionEffects[button.id] ?? 'none') === 'Allow'
-                    ? token.colorPrimary
-                    : (permissionEffects[button.id] ?? 'none') === 'Deny'
-                      ? token.colorError
-                      : token.colorBorder}`,
-                  background: (permissionEffects[button.id] ?? 'none') === 'Allow'
-                    ? token.colorPrimary
-                    : (permissionEffects[button.id] ?? 'none') === 'Deny'
-                      ? token.colorError
-                      : token.colorBgContainer,
-                  color: token.colorTextLightSolid,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  lineHeight: 1,
-                }}
-              >
-                {(permissionEffects[button.id] ?? 'none') === 'Allow' ? '✓' : (permissionEffects[button.id] ?? 'none') === 'Deny' ? '×' : ''}
-              </button>
-              <Typography.Text>{button.name}</Typography.Text>
-              <Typography.Text type="secondary">{button.code}</Typography.Text>
-              <Tag color={(permissionEffects[button.id] ?? 'none') === 'Allow' ? 'green' : (permissionEffects[button.id] ?? 'none') === 'Deny' ? 'red' : 'default'}>
-                {t(getPermissionEffectMessageKey(permissionEffects[button.id] ?? 'none'))}
-              </Tag>
-            </Flex>
-          ),
-        })),
+        ...menu.buttons.map((button) => {
+          const effect = permissionEffects[button.id] ?? 'none';
+          const effectLabel = t(getPermissionEffectMessageKey(effect, BUTTON_EFFECT_I18N_PREFIX));
+
+          return {
+            key: `button-${button.id}`,
+            selectable: false,
+            isLeaf: true,
+            title: (
+              <Flex align="center" gap={8}>
+                <PermissionEffectCheckbox
+                  name={button.name}
+                  effect={effect}
+                  effectLabel={effectLabel}
+                  onToggle={() => handleToggleButton(button.id)}
+                />
+                <Typography.Text>{button.name}</Typography.Text>
+                <Typography.Text type="secondary">{button.code}</Typography.Text>
+                <Tag color={effect === 'Allow' ? 'green' : effect === 'Deny' ? 'red' : 'default'}>
+                  {effectLabel}
+                </Tag>
+              </Flex>
+            ),
+          };
+        }),
       ],
     }));
 
     return filteredGroups.flatMap(({ menus }) => toTreeNodes(menus));
-  }, [filteredGroups, handleToggleButton, permissionEffects, t, token]);
+  }, [filteredGroups, handleToggleButton, permissionEffects, t]);
 
   useEffect(() => {
     if (!resourceKeyword.trim()) return;

@@ -151,6 +151,22 @@ CREATE TABLE IF NOT EXISTS auth_button (
     KEY idx_button_menu_id (menu_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='按钮表';
 
+CREATE TABLE IF NOT EXISTS auth_api (
+    id CHAR(32) NOT NULL,
+    code VARCHAR(100) NOT NULL COMMENT '接口权限编码，唯一',
+    name VARCHAR(100) NOT NULL COMMENT '接口权限名称',
+    module VARCHAR(50) COMMENT '所属模块编码，取值来自字典 param_module',
+    sort INT NOT NULL DEFAULT 0 COMMENT '排序号',
+    remark VARCHAR(500) COMMENT '备注：用途、影响范围',
+    status SMALLINT NOT NULL DEFAULT 1 COMMENT '状态：0禁用 1启用',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_api_code (code),
+    KEY idx_api_module (module),
+    KEY idx_api_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='接口权限表';
+
 -- ----------------------------------------------------------------------------
 -- auth-core / permission
 -- Tables: auth_permission
@@ -159,7 +175,7 @@ CREATE TABLE IF NOT EXISTS auth_permission (
     id CHAR(32) NOT NULL,
     subject_type VARCHAR(20) NOT NULL COMMENT '主体类型：USER/ROLE/ORG',
     subject_id CHAR(32) NOT NULL COMMENT '主体ID',
-    resource_type VARCHAR(20) NOT NULL COMMENT '资源类型：MENU/BUTTON',
+    resource_type VARCHAR(20) NOT NULL COMMENT '资源类型：MENU/BUTTON/API',
     resource_id CHAR(32) NOT NULL COMMENT '资源ID',
     effect VARCHAR(100) NOT NULL DEFAULT 'Allow' COMMENT '效果：Allow（授权）或 Deny（拒绝）',
     scope VARCHAR(100) NOT NULL DEFAULT 'ALL' COMMENT '权限范围，默认ALL',

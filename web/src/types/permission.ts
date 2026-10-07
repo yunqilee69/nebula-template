@@ -1,5 +1,5 @@
 export type PermissionSubjectType = 'ORG' | 'ROLE' | 'USER';
-export type PermissionResourceType = 'MENU' | 'BUTTON';
+export type PermissionResourceType = 'MENU' | 'BUTTON' | 'API';
 export type PermissionEffect = 'Allow' | 'Deny';
 export type PermissionDraftEffect = 'none' | 'Allow' | 'Deny';
 
@@ -42,6 +42,30 @@ export interface PermissionResourceGroup {
   name: string;
   description?: string;
   menus: PermissionMenuResource[];
+}
+
+/**
+ * 接口权限资源。
+ *
+ * 接口权限没有所属菜单，也不驱动前端控件显隐，只做服务端准入；
+ * 授权树按 module（字典 param_module）分组。
+ */
+export interface PermissionApiResource {
+  id: string;
+  type: 'API';
+  name: string;
+  code: string;
+  module?: string;
+  description?: string;
+  status?: number;
+}
+
+export interface PermissionApiResourceGroup {
+  key: string;
+  name: string;
+  description?: string;
+  module: string;
+  apis: PermissionApiResource[];
 }
 
 export interface PermissionGrantResp {

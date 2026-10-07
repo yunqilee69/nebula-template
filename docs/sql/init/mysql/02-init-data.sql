@@ -727,6 +727,48 @@ INSERT INTO auth_menu (
         'Built-in login log menu',
         NOW(),
         NOW()
+    ),
+    -- 接口管理（接口权限登记，按模块分组）
+    (
+        '0196dbe0a6f17000a000000000000025',
+        '接口管理',
+        '0196dbe0a6f17000a000000000000003',
+        '/system/operation/api',
+        17,
+        'system-operation-api',
+        'ApiOutlined',
+        'ApiManagementPage',
+        'MENU',
+        1,
+        0,
+        NULL,
+        1,
+        1,
+        NULL,
+        'Built-in api permission registry menu',
+        NOW(),
+        NOW()
+    ),
+    -- 接口权限（把接口权限授予主体）
+    (
+        '0196dbe0a6f17000a000000000000031',
+        '接口权限',
+        '0196dbe0a6f17000a000000000000009',
+        '/system/permission/api-permission',
+        23,
+        'system-permission-api',
+        'KeyOutlined',
+        'ApiPermissionPage',
+        'MENU',
+        1,
+        0,
+        NULL,
+        1,
+        1,
+        NULL,
+        'Built-in api permission assignment page',
+        NOW(),
+        NOW()
     )
 AS new_values ON DUPLICATE KEY UPDATE
     name = new_values.name,
@@ -767,6 +809,9 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000216', '0196dbe0a6f17000a000000000000008', 'AUTH_BUTTON_CREATE', '新增按钮', 'add', 1, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000217', '0196dbe0a6f17000a000000000000008', 'AUTH_BUTTON_EDIT', '编辑按钮', 'edit', 2, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000218', '0196dbe0a6f17000a000000000000008', 'AUTH_BUTTON_DELETE', '删除按钮', 'delete', 3, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000301', '0196dbe0a6f17000a000000000000025', 'AUTH_API_CREATE', '新增接口权限', 'add', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000302', '0196dbe0a6f17000a000000000000025', 'AUTH_API_EDIT', '编辑接口权限', 'edit', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000303', '0196dbe0a6f17000a000000000000025', 'AUTH_API_DELETE', '删除接口权限', 'delete', 3, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000219', '0196dbe0a6f17000a000000000000019', 'AUTH_PERMISSION_CREATE', '新增授权', 'add', 1, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000220', '0196dbe0a6f17000a000000000000019', 'AUTH_PERMISSION_EDIT', '编辑授权', 'edit', 2, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000221', '0196dbe0a6f17000a000000000000019', 'AUTH_PERMISSION_DELETE', '删除授权', 'delete', 3, 1, NOW(), NOW()),
@@ -787,6 +832,28 @@ AS new_values ON DUPLICATE KEY UPDATE
     name = new_values.name,
     type = new_values.type,
     sort = new_values.sort,
+    status = new_values.status,
+    update_time = new_values.update_time;
+
+-- ----------------------------------------------------------------------------
+-- auth-core / 接口权限种子数据
+-- 这些权限码没有对应的界面控件，只做服务端准入，因此登记在 auth_api 而非 auth_button。
+-- module 取值来自字典 param_module，供授权树分组展示。
+-- 新增接口权限码时：在所属模块的 *ApiCodes 里定义常量、控制器上加 @NebulaApiPermission，
+-- 并在此处（或对应的版本增量脚本）登记同名 code，缺一不可。
+-- ----------------------------------------------------------------------------
+INSERT INTO auth_api (
+    id, code, name, module, sort, remark, status, create_time, update_time
+) VALUES
+    ('0196dbe0a6f17000a000000000000401', 'AUDIT_RECORD_VIEW', '审计记录查询', 'audit', 1, '审计记录分页与详情查询；界面上没有"查询"按钮，属列表接口准入', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000402', 'PARAM_GENERAL_CONFIG_QUERY', '通用配置查询', 'param', 2, '通用配置读取；前端初始化时按需拉取', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000403', 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000404', 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, NOW(), NOW())
+AS new_values ON DUPLICATE KEY UPDATE
+    name = new_values.name,
+    module = new_values.module,
+    sort = new_values.sort,
+    remark = new_values.remark,
     status = new_values.status,
     update_time = new_values.update_time;
 
@@ -1050,4 +1117,28 @@ WHERE NOT EXISTS (
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'BUTTON'
       AND p.resource_id = b.id
+);
+
+-- 为 ADMIN 角色生成所有 API 类型权限
+-- 接口权限是资源类型 API，与 MENU/BUTTON 并列，授权行同样落在 auth_permission
+INSERT INTO auth_permission (
+    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+)
+SELECT
+    REPLACE(UUID(), '-', ''),
+    'ROLE',
+    '0194f3c8b6b77c0d91a7d9af9c7d0002',
+    'API',
+    a.id,
+    'Allow',
+    'ALL',
+    NOW(),
+    NOW()
+FROM auth_api a
+WHERE NOT EXISTS (
+    SELECT 1 FROM auth_permission p
+    WHERE p.subject_type = 'ROLE'
+      AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
+      AND p.resource_type = 'API'
+      AND p.resource_id = a.id
 );

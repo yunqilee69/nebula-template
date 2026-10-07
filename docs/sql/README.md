@@ -115,7 +115,9 @@ git mv docs/sql/unreleased docs/sql/X.Y.Z
   - `04-storage-file-variant.sql`：存储派生版本表 `storage_file_variant`；
   - `05-default-role-org-param.sql`：恢复「自助注册自动建号」的默认角色 / 默认组织两个登录参数（`login.oauth2.default-role-id` / `login.oauth2.default-org-id`，键名保留历史前缀，作用域见脚本头注释；用 `INSERT IGNORE` / `ON CONFLICT DO NOTHING`，**不覆盖**运维已配的值）。
 
-`unreleased/` 当前不存在（已整体更名为 `0.2.4/`）：新增升级脚本时重建该目录，发版时再整体更名。
+`unreleased/` 当前存在，内容为尚未发版的增量脚本：
+
+- `01-api-permission.sql`：接口权限 `auth_api` 表（新增 `API` 资源类型）；新增「接口管理」「接口权限」两个菜单与 `AUTH_API_CREATE` / `AUTH_API_EDIT` / `AUTH_API_DELETE` 三个按钮，4 行内置接口权限码，并为 `ADMIN` 补授权；同时把 4 个纯接口权限码（`AUDIT_RECORD_VIEW` / `PARAM_GENERAL_CONFIG_QUERY` / `FRONTEND_APP_RELEASE_QUERY` / `STORAGE_FILE_QUERY`）已授出的 `BUTTON` 授权**迁移**为 `API` 授权并删除旧 `auth_button` 行。发版时整体更名为新版本号目录。
 
 `0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
 

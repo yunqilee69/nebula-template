@@ -1426,7 +1426,116 @@ export interface NebulaAuthMessages {
   profileInfo: NebulaProfileInfoMessages;
   buttonManagement: NebulaButtonManagementMessages;
   buttonPermission: NebulaButtonPermissionMessages;
+  apiManagement: NebulaApiManagementMessages;
+  apiPermission: NebulaApiPermissionMessages;
   select: NebulaSelectMessages;
+}
+
+export interface NebulaApiManagementMessages {
+  title: string;
+  tabs: {
+    list: string;
+    reconciliation: string;
+  };
+  actions: {
+    create: string;
+    edit: string;
+    delete: string;
+    search: string;
+    reset: string;
+    save: string;
+    cancel: string;
+    reload: string;
+  };
+  columns: {
+    name: string;
+    code: string;
+    module: string;
+    remark: string;
+    status: string;
+    createTime: string;
+    updateTime: string;
+    actions: string;
+  };
+  fields: {
+    name: string;
+    code: string;
+    codeHint: string;
+    module: string;
+    sort: string;
+    remark: string;
+    status: string;
+  };
+  modal: {
+    createTitle: string;
+    editTitle: string;
+  };
+  placeholders: {
+    name: string;
+    code: string;
+    module: string;
+    remark: string;
+  };
+  validation: {
+    nameRequired: string;
+    codeRequired: string;
+  };
+  status: {
+    enabled: string;
+    disabled: string;
+  };
+  feedback: {
+    listLoadFailed: string;
+    detailLoadFailed: string;
+    createSuccess: string;
+    updateSuccess: string;
+    deleteSuccess: string;
+    deleteFailed: string;
+    reconciliationLoadFailed: string;
+  };
+  confirm: {
+    deleteTitle: string;
+  };
+  reconciliation: {
+    hint: string;
+    unregisteredTitle: string;
+    unregisteredEmpty: string;
+    unusedTitle: string;
+    unusedEmpty: string;
+    columns: {
+      code: string;
+      resourceType: string;
+      module: string;
+      handler: string;
+      httpMethod: string;
+      pathPattern: string;
+    };
+  };
+}
+
+export interface NebulaApiPermissionMessages {
+  title: string;
+  searchPlaceholder: string;
+  emptyText: string;
+  ungroupedModule: string;
+  allModules: string;
+  modulePlaceholder: string;
+  actions: {
+    save: string;
+    allowAll: string;
+    denyAll: string;
+    clearAll: string;
+  };
+  effects: {
+    none: string;
+    allow: string;
+    deny: string;
+  };
+  feedback: {
+    saveSuccess: string;
+    saveFailed: string;
+    loadFailed: string;
+  };
 }
 
 export interface NebulaSelectMessages {

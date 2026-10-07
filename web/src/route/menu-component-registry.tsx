@@ -69,6 +69,13 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultPath: '/system/operation/button',
     loader: () => import('@/pages/system/operation/button').then((module) => ({ default: module.ButtonManagementPage })),
   },
+  ApiManagementPage: {
+    component: 'ApiManagementPage',
+    defaultName: '接口管理',
+    defaultCode: 'API_MANAGEMENT',
+    defaultPath: '/system/operation/api',
+    loader: () => import('@/pages/system/operation/api').then((module) => ({ default: module.ApiManagementPage })),
+  },
   // 系统管理 - 权限管理
   MenuPermissionPage: {
     component: 'MenuPermissionPage',
@@ -85,6 +92,14 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultPath: '/system/permission/button-permission',
     loader: () =>
       import('@/pages/system/permission/button-permission').then((module) => ({ default: module.ButtonPermissionPage })),
+  },
+  ApiPermissionPage: {
+    component: 'ApiPermissionPage',
+    defaultName: '接口权限',
+    defaultCode: 'API_PERMISSION',
+    defaultPath: '/system/permission/api-permission',
+    loader: () =>
+      import('@/pages/system/permission/api-permission').then((module) => ({ default: module.ApiPermissionPage })),
   },
   // 系统管理 - 系统配置
   DictManagementPage: {

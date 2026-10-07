@@ -373,6 +373,7 @@ Nebula 采用 **RBAC + ABAC 混合模型**，支持三级主体授权：
 |---|---|---|
 | MENU | `RESOURCE_TYPE_MENU` | 菜单资源 |
 | BUTTON | `RESOURCE_TYPE_BUTTON` | 按钮资源 |
+| API | `RESOURCE_TYPE_API` | 接口资源（无界面控件、只做服务端准入） |
 | Wildcard | `RESOURCE_TYPE_WILDCARD` | 通配资源（`*`） |
 
 **权限效果**：
@@ -388,10 +389,25 @@ Nebula 采用 **RBAC + ABAC 混合模型**，支持三级主体授权：
 权限编码 = resourceType:resourceCode:effect
 
 // 示例
-MENU:user-management:Allow    // 允许访问用户管理菜单
-BUTTON:user-create:Allow      // 允许使用创建用户按钮
-*:*:*                         // 全部权限（超级管理员）
+MENU:user-management:Allow       // 允许访问用户管理菜单
+BUTTON:user-create:Allow         // 允许使用创建用户按钮
+API:STORAGE_FILE_QUERY:Allow     // 允许调用登记为 STORAGE_FILE_QUERY 的接口
+*:*:*                            // 全部权限（超级管理员）
 ```
+
+**资源登记表**：三类资源各有一张登记表，权限记录的 `resourceId` 指向其中一行，
+编码由该行的 `code` 解析而来（见 §2.2）。资源行是**授权数据**，写入时机必须是人的动作
+（初始化 SQL 或管理端），框架不做代码扫描自动补行。
+
+| 资源类型 | 登记表 | 关键字段 | 管理端 |
+|---|---|---|---|
+| MENU | `auth_menu` | `code` | 菜单管理 |
+| BUTTON | `auth_button` | `code`、`menu_id`（必有界面归属） | 按钮管理 |
+| API | `auth_api` | `code`、`module`（无界面归属，模块取自字典 `param_module`） | 接口管理 |
+
+> **BUTTON 与 API 怎么选**：该权限码需要驱动前端控件显隐 → BUTTON；
+> 只做服务端准入、前端没有对应控件 → API。同一个能力不要两边都登记，
+> 否则授权树上会出现两个语义重复的码，而前端只认 BUTTON 那一个。
 
 ---
 
@@ -453,7 +469,7 @@ private String toPermissionCode(PermissionEntity permission) {
         + permission.getEffect();
 }
 
-// ✅ 正确 - 资源编码解析（Menu/Button）
+// ✅ 正确 - 资源编码解析（Menu/Button/Api）
 private String resolveResourceCode(PermissionEntity permission) {
     if (PermissionConstants.RESOURCE_TYPE_MENU.equalsIgnoreCase(permission.getResourceType())) {
         MenuEntity menu = menuDAO.getById(permission.getResourceId());
@@ -465,6 +481,12 @@ private String resolveResourceCode(PermissionEntity permission) {
         ButtonEntity button = buttonDAO.getById(permission.getResourceId());
         if (button != null && StringUtils.hasText(button.getCode())) {
             return button.getCode();
+        }
+    }
+    if (PermissionConstants.RESOURCE_TYPE_API.equalsIgnoreCase(permission.getResourceType())) {
+        ApiEntity api = apiDAO.getById(permission.getResourceId());
+        if (api != null && StringUtils.hasText(api.getCode())) {
+            return api.getCode();
         }
     }
     return permission.getResourceId();
@@ -537,23 +559,38 @@ if (permissions.contains("MENU:user-management:Allow")) {
 
 #### 2.3.3 客户端接口面准入（client scope）
 
-按钮权限回答「这个操作需要什么权限」，但它**只对加了注解的方法生效**（见 §2.3.1 与 `ButtonPermissionChecker`）。
+权限码（按钮权限与接口权限）回答「这个操作需要什么权限」，但它**只对加了注解的方法生效**
+（`@NebulaPermission` / `@NebulaApiPermission`，见 §2.3.1 与 `ButtonPermissionChecker`）。
 客户端作用域补的是另一层：**这一整类客户端能到哪**，粗粒度、默认拒绝、不依赖逐接口维护。
 
 判定入口是 `ClientScopeInterceptor`（`/api/**`），顺序固定为：作用域 → 按钮权限。顺序不可调换——
 作用域更粗且默认拒绝，先判才能让被拦的请求报出正确的原因（`18003` 而不是 `18002`）。
 
-**两条独立要求，新增接口时都要满足，缺一条接口就不可达或挡不住**：
+**三条独立要求，新增接口时都要满足，缺一条接口就不可达、挡不住或授不出去**：
 
-1. 新增**写/管理**接口必须带 `@NebulaPermission`（用该模块的 `*ButtonCodes` 常量，风格见
-   `AuthButtonCodes`），否则任何已登录账号都能调——这是 §6.3 的禁止项。
+1. 新增**写/管理**接口必须带权限码注解，否则任何已登录账号都能调——这是 §6.3 的禁止项。
+   用哪个注解取决于是否需要界面控件：**需要**（按钮显隐）用 `@NebulaPermission`（常量放该模块的
+   `*ButtonCodes`，行登记在 `auth_button`）；**不需要**、只做服务端准入用 `@NebulaApiPermission`
+   （常量放该模块的 `*ApiCodes`，行登记在 `auth_api`）。全项目禁止新增 `AuditButtonCodes` 这类
+   "名字叫 Button 其实是接口"的常量。
 2. 新增**面向受限客户端**的接口必须同步该作用域的 `allow` 白名单，否则默认不可达（表现为 `18003`）。
    白名单是配置、不是注解——不登记就等于不开放，这是有意的。
+3. 新增的权限码必须在 `auth_button` / `auth_api` 里有登记行（初始化 SQL 或管理端「按钮管理」
+   「接口管理」页）。**注解与登记行是两份数据，不会自动同步**：只有注解没有行时，管理端看不到、
+   授不出去，而该端点对非 ADMIN / SUPER_ADMIN 一律静默拒绝。漂移的兜底见下方"登记对账"。
 
 **面向当前用户的接口不加权限码**：`/announcements/current/**`、`/site-messages/**`、`/profile*`、
 `/frontend/preferences/**` 等靠登录态与 `userId` 过滤，加了权限码反而会让普通用户看不到自己的消息。
 各模块的 `*ButtonPermissionCoverageTest` 用反向断言守住这条边界：任何映射端点必须带码，
 或显式登记在"有意免权限"白名单并说明理由。
+
+**登记对账（漂移可见化）**：`ApiRegistryReconciliationService` 从 MVC 的
+`RequestMappingHandlerMapping` 读出所有端点的注解，与管理端的「接口管理 → 权限登记对账」页对照，
+只报两个能给出精确结论的问题——**未登记**（代码声明了码、登记表里没有行）与**未使用**
+（`auth_api` 里有行、代码里没有引用）。它**只读、不写库**：补行是人的动作。
+`nebula.auth.permission.strict-registry=true` 时，启动期发现"未登记"直接失败
+（错误码 `18006`），建议只在预发与 CI 打开；默认只打 WARN。
+remote 模式下该服务只能看到本服务的 controller，对账不完整，这是已知范围限制。
 
 **失败取态（两种情形相反，禁止互相套用）**：
 
@@ -959,13 +996,16 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 
 ### 6.3 权限校验禁止
 
-- ❌ 接口无权限校验（写/管理接口应使用 `@NebulaPermission`，框架预置的角色/权限组合校验用 `@PreAuthorize`；匿名接口必须登记在 `AuthProperties` 固定放行名单）
+- ❌ 接口无权限校验（写/管理接口应使用 `@NebulaPermission` / `@NebulaApiPermission`，框架预置的角色/权限组合校验用 `@PreAuthorize`；匿名接口必须登记在 `AuthProperties` 固定放行名单）
 - ❌ 业务逻辑硬编码角色判断
 - ❌ 权限变更未同步用户时间戳
 - ❌ 使用硬编码字符串校验权限（应使用常量）
 - ❌ 超级管理员判断未使用 `FULL_PERMISSION_CODE`
-- ❌ 新增写/管理接口不加 `@NebulaPermission`（受限客户端与低权限内部用户都挡不住）
+- ❌ 新增写/管理接口不加权限码注解（受限客户端与低权限内部用户都挡不住）
 - ❌ 新增面向受限客户端的接口未同步该作用域的 `allow` 白名单（接口默认不可达，表现为 `18003`）
+- ❌ 新增权限码只在代码里加注解、不在 `auth_button` / `auth_api` 登记（管理端授不出去，非超管角色被静默拒绝）
+- ❌ 把接口权限码写成 `*ButtonCodes` 常量（会诱导后来者去 `auth_button` 里登记、并误用于前端控件显隐；应放 `*ApiCodes`）
+- ❌ 在 `ApiRegistryReconciliationService` 里自动补写登记行（登记属于授权数据，写入必须是人的动作）
 - ❌ 调整作用域与按钮权限的判定顺序（作用域必须先判，见 §2.3.3）
 
 ### 6.4 OAuth2 安全禁止
@@ -1012,6 +1052,7 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 |---|---|---|
 | `resourceType:resourceCode:effect` | `MENU:user-management:Allow` | 菜单权限 |
 | `resourceType:resourceCode:effect` | `BUTTON:user-create:Allow` | 按钮权限 |
+| `resourceType:resourceCode:effect` | `API:STORAGE_FILE_QUERY:Allow` | 接口权限（仅服务端准入） |
 | `*:*:*` | `*:*:*` | 全部权限（超级管理员） |
 
 ### 7.3 权限注解速查
@@ -1021,8 +1062,10 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 | `hasRole('ADMIN')` | `@PreAuthorize("hasRole('ADMIN')")` | 角色校验 |
 | `hasAuthority('code')` | `@PreAuthorize("hasAuthority('MENU:user:Allow')")` | 权限编码校验 |
 | `hasRole('ADMIN') or hasAuthority('*:*:*')` | 组合校验 | 管理接口 |
-| `@NebulaPermission(ButtonCodes.X)` | `@NebulaPermission(NotifyButtonCodes.NOTIFY_SEND)` | 框架模块写/管理接口（细粒度按钮权限） |
+| `@NebulaPermission(ButtonCodes.X)` | `@NebulaPermission(NotifyButtonCodes.NOTIFY_SEND)` | 需要界面控件的写/管理接口（前端按钮显隐 + 服务端准入） |
+| `@NebulaApiPermission(ApiCodes.X)` | `@NebulaApiPermission(StorageApiCodes.STORAGE_FILE_QUERY)` | 无界面控件、只做服务端准入的接口（登记在 `auth_api`） |
 | 客户端作用域 | `nebula.auth.client-scope.scopes.<SCOPE>.allow` | 受限客户端的粗粒度接口面（默认拒绝，§2.3.3） |
+| 登记严格校验 | `nebula.auth.permission.strict-registry` | `true` 时启动期发现未登记权限码即失败（`18006`），建议只在预发/CI 开 |
 
 ### 7.4 登录安全配置速查
 

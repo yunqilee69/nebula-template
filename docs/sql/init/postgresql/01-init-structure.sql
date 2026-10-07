@@ -230,6 +230,33 @@ COMMENT ON COLUMN auth_button.status IS '状态：0禁用 1启用';
 COMMENT ON COLUMN auth_button.create_time IS '创建时间';
 COMMENT ON COLUMN auth_button.update_time IS '更新时间';
 
+CREATE TABLE IF NOT EXISTS auth_api (
+    id CHAR(32) PRIMARY KEY,
+    code VARCHAR(100) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    module VARCHAR(50),
+    sort INT NOT NULL DEFAULT 0,
+    remark VARCHAR(500),
+    status SMALLINT NOT NULL DEFAULT 1,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_api_code ON auth_api (code);
+CREATE INDEX IF NOT EXISTS idx_api_module ON auth_api (module);
+CREATE INDEX IF NOT EXISTS idx_api_status ON auth_api (status);
+
+COMMENT ON TABLE auth_api IS '接口权限表';
+COMMENT ON COLUMN auth_api.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_api.code IS '接口权限编码，唯一';
+COMMENT ON COLUMN auth_api.name IS '接口权限名称';
+COMMENT ON COLUMN auth_api.module IS '所属模块编码，取值来自字典 param_module';
+COMMENT ON COLUMN auth_api.sort IS '排序号';
+COMMENT ON COLUMN auth_api.remark IS '备注：用途、影响范围';
+COMMENT ON COLUMN auth_api.status IS '状态：0禁用 1启用';
+COMMENT ON COLUMN auth_api.create_time IS '创建时间';
+COMMENT ON COLUMN auth_api.update_time IS '更新时间';
+
 -- ----------------------------------------------------------------------------
 -- auth-core / permission
 -- Tables: auth_permission

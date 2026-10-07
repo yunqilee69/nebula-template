@@ -311,6 +311,7 @@ CREATE UNIQUE INDEX uk_user_username ON auth_user (username);
 CREATE UNIQUE INDEX uk_role_code ON auth_role (code);
 CREATE UNIQUE INDEX uk_org_code ON auth_org (code);
 CREATE UNIQUE INDEX uk_menu_code ON auth_menu (code);
+CREATE UNIQUE INDEX uk_api_code ON auth_api (code);
 CREATE UNIQUE INDEX uk_dict_type_code ON sys_dict_type (code);
 CREATE UNIQUE INDEX uk_sys_param_key ON sys_param (param_key);
 CREATE UNIQUE INDEX uk_notify_template_code ON sys_notify_template (template_code);
@@ -331,6 +332,7 @@ CREATE INDEX idx_dict_item_enabled ON sys_dict_item (is_enabled);
 CREATE INDEX idx_org_parent_id ON auth_org (parent_id);
 CREATE INDEX idx_menu_parent_id ON auth_menu (parent_id);
 CREATE INDEX idx_button_menu_id ON auth_button (menu_id);
+CREATE INDEX idx_api_module ON auth_api (module);
 CREATE INDEX idx_user_org_user_id ON auth_user_org (user_id);
 CREATE INDEX idx_user_org_org_id ON auth_user_org (org_id);
 CREATE INDEX idx_user_role_user_id ON auth_user_role (user_id);
@@ -645,6 +647,7 @@ LEFT JOIN auth_permission p ON ...
 | `auth_user_role` | 用户-角色关联 | `id`, `user_id`, `role_id` |
 | `auth_menu` | 菜单表 | `id`, `name`, `parent_id`, `code`, `path` |
 | `auth_button` | 按钮表 | `id`, `menu_id`, `code`, `name`, `type` |
+| `auth_api` | 接口权限表 | `id`, `code`, `name`, `module`（无 `menu_id`：接口权限不挂界面） |
 | `auth_permission` | 权限表 | `id`, `subject_type`, `subject_id`, `resource_type`, `resource_id` |
 | `auth_oauth2_account` | OAuth2 账号 | `id`, `user_id`, `provider_id`, `provider_user_id` |
 | `auth_oauth2_client` | OAuth2 客户端 | `id`, `client_id`, `client_name`, `grant_types` |

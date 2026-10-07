@@ -158,4 +158,15 @@ describe('permissionService', () => {
     expect(result).toEqual(menus);
     expect(mockedRequest).toHaveBeenCalledWith({ url: '/api/auth/menus/tree', method: 'GET' });
   });
+
+  it('lists api permission resources from the api list endpoint', async () => {
+    const apis = [{ id: 'api-storage-file-query', name: '查询文件', code: 'STORAGE_FILE_QUERY', module: 'storage', status: 1 }];
+
+    mockedRequest.mockResolvedValue(apis);
+
+    const result = await permissionService.listApis();
+
+    expect(result).toEqual(apis);
+    expect(mockedRequest).toHaveBeenCalledWith({ url: '/api/auth/apis/list', method: 'GET' });
+  });
 });
