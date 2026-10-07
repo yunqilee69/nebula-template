@@ -29,9 +29,9 @@
         <!--
             框架版本：与主仓发布到 Maven Central 的版本保持一致。
             nebula 主仓打 v* 标签发布时，sync-template 工作流会按标签版本覆盖本值，
-            因此本文件在主干上始终指向“当前最新已发布版本”，勿手工填未发布版本。
+            因此本值在主干上随「发版提交」与本次 tag 一起更新，勿单独填未发布版本。
         -->
-        <nebula.version>0.2.2</nebula.version>
+        <nebula.version>0.2.4</nebula.version>
         <!--
             MapStruct 处理器版本：须与框架传递的 mapstruct 运行时版本保持一致
             （见 nebula-dependency 的 mapstruct.version），否则处理器生成的代码
@@ -39,6 +39,27 @@
         -->
         <mapstruct.version>1.6.0</mapstruct.version>
     </properties>
+
+    <!--
+        依赖管理：导入框架 BOM，业务工程按需引入框架模块时不必再写版本号。
+        例如把正式区存储换成对象存储后端，只需补一个依赖：
+            <dependency>
+                <groupId>cn.cloudomni</groupId>
+                <artifactId>nebula-storage-provider-aliyun-oss</artifactId>
+            </dependency>
+        注意 nebula-app-starter 本身不在 BOM 内，仍需显式写 <version>${nebula.version}</version>。
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>cn.cloudomni</groupId>
+                <artifactId>nebula-dependency</artifactId>
+                <version>${nebula.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- 一个依赖获得完整中台后端：认证/字典/参数/通知/存储/审计/调度/前端配置 -->
