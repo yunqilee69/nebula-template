@@ -31,7 +31,7 @@
             nebula 主仓打 v* 标签发布时，sync-template 工作流会按标签版本覆盖本值，
             因此本文件在主干上始终指向“当前最新已发布版本”，勿手工填未发布版本。
         -->
-        <nebula.version>0.2.3</nebula.version>
+        <nebula.version>0.2.2</nebula.version>
         <!--
             MapStruct 处理器版本：须与框架传递的 mapstruct 运行时版本保持一致
             （见 nebula-dependency 的 mapstruct.version），否则处理器生成的代码

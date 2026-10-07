@@ -964,6 +964,8 @@ INSERT INTO sys_param (
     ('01959f0aa4d37c0d91a7d9af9c7d1013', 'login.email.send-interval-seconds', '邮箱验证码发送间隔(秒)', '邮箱验证码发送间隔', '60', 'INT', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1014', 'login.oauth2.enabled', 'OAuth2登录开关', 'OAuth2登录总开关', 'true', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1015', 'login.oauth2.allow-register', 'OAuth2注册开关', 'OAuth2注册开关', 'true', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1038', 'login.oauth2.default-role-id', '自助注册默认角色ID', '自助注册自动建号（OAuth2 首登、用户名注册、手机号/邮箱首次登录）绑定的默认角色ID，留空则不绑定；填写的角色必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1039', 'login.oauth2.default-org-id', '自助注册默认组织ID', '自助注册自动建号绑定的默认组织ID（标记为主组织），留空则不绑定；填写的组织必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1020', 'login.oauth2.provider.github.enabled', 'GitHub登录开关', 'GitHub登录提供商开关', 'false', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1025', 'login.oauth2.provider.wechat.enabled', '微信登录开关', '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道', 'false', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1026', 'notify.email.smtp-host', 'SMTP服务器地址', '通知模块邮件SMTP服务器地址', '', 'STRING', NULL, 'notify', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),

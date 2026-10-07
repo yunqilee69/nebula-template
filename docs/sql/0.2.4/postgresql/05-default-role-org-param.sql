@@ -1,0 +1,37 @@
+-- ============================================================================
+-- Nebula - Upgrade Script
+-- 目标版本：0.2.4（PostgreSQL）
+-- Purpose: 恢复「自助注册自动建号绑定默认角色/组织」的两个登录参数
+--   1. login.oauth2.default-role-id：自助注册自动建号绑定的默认角色ID
+--   2. login.oauth2.default-org-id ：自助注册自动建号绑定的默认组织ID（标记为主组织）
+-- Notes:
+--   1. **不覆盖已有值**：用 ON CONFLICT DO NOTHING，只做「缺行补齐」。这两个参数是运营可改的策略值
+--      （例如把默认角色设成「客户」角色），重复执行升级脚本不得把已配置的值冲回 NULL。
+--   2. 默认值留空（NULL）即「不绑定」，与升级前行为一致；只有运营显式配置后才开始绑定。
+--   3. 作用域是**所有自助注册建号**：OAuth2 首登、用户名注册、手机号 / 邮箱验证码首次登录；
+--      后台「用户管理」建号不受影响（那里由管理员显式选择角色）。键名保留历史前缀 login.oauth2.。
+--   4. 绑定的角色/组织必须真实存在：建号时查不到会抛 ROLE_NOT_FOUND(11002) / ORG_NOT_FOUND(12002)
+--      并回滚整个建号，属于 fail-fast 的有意设计（配置写错要当场暴露，而不是静默建出无角色用户）。
+--   5. 绑定发生在建号事务内、签发登录会话之前，因此本次会话的角色列表已包含默认角色；
+--      这是必须的——登录后再补角色会改动权限时间戳，反而作废刚签发的令牌。
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. 补齐默认角色 / 默认组织参数
+-- ----------------------------------------------------------------------------
+INSERT INTO sys_param (
+    id,
+    param_key,
+    param_name,
+    description,
+    param_value,
+    data_type,
+    option_code,
+    module_code,
+    is_builtin,
+    create_time,
+    update_time
+) VALUES
+    ('01959f0aa4d37c0d91a7d9af9c7d1038', 'login.oauth2.default-role-id', '自助注册默认角色ID', '自助注册自动建号（OAuth2 首登、用户名注册、手机号/邮箱首次登录）绑定的默认角色ID，留空则不绑定；填写的角色必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1039', 'login.oauth2.default-org-id', '自助注册默认组织ID', '自助注册自动建号绑定的默认组织ID（标记为主组织），留空则不绑定；填写的组织必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (param_key) DO NOTHING;

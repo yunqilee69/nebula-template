@@ -104,15 +104,18 @@ git mv docs/sql/unreleased docs/sql/X.Y.Z
 
 ## 当前状态
 
-当前版本为 `0.2.2`。
+当前版本为 `0.2.4`。
 
 - `0.2.1/`：升级到 `0.2.1` 所需的增量脚本（`auth_login_record` 端类型列；移除失效的 `spring.servlet.multipart.*` 参数、新增 `storage.upload.*` 上传策略参数）；版本低于 `0.2.1` 的环境执行本目录脚本即可对齐。
 - `0.2.2/`：升级到 `0.2.2` 所需的增量脚本（新增微信登录提供商开关参数 `login.oauth2.provider.wechat.enabled`，默认关闭；该开关覆盖网站应用扫码与小程序两个渠道）。
-- `unreleased/`：尚未发版的增量脚本，发版时整体更名为新版本号：
+- `0.2.4/`：升级到 `0.2.4` 所需的增量脚本。**`0.2.3` 打标签时漏了更名**，其增量脚本滞留在 `unreleased/`，故一并归入本目录——`0.2.4/` 的集合等于「`0.2.3` + `0.2.4`」的落库变更，从任何低于 `0.2.4` 的版本升级都按本目录顺序执行一遍（已在 `0.2.3` 上跑过部分脚本的环境重跑即可，各脚本幂等）：
   - `01-notify-category-preference.sql`：通知类别可管理化与订阅偏好（新增 `sys_notify_category` 并写入 5 条内置类别、`category_code` 列、用户偏好表；**删除**免打扰表 `sys_notify_user_setting`；新增「通知类别」菜单与按钮权限）；
   - `02-app-release.sql`：应用版本发布记录表 `frontend_app_release`；
   - `03-notify-push-device.sql`：移动推送设备注册表与逐设备投递明细表；
-  - `04-storage-file-variant.sql`：存储派生版本表 `storage_file_variant`。
+  - `04-storage-file-variant.sql`：存储派生版本表 `storage_file_variant`；
+  - `05-default-role-org-param.sql`：恢复「自助注册自动建号」的默认角色 / 默认组织两个登录参数（`login.oauth2.default-role-id` / `login.oauth2.default-org-id`，键名保留历史前缀，作用域见脚本头注释；用 `INSERT IGNORE` / `ON CONFLICT DO NOTHING`，**不覆盖**运维已配的值）。
+
+`unreleased/` 当前不存在（已整体更名为 `0.2.4/`）：新增升级脚本时重建该目录，发版时再整体更名。
 
 `0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
 

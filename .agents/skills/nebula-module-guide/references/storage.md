@@ -212,16 +212,28 @@ DELETE /api/storage/files/{fileId}
 
 ## 存储 Provider
 
-支持三种存储方式：
+正式内容存储后端由 `nebula.storage.content.type` 选择，取值来自已安装的 provider 模块（一厂商一模块、各用各家原生 SDK）：
+
+| type | 模块 | 必填项 |
+|---|---|---|
+| `filesystem` | nebula-storage-core（内置，默认值） | `content.filesystem.base-dir` |
+| `db` | nebula-storage-core（内置） | 无 |
+| `minio` | nebula-storage-provider-minio | `endpoint` / `access-key` / `secret-key` / `bucket` |
+| `aliyun-oss` | nebula-storage-provider-aliyun-oss | `endpoint` / `access-key` / `secret-key` / `bucket`（地域由 endpoint 推导） |
+| `tencent-cos` | nebula-storage-provider-tencent-cos | `region` / `access-key` / `secret-key` / `bucket`（bucket 须为 `<桶名>-<APPID>`） |
+
+只有被 `type` 选中的后端会建立外部连接，其余段留空不影响启动；填了未安装的类型会启动失败并列出已安装类型。
+凭据只能来自环境变量，禁止写入配置文件、数据库、仓库或日志。
 
 ### 1. filesystem（本地文件系统）
 
 ```yaml
 nebula:
   storage:
-    provider: filesystem
-    filesystem:
-      base-path: /data/storage
+    content:
+      type: filesystem
+      filesystem:
+        base-dir: /data/storage
 ```
 
 ### 2. db（数据库存储）
@@ -229,23 +241,29 @@ nebula:
 ```yaml
 nebula:
   storage:
-    provider: db
+    content:
+      type: db
 ```
 
-文件内容存储在数据库 BLOB 字段。
+文件内容存储在数据库 `storage_content` 表的 BLOB 字段。
 
-### 3. minio（对象存储）
+### 3. 对象存储（minio / aliyun-oss / tencent-cos）
 
 ```yaml
 nebula:
   storage:
-    provider: minio
-    minio:
-      endpoint: http://minio.example.com
-      access-key: minioadmin
-      secret-key: minioadmin
-      bucket: nebula-storage
+    content:
+      type: aliyun-oss
+      aliyun-oss:
+        endpoint: https://oss-cn-hangzhou.aliyuncs.com
+        access-key: ${NEBULA_STORAGE_ALIYUN_OSS_ACCESS_KEY}
+        secret-key: ${NEBULA_STORAGE_ALIYUN_OSS_SECRET_KEY}
+        bucket: nebula-storage
+        # 让客户端直连对象存储取文件（默认 false，恒经服务端代理）
+        direct-download-enabled: false
 ```
+
+`minio` / `tencent-cos` 的键同构，只换段名：`minio` 用 `content.minio.*`，`tencent-cos` 用 `content.tencent-cos.*`（多一项 `region`）。
 
 ---
 
@@ -349,12 +367,18 @@ public class OrderServiceImpl implements IOrderService {
 nebula:
   storage:
     mode: local
-    provider: minio  # filesystem / db / minio
-    temp:
-      expire-hours: 24  # 临时文件过期时间
-    minio:
-      endpoint: http://minio.example.com
-      access-key: xxx
-      secret-key: xxx
-      bucket: nebula-storage
+    temp-dir: /tmp/nebula              # 临时区：上传中的文件与分片，恒为本地目录
+    content:
+      type: db                         # filesystem / db / minio / aliyun-oss / tencent-cos
+      filesystem:
+        base-dir: /data/storage
+      aliyun-oss:                      # 只有被 type 选中的后端才需要填
+        endpoint: https://oss-cn-hangzhou.aliyuncs.com
+        access-key: ${NEBULA_STORAGE_ALIYUN_OSS_ACCESS_KEY}
+        secret-key: ${NEBULA_STORAGE_ALIYUN_OSS_SECRET_KEY}
+        bucket: nebula-storage
+        direct-download-enabled: false
+    signed-download:                   # 分享场景的短时签名下载
+      enabled: true
+      secret: ${NEBULA_STORAGE_SIGNED_DOWNLOAD_SECRET}
 ```

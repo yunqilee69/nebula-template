@@ -388,32 +388,59 @@ spring:
       port: 6379
 ```
 
-### 5.4 对象存储直连下载配置
+### 5.4 对象存储后端与直连下载配置
 
-对象存储后端（`nebula.storage.content.type=s3|minio`）可选择让客户端直连对象存储取文件，绕开服务端转发。
-**默认关闭**：endpoint 常常只有内网可达，开启是运维显式动作，需先确认 bucket 对客户端可达并配好跨域规则。
+正式内容存储后端由 `nebula.storage.content.type` 选择，取值来自**依赖里装进来的 provider 模块**：
+
+| type | 提供模块 | 说明 |
+|---|---|---|
+| `filesystem` | nebula-storage-core（内置） | 本地目录，默认值 |
+| `db` | nebula-storage-core（内置） | 内容落 `storage_content` 表 |
+| `minio` | nebula-storage-provider-minio | MinIO 原生 SDK |
+| `aliyun-oss` | nebula-storage-provider-aliyun-oss | 阿里云 OSS 原生 SDK |
+| `tencent-cos` | nebula-storage-provider-tencent-cos | 腾讯云 COS 原生 SDK |
+
+一个厂商一个模块、各用各家原生 SDK，于是「寻址风格」「签名算法」「哪些响应头覆盖受支持」这些厂商差异都在模块内部消化，
+配置面上不再有 path-style / vendor 之类的通用开关。新增厂商只加模块，不改核心。
+
+`nebula-app-starter` 默认引入四个对象存储模块；只有被 `type` 选中的那个才建立外部连接，
+其余模块的配置项即使为空也不影响启动。`type` 填了未安装的后端会在启动时直接失败，并列出当前已安装的类型。
 
 ```yaml
 nebula:
   storage:
     content:
-      type: s3
-      s3:
-        endpoint: ${NEBULA_STORAGE_S3_ENDPOINT:}
-        bucket: ${NEBULA_STORAGE_S3_BUCKET:}
+      type: aliyun-oss
+      aliyun-oss:
+        endpoint: ${NEBULA_STORAGE_ALIYUN_OSS_ENDPOINT:}
+        access-key: ${NEBULA_STORAGE_ALIYUN_OSS_ACCESS_KEY:}     # 只能来自环境变量
+        secret-key: ${NEBULA_STORAGE_ALIYUN_OSS_SECRET_KEY:}
+        bucket: ${NEBULA_STORAGE_ALIYUN_OSS_BUCKET:}
+        # 桶不存在时是否自动建；多数云厂商的 AK 无建桶权限，生产建议 false
+        create-bucket-if-missing: false
         # false（默认）时所有下载经服务端流式转发；true 时登录态下载签发对象存储临时直链
-        direct-download-enabled: ${NEBULA_STORAGE_S3_DIRECT_DOWNLOAD_ENABLED:false}
+        direct-download-enabled: ${NEBULA_STORAGE_ALIYUN_OSS_DIRECT_DOWNLOAD_ENABLED:false}
         # 直链有效期（秒），上限 3600，超出按上限截断
-        direct-download-expire-seconds: ${NEBULA_STORAGE_S3_DIRECT_DOWNLOAD_EXPIRE_SECONDS:300}
+        direct-download-expire-seconds: ${NEBULA_STORAGE_ALIYUN_OSS_DIRECT_DOWNLOAD_EXPIRE_SECONDS:300}
 ```
 
-`minio` 后端使用同名键：`nebula.storage.content.minio.direct-download-enabled` / `direct-download-expire-seconds`。
+其余后端的键与上面同构，只换厂商段名与必填项：
+
+- `minio`：`endpoint`、`access-key`、`secret-key`、`bucket`。
+- `tencent-cos`：额外需要 `region`（如 `ap-guangzhou`）；bucket 必须是 `<桶名>-<APPID>` 形式。
+- `aliyun-oss`：只需 `endpoint`，地域由 SDK 从 endpoint 推导，不需要填 region。
+- `filesystem` / `db` 的键见 5.1。
 
 约束：
 
-1. `filesystem` 与 `db` 后端的内容对客户端不可达，**没有开关能让它们直连**，恒为服务端代理。
-2. 签名分享下载 `/api/storage/download-signed` 恒经服务端代理，以强制下载次数与时效，不受该开关影响。
-3. 直链 URL 本身即下载凭据，禁止写入日志、审计快照或错误信息（见 08-logging）。
+1. 对象存储后端默认**关闭直连**：endpoint 常常只有内网可达，开启是运维显式动作，需先确认 bucket 对客户端可达并配好跨域规则。
+2. `filesystem` 与 `db` 后端的内容对客户端不可达，**没有开关能让它们直连**，恒为服务端代理。
+3. 内容类型在上传时按对象键扩展名随对象落上，直链不再承担纠正 Content-Type 的职责。
+   阿里云 OSS 明确拒绝 `response-content-type` 覆盖（实测返回 400 `InvalidRequest`），`aliyun-oss` 模块因此不发送该参数。
+4. 强制下载的 `Content-Disposition` 真名按 RFC 5987 编码（`filename*=UTF-8''...`），中文名不再乱码。
+5. 签名分享下载 `/api/storage/download-signed` 恒经服务端代理，以强制下载次数与时效，不受该开关影响。
+6. 直链 URL 本身即下载凭据，禁止写入日志、审计快照或错误信息（见 08-logging）。
+7. 对象存储凭据只能来自环境变量，禁止写入配置文件、数据库、仓库或日志（见六、敏感配置处理规范）。
 
 ---
 

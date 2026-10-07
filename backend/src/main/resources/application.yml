@@ -105,8 +105,33 @@ nebula:
     # 临时区：上传过程中的文件与分片，落各操作系统临时目录下的 nebula 子目录
     temp-dir: ${java.io.tmpdir}/nebula
     # 正式区：绑定成功后文件内容写入 storage_content 表
+    # type 取值须是已安装的后端：filesystem / db / minio / aliyun-oss / tencent-cos。
+    # 对象存储后端由 nebula-app-starter 里的独立模块提供，只有被选中的那个会建立外部连接；
+    # 填了未安装的类型会启动失败并列出已安装类型。
     content:
       type: db
+      # 以下对象存储段默认留空，按选中的 type 填对应的一组即可（凭据只应来自环境变量）
+      aliyun-oss:
+        # 地域由 SDK 从 endpoint 推导，不需要单填 region
+        endpoint: ${NEBULA_STORAGE_ALIYUN_OSS_ENDPOINT:}
+        access-key: ${NEBULA_STORAGE_ALIYUN_OSS_ACCESS_KEY:}
+        secret-key: ${NEBULA_STORAGE_ALIYUN_OSS_SECRET_KEY:}
+        bucket: ${NEBULA_STORAGE_ALIYUN_OSS_BUCKET:}
+        # 登录态下载是否签发对象存储临时直链；关闭时恒经服务端流式转发
+        direct-download-enabled: ${NEBULA_STORAGE_ALIYUN_OSS_DIRECT_DOWNLOAD_ENABLED:false}
+      tencent-cos:
+        # bucket 必须是 <桶名>-<APPID> 形式
+        region: ${NEBULA_STORAGE_TENCENT_COS_REGION:}
+        access-key: ${NEBULA_STORAGE_TENCENT_COS_ACCESS_KEY:}
+        secret-key: ${NEBULA_STORAGE_TENCENT_COS_SECRET_KEY:}
+        bucket: ${NEBULA_STORAGE_TENCENT_COS_BUCKET:}
+        direct-download-enabled: ${NEBULA_STORAGE_TENCENT_COS_DIRECT_DOWNLOAD_ENABLED:false}
+      minio:
+        endpoint: ${NEBULA_STORAGE_MINIO_ENDPOINT:}
+        access-key: ${NEBULA_STORAGE_MINIO_ACCESS_KEY:}
+        secret-key: ${NEBULA_STORAGE_MINIO_SECRET_KEY:}
+        bucket: ${NEBULA_STORAGE_MINIO_BUCKET:}
+        direct-download-enabled: ${NEBULA_STORAGE_MINIO_DIRECT_DOWNLOAD_ENABLED:false}
 
 org:
   quartz:

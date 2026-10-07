@@ -300,8 +300,8 @@ nebula:
     oauth2:
       enabled: true                      # OAuth2 总开关
       register-allowed: true             # 允许 OAuth2 注册
-      default-role-id: xxx               # 新用户默认角色
-      default-org-id: xxx                # 新用户默认组织
+      # 新用户默认角色 / 组织走参数中心系统参数（login.oauth2.default-role-id /
+      # login.oauth2.default-org-id），不是静态配置项；留空即不绑定。
       github:
         enabled: true
         client-id: github-client-id
