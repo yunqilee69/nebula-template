@@ -79,4 +79,19 @@ describe('useNotifyStore', () => {
     // Then the next consumer starts with no unread notifications
     expect(useNotifyStore.getState().unreadCount).toBe(0);
   });
+
+  it('starts with signal version zero', () => {
+    expect(useNotifyStore.getState().signalVersion).toBe(0);
+  });
+
+  it('bumps the signal version when a realtime signal arrives', () => {
+    // Given a mounted consumer listening for realtime signals
+    const initialVersion = useNotifyStore.getState().signalVersion;
+
+    // When a realtime signal is received
+    useNotifyStore.getState().notifySignalReceived();
+
+    // Then the version advances so consumers can reload derived data
+    expect(useNotifyStore.getState().signalVersion).toBe(initialVersion + 1);
+  });
 });

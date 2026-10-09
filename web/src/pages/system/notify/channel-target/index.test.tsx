@@ -13,14 +13,25 @@ const CHANNEL_OPTIONS = [
   { label: '站内信', value: 'SITE' },
   { label: '邮件', value: 'EMAIL' },
   { label: '企业微信群机器人', value: 'WECOM_GROUP_WEBHOOK' },
+  { label: '飞书群机器人', value: 'FEISHU_GROUP_WEBHOOK' },
+  { label: '钉钉群机器人', value: 'DINGTALK_GROUP_WEBHOOK' },
 ] as const;
 
 vi.mock('@/components/dict-select', () => ({
-  DictSelect: ({ dictCode: _dictCode, showDisabled: _showDisabled, ...props }: SelectProps<string> & {
+  DictSelect: ({
+    dictCode: _dictCode,
+    showDisabled: _showDisabled,
+    optionFilter,
+    ...props
+  }: SelectProps<string> & {
     readonly dictCode: string;
     readonly showDisabled?: boolean;
+    readonly optionFilter?: (option: { readonly label: string; readonly value: string }) => boolean;
   }) => (
-    <Select<string> {...props} options={[...CHANNEL_OPTIONS]} />
+    <Select<string>
+      {...props}
+      options={CHANNEL_OPTIONS.filter((option) => (optionFilter ? optionFilter(option) : true))}
+    />
   ),
   DictLabel: ({ value }: { readonly value?: string }) => (
     <span>{CHANNEL_OPTIONS.find((option) => option.value === value)?.label ?? value ?? '-'}</span>
@@ -134,6 +145,24 @@ describe('ChannelTargetManagementPage', () => {
         remark: '生产告警',
       });
     });
+  });
+
+  it('only offers channels that can carry a delivery target', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText('Ops Group');
+    await user.click(screen.getByRole('button', { name: /新增渠道目标/ }));
+    const modal = getModalByTitle('新增渠道目标');
+    await user.click(within(modal).getByRole('combobox'));
+
+    const optionSelector = '.ant-select-item-option-content';
+    expect(await screen.findByText('企业微信群机器人', { selector: optionSelector })).toBeInTheDocument();
+    expect(screen.getByText('飞书群机器人', { selector: optionSelector })).toBeInTheDocument();
+    expect(screen.getByText('钉钉群机器人', { selector: optionSelector })).toBeInTheDocument();
+    // 站内信 / 邮件按用户扇出，投递目标不是渠道目标
+    expect(screen.queryByText('站内信', { selector: optionSelector })).not.toBeInTheDocument();
+    expect(screen.queryByText('邮件', { selector: optionSelector })).not.toBeInTheDocument();
   });
 
   it('loads detail before editing and submits the update request', async () => {

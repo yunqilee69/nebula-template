@@ -28,6 +28,7 @@ export function DictSelect({
   onChange,
   showDisabled = true,
   flatten = true,
+  optionFilter,
   placeholder,
   disabled,
   allowClear = true,
@@ -35,11 +36,11 @@ export function DictSelect({
 }: DictSelectProps) {
   const { options, loading } = useDictItems(dictCode, flatten);
 
-  // 根据 showDisabled 过滤选项
+  // 根据 showDisabled 与 optionFilter 过滤选项
   const filteredOptions = useMemo(() => {
-    if (showDisabled) return options;
-    return options.filter((option) => !option.disabled);
-  }, [options, showDisabled]);
+    const visibleOptions = showDisabled ? options : options.filter((option) => !option.disabled);
+    return optionFilter ? visibleOptions.filter(optionFilter) : visibleOptions;
+  }, [options, showDisabled, optionFilter]);
 
   const optionsWithValue = useMemo(() => {
     if (value === undefined || value === null) return filteredOptions;

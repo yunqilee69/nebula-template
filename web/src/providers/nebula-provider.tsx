@@ -2,6 +2,9 @@ import { App as AntdApp, ConfigProvider, theme as antdTheme, type ThemeConfig } 
 import { StyleProvider, ThemeProvider as AntdStyleThemeProvider } from 'antd-style';
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
+import dayjs from 'dayjs';
+import 'dayjs/locale/en';
+import 'dayjs/locale/zh-cn';
 import { useEffect, type PropsWithChildren } from 'react';
 import { NebulaBrandProvider, useNebulaBrand, type NebulaBrandConfig } from '@/providers/brand-context';
 import { NoticeProvider, type NoticeConfig } from '@/providers/notice';
@@ -15,6 +18,9 @@ import { NebulaThemeProvider, type NebulaThemeMode } from '@/providers/theme-pro
 import { defaultDarkTheme, defaultLightTheme } from '@/providers/themes';
 
 const antdLocales = { 'zh-CN': zhCN, 'en-US': enUS } as const;
+
+/** antd DatePicker/Calendar 面板文案（月份/星期）来自 dayjs 自身 locale，须与 ConfigProvider 同步切换 */
+const dayjsLocales = { 'zh-CN': 'zh-cn', 'en-US': 'en' } as const;
 
 const themeModeAttribute = 'data-nebula-theme';
 
@@ -33,6 +39,10 @@ function AntdProviderBridge({ children, lightTheme, darkTheme, notice }: PropsWi
   const mode = useNebulaTheme((state) => state.mode);
   const locale = useLocaleStore((state) => state.locale);
   const themeConfig = mode === 'dark' ? darkTheme ?? defaultDarkTheme : lightTheme ?? defaultLightTheme;
+
+  useEffect(() => {
+    dayjs.locale(dayjsLocales[locale]);
+  }, [locale]);
 
   return (
     <ConfigProvider locale={antdLocales[locale]} theme={themeConfig}>

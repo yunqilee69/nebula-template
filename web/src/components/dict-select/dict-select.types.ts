@@ -35,6 +35,11 @@ export interface DictSelectProps extends Omit<SelectProps, 'options' | 'loading'
    * - false: 仅展示顶级项
    */
   readonly flatten?: boolean;
+
+  /** 可选项过滤器，返回 false 的字典项不进下拉列表，默认不过滤
+   * 用于同一字典在不同场景只允许选择部分取值的场合（如渠道目标只支持群机器人渠道）
+   */
+  readonly optionFilter?: (option: DictSelectOption) => boolean;
 }
 
 /**

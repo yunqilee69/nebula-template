@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import '@/styles/index.css';
 import { NebulaProvider } from '@/providers/nebula-provider';
+import { RealtimeProvider } from '@/providers/realtime-provider';
 import { toCurrentUser } from '@/utils/auth/current-user';
 import { getStoredAccessToken, getStoredRefreshToken } from '@/utils/auth/token-session';
 import { authService } from '@/api/auth';
@@ -46,7 +47,10 @@ export function App() {
 
   return (
     <NebulaProvider authAdapter={authAdapter} loginBadge={loginBadgeOptions}>
-      <RouterProvider key={routerKey} router={router} />
+      {/* 站内信实时通道：以登录用户为生命周期，登录建连、登出/切换用户断连 */}
+      <RealtimeProvider>
+        <RouterProvider key={routerKey} router={router} />
+      </RealtimeProvider>
     </NebulaProvider>
   );
 }

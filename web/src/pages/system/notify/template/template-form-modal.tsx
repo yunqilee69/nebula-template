@@ -1,12 +1,10 @@
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, Modal, Select, Switch, Tabs, Typography } from 'antd';
 import type { FormInstance } from 'antd';
-import type { ReactNode } from 'react';
 import { DictLabel } from '@/components/dict-select';
-import type { UpdateNotifyTemplateVariantReq } from '@/types/notify';
 import type { NotifyCategoryOption } from '../notify-category-options';
 import type { NotifyTemplateFormState, NotifyTemplateFormValues } from './template-page-helpers';
-import { ALL_CHANNEL_TYPES, NOTIFY_CHANNEL_TYPE } from './template-page-helpers';
+import { ALL_CHANNEL_TYPES, NOTIFY_CHANNEL_TYPE, createDefaultVariants } from './template-page-helpers';
 import { BuiltinVariableHelp, WeComWebhookHelp, FeishuWebhookHelp, DingTalkWebhookHelp } from './template-variable-panel';
 
 interface TemplateFormModalProps {
@@ -18,14 +16,6 @@ interface TemplateFormModalProps {
   readonly categoryOptions: readonly NotifyCategoryOption[];
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
-}
-
-function variantTabLabel(_variant: UpdateNotifyTemplateVariantReq | undefined, index: number): ReactNode {
-  const channelType = ALL_CHANNEL_TYPES[index];
-  if (!channelType) {
-    return `变体 ${index + 1}`;
-  }
-  return <DictLabel dictCode={NOTIFY_CHANNEL_TYPE} value={channelType} showTag={false} />;
 }
 
 function sectionTitle(title: string) {
@@ -47,7 +37,6 @@ export function TemplateFormModal({
   onSubmit,
   onCancel,
 }: TemplateFormModalProps) {
-  const variants: readonly UpdateNotifyTemplateVariantReq[] = Form.useWatch('variants', form) ?? [];
   const disabled = submitting || detailLoading;
 
   return (
@@ -63,7 +52,7 @@ export function TemplateFormModal({
       onOk={onSubmit}
       onCancel={onCancel}
     >
-      <Form form={form} layout="vertical" disabled={disabled} initialValues={{ fields: [] }}>
+      <Form form={form} layout="vertical" disabled={disabled} initialValues={{ fields: [], variants: createDefaultVariants() }}>
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Form.Item
             name="templateCode"
@@ -166,51 +155,53 @@ export function TemplateFormModal({
           )}
         </Form.List>
 
-        {formState.mode === 'update' && (
-        <Form.List name="variants">
-          {(variantItems) => (
-            <Card
-              size="small"
-              title="渠道变体"
-              className="mb-4"
-            >
-              <Tabs
-                type="card"
-                className="[&_.ant-tabs-tab-active]:!bg-[var(--nebula-color-bg-container)] [&_.ant-tabs-tab]:bg-[var(--nebula-color-bg-layout)] [&_.ant-tabs-nav]:mb-0"
-                items={variantItems.map((variantItem, index) => ({
-                  key: String(variantItem.key),
-                  label: variantTabLabel(variants[variantItem.name], index),
-                  children: (
-                    <div className="rounded-b-md border border-t-0 border-solid border-[var(--nebula-color-border)] p-3">
-                      <div className="flex items-center gap-4 mb-3">
-                        <Form.Item name={[variantItem.name, 'channelType']} hidden><Input /></Form.Item>
-                        <Form.Item name={[variantItem.name, 'id']} hidden><Input /></Form.Item>
-                        <Form.Item
-                          name={[variantItem.name, 'enabled']}
-                          valuePropName="checked"
-                          className="mb-0"
-                        >
-                          <Switch checkedChildren="启用" unCheckedChildren="禁用" />
-                        </Form.Item>
-                      </div>
-                      <Form.Item name={[variantItem.name, 'subjectTemplate']} label="主题模板">
-                        <Input.TextArea rows={2} placeholder="请输入主题模板，可使用 ${variableName} 变量" />
-                      </Form.Item>
-                      <Form.Item
-                        name={[variantItem.name, 'contentTemplate']}
-                        label={<span className="flex items-center gap-2">内容模板 {variants[variantItem.name]?.channelType === 'WECOM_GROUP_WEBHOOK' && <WeComWebhookHelp />}{variants[variantItem.name]?.channelType === 'FEISHU_GROUP_WEBHOOK' && <FeishuWebhookHelp />}{variants[variantItem.name]?.channelType === 'DINGTALK_GROUP_WEBHOOK' && <DingTalkWebhookHelp />}</span>}
-                        rules={[{ required: true, whitespace: true, message: '内容模板不能为空' }]}
-                      >
-                        <Input.TextArea rows={5} placeholder={"请输入内容模板，可使用 ${variableName} 变量"} />
-                      </Form.Item>
-                    </div>
-                  ),
-                }))}
-              />
-            </Card>
-          )}
-        </Form.List>
-        )}
+        <Card
+          size="small"
+          title="渠道变体"
+          className="mb-4"
+        >
+          <Tabs
+            type="card"
+            className="[&_.ant-tabs-tab-active]:!bg-[var(--nebula-color-bg-container)] [&_.ant-tabs-tab]:bg-[var(--nebula-color-bg-layout)] [&_.ant-tabs-nav]:mb-0"
+            items={ALL_CHANNEL_TYPES.map((channelType, index) => ({
+              key: channelType,
+              // 每个渠道的字段都要注册，否则未激活页签的变体会在保存时被丢掉
+              forceRender: true,
+              label: <DictLabel dictCode={NOTIFY_CHANNEL_TYPE} value={channelType} showTag={false} />,
+              children: (
+                <div className="rounded-b-md border border-t-0 border-solid border-[var(--nebula-color-border)] p-3">
+                  <div className="flex items-center gap-4 mb-3">
+                    <Form.Item name={['variants', index, 'channelType']} hidden><Input /></Form.Item>
+                    <Form.Item name={['variants', index, 'id']} hidden><Input /></Form.Item>
+                    <Form.Item
+                      name={['variants', index, 'enabled']}
+                      valuePropName="checked"
+                      className="mb-0"
+                    >
+                      <Switch checkedChildren="启用" unCheckedChildren="禁用" />
+                    </Form.Item>
+                  </div>
+                  <Form.Item name={['variants', index, 'subjectTemplate']} label="主题模板">
+                    <Input.TextArea rows={2} placeholder="请输入主题模板，可使用 ${variableName} 变量" />
+                  </Form.Item>
+                  <Form.Item
+                    name={['variants', index, 'contentTemplate']}
+                    label={<span className="flex items-center gap-2">内容模板 {channelType === 'WECOM_GROUP_WEBHOOK' && <WeComWebhookHelp />}{channelType === 'FEISHU_GROUP_WEBHOOK' && <FeishuWebhookHelp />}{channelType === 'DINGTALK_GROUP_WEBHOOK' && <DingTalkWebhookHelp />}</span>}
+                    rules={[{
+                      validator: async (_rule, value: string | undefined) => {
+                        if (form.getFieldValue(['variants', index, 'enabled']) && !value?.trim()) {
+                          throw new Error('启用后内容模板不能为空');
+                        }
+                      },
+                    }]}
+                  >
+                    <Input.TextArea rows={5} placeholder={"请输入内容模板，可使用 ${variableName} 变量"} />
+                  </Form.Item>
+                </div>
+              ),
+            }))}
+          />
+        </Card>
 
         <Form.Item name="remark" label="备注">
           <Input.TextArea rows={2} placeholder="请输入备注" />

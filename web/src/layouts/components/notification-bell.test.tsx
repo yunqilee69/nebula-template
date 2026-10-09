@@ -80,7 +80,7 @@ describe('NotificationBell', () => {
     expect(screen.getByRole('button', { name: '通知，4 条未读' })).toBeInTheDocument();
   });
 
-  it('refreshes the unread count every 60 seconds', async () => {
+  it('falls back to polling the unread count every 5 minutes', async () => {
     vi.useFakeTimers();
     const getUnreadSiteMessageCount = vi.fn()
       .mockResolvedValueOnce(1)
@@ -90,13 +90,48 @@ describe('NotificationBell', () => {
     await act(async () => Promise.resolve());
     expect(getUnreadSiteMessageCount).toHaveBeenCalledTimes(1);
 
+    // 实时通道是主路径，轮询只作兜底：不再按分钟级频率打扰后端
     await act(async () => {
       vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+    });
+    expect(getUnreadSiteMessageCount).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(240_000);
       await Promise.resolve();
     });
 
     expect(getUnreadSiteMessageCount).toHaveBeenCalledTimes(2);
     expect(useNotifyStore.getState().unreadCount).toBe(2);
+  });
+
+  it('refreshes the unread count when the page becomes visible again', async () => {
+    const getUnreadSiteMessageCount = vi.fn()
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(5);
+    renderBell(createService({ getUnreadSiteMessageCount }));
+
+    await waitFor(() => expect(getUnreadSiteMessageCount).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(getUnreadSiteMessageCount).toHaveBeenCalledTimes(2));
+    expect(useNotifyStore.getState().unreadCount).toBe(5);
+  });
+
+  it('reflects unread counts pushed by the realtime channel without polling', async () => {
+    const service = renderBell();
+
+    await waitFor(() => expect(service.getUnreadSiteMessageCount).toHaveBeenCalledOnce());
+
+    act(() => useNotifyStore.getState().setUnreadCount(9));
+
+    expect(await screen.findByRole('button', { name: '通知，9 条未读' })).toBeInTheDocument();
+    expect(service.getUnreadSiteMessageCount).toHaveBeenCalledOnce();
   });
 
   it('cleans up polling and ignores stale unread responses after logout', async () => {
@@ -110,7 +145,7 @@ describe('NotificationBell', () => {
 
     act(() => useAuthStore.getState().clearUser());
     await act(async () => {
-      vi.advanceTimersByTime(60_000);
+      vi.advanceTimersByTime(300_000);
       unreadRequest.resolve(9);
       await Promise.resolve();
     });

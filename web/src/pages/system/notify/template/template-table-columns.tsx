@@ -27,10 +27,10 @@ export function createTemplateColumns({ openDetail, openEditForm, removeTemplate
       title: '操作', key: 'actions', fixed: 'right', width: 168, valueType: 'option', search: false,
       render: (_, record) => [
         <Button key="detail" type="link" icon={<EyeOutlined />} aria-label="查看" onClick={() => openDetail(record)}><span className="hidden sm:inline">查看</span></Button>,
-        <Access key="edit" permission="NOTIFY_TEMPLATE_EDIT" fallback={null}>
+        <Access key="edit" permission="NOTIFY_TEMPLATE_MANAGE" fallback={null}>
           <Button type="link" icon={<EditOutlined />} aria-label="编辑" onClick={() => openEditForm(record)}><span className="hidden sm:inline">编辑</span></Button>
         </Access>,
-        <Access key="delete" permission="NOTIFY_TEMPLATE_DELETE" fallback={null}>
+        <Access key="delete" permission="NOTIFY_TEMPLATE_MANAGE" fallback={null}>
           <Popconfirm title="确定删除该通知模板吗？" okText="删除" cancelText="取消" onConfirm={() => removeTemplate(record)}><Button type="link" danger icon={<DeleteOutlined />} aria-label="删除"><span className="hidden sm:inline">删除</span></Button></Popconfirm>
         </Access>,
       ],

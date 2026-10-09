@@ -80,6 +80,7 @@ export function TemplateManagementPage({
 
   const openCreateForm = useCallback(() => {
     setFormState({ mode: 'create' });
+    // resetFields 会回到表单 initialValues，其中已带出全部渠道的空变体
     form.resetFields();
     setFormOpen(true);
   }, [form]);
@@ -190,12 +191,12 @@ export function TemplateManagementPage({
         size="middle"
         scroll={{ x: 'max-content' }}
         toolBarRender={() => [
-          <Access key="send" permission="NOTIFY_SEND_EXECUTE" fallback={null}>
+          <Access key="send" permission="NOTIFY_SEND" fallback={null}>
             <Button icon={<SendOutlined />} onClick={() => openSendDrawer()}>
               发送通知
             </Button>
           </Access>,
-          <Access key="create" permission="NOTIFY_TEMPLATE_CREATE" fallback={null}>
+          <Access key="create" permission="NOTIFY_TEMPLATE_MANAGE" fallback={null}>
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreateForm}>
               新增模板
             </Button>

@@ -2,6 +2,7 @@ import { Button, Modal, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import { createStyles } from 'antd-style';
 import { useAuthStore } from '@/stores/auth-store';
+import { useNotifyStore } from '@/stores/notify';
 import { notifyService, type NotifyService } from '@/services/notify';
 import type { CurrentAnnouncementResp } from '@/types/notify';
 
@@ -33,6 +34,7 @@ const useStyles = createStyles(({ token }) => ({
 
 export function PopupAnnouncement({ service = notifyService }: PopupAnnouncementProps) {
   const userId = useAuthStore((state) => state.user?.id);
+  const signalVersion = useNotifyStore((state) => state.signalVersion);
   const { styles } = useStyles();
   const [state, setState] = useState<PopupState>('idle');
   const [announcement, setAnnouncement] = useState<CurrentAnnouncementResp>();
@@ -73,6 +75,32 @@ export function PopupAnnouncement({ service = notifyService }: PopupAnnouncement
       requestSequenceRef.current += 1;
     };
   }, [service, userId]);
+
+  /**
+   * 实时信号到达且当前没有公告在展示时补拉一次，让新发布的弹窗公告无需重登即可出现。
+   * 正在展示时不动队列，避免把用户正在读的公告顶掉。
+   */
+  useEffect(() => {
+    if (!userId || signalVersion === 0) return;
+    if (state !== 'idle') return;
+
+    const sequence = requestSequenceRef.current + 1;
+    requestSequenceRef.current = sequence;
+    void service.listCurrentPopupAnnouncements().then(
+      (items) => {
+        if (requestSequenceRef.current !== sequence) return;
+
+        const unreadItems = items.filter((item) => !item.readStatus && !acknowledgedIdsRef.current.has(item.id));
+        if (unreadItems.length === 0) return;
+        queueRef.current = [...unreadItems];
+        setAnnouncement(unreadItems[0]);
+        setState('ready');
+      },
+      () => {
+        // 补拉失败静默忽略：公告不是关键路径，下次信号或重登会再取
+      },
+    );
+  }, [service, signalVersion, state, userId]);
 
   if (!userId) {
     return null;

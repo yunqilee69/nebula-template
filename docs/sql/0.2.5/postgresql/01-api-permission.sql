@@ -38,6 +38,16 @@ COMMENT ON COLUMN auth_api.module IS '所属模块编码，取值来自字典 pa
 -- ----------------------------------------------------------------------------
 -- 2. 管理端菜单与按钮：接口管理、接口权限授权
 -- ----------------------------------------------------------------------------
+-- 「接口管理」复用菜单 id ...025。历史初始化脚本在 PostgreSQL 方言里把该 id 给过
+-- 「站内消息」菜单（无对应前端页面，已废弃），若不清掉，下面的 ON CONFLICT (id)
+-- 会把那一行改写成「接口管理」，而它原有的 MENU 授权行会顺势变成「接口管理」的授权
+-- ——角色会凭空多出一个菜单权限。这里按 code 精确删除旧行与旧授权；其他环境无此行，为空操作。
+DELETE FROM auth_permission
+WHERE resource_type = 'MENU'
+  AND resource_id IN (SELECT id FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE');
+
+DELETE FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE';
+
 INSERT INTO auth_menu (
     id, name, parent_id, path, sort, code, icon, component, type, status,
     hidden, external_url, visible_in_breadcrumb, visible_in_tab,

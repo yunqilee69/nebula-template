@@ -24,6 +24,7 @@ export const ALL_CHANNEL_TYPES: readonly ChannelType[] = [
   'WECOM_GROUP_WEBHOOK',
   'FEISHU_GROUP_WEBHOOK',
   'DINGTALK_GROUP_WEBHOOK',
+  'PUSH',
 ];
 
 export const DEFAULT_VARIANTS: readonly UpdateNotifyTemplateVariantReq[] = ALL_CHANNEL_TYPES.map((channelType) => ({
@@ -31,6 +32,27 @@ export const DEFAULT_VARIANTS: readonly UpdateNotifyTemplateVariantReq[] = ALL_C
   contentTemplate: '',
   enabled: false,
 }));
+
+/** 生成一份全新的默认变体列表（每个渠道一个空占位），避免多个表单实例共享同一批对象。 */
+export function createDefaultVariants(): UpdateNotifyTemplateVariantReq[] {
+  return DEFAULT_VARIANTS.map((variant) => ({ ...variant }));
+}
+
+/**
+ * 把详情里的变体与默认占位合并：保证每个渠道都有可编辑的页签。
+ *
+ * <p>模板可能是由接口按部分渠道创建的，或历史上只配置过少数渠道；直接以详情为准会让
+ * 未配置的渠道连页签都看不到，等于事后无法补配。这里按渠道补齐空占位。</p>
+ */
+export function mergeVariantsWithDefaults(
+  variants: readonly UpdateNotifyTemplateVariantReq[] | undefined,
+): UpdateNotifyTemplateVariantReq[] {
+  const byChannelType = new Map<string, UpdateNotifyTemplateVariantReq>();
+  for (const variant of variants ?? []) {
+    byChannelType.set(variant.channelType, variant);
+  }
+  return ALL_CHANNEL_TYPES.map((channelType) => byChannelType.get(channelType) ?? { channelType, contentTemplate: '', enabled: false });
+}
 
 export const SYSTEM_TEMPLATE_VARIABLES = [
   { kind: 'BUILTIN', name: 'notify.currentDateTime', description: '当前日期时间', builtin: true },
@@ -143,6 +165,7 @@ export function toCreateNotifyTemplateReq(values: NotifyTemplateFormValues): Cre
   return {
     templateCode: values.templateCode.trim(),
     templateName: values.templateName.trim(),
+    variants: normalizeVariants(values.variants),
     fields: normalizeFields(values.fields),
     ...optionalTemplateFields(values),
   };
@@ -164,7 +187,7 @@ export function toNotifyTemplateFormValues(
     templateCode: detail.templateCode,
     templateName: detail.templateName,
     fields: detail.fields ?? [],
-    variants: detail.variants ?? [],
+    variants: mergeVariantsWithDefaults(detail.variants),
     ...(detail.remark ? { remark: detail.remark } : {}),
     ...(detail.categoryCode ? { categoryCode: detail.categoryCode } : {}),
   };

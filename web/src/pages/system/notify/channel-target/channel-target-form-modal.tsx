@@ -2,7 +2,7 @@ import { Form, Input, Modal } from 'antd';
 import type { FormInstance } from 'antd';
 import { DictSelect } from '@/components/dict-select';
 import type { ChannelTargetFormState, ChannelTargetFormValues } from './channel-target-page-helpers';
-import { NOTIFY_CHANNEL_TYPE } from './channel-target-page-helpers';
+import { CHANNEL_TARGET_CHANNEL_TYPES, NOTIFY_CHANNEL_TYPE } from './channel-target-page-helpers';
 
 interface ChannelTargetFormModalProps {
   readonly form: FormInstance<ChannelTargetFormValues>;
@@ -54,7 +54,12 @@ export function ChannelTargetFormModal({
             label="通知渠道"
             rules={[{ required: true, message: '请选择通知渠道' }]}
           >
-            <DictSelect dictCode={NOTIFY_CHANNEL_TYPE} placeholder="请选择通知渠道" showDisabled={false} />
+            <DictSelect
+              dictCode={NOTIFY_CHANNEL_TYPE}
+              placeholder="请选择通知渠道"
+              showDisabled={false}
+              optionFilter={(option) => CHANNEL_TARGET_CHANNEL_TYPES.includes(option.value)}
+            />
           </Form.Item>
         </div>
 

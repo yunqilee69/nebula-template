@@ -1,7 +1,7 @@
 import type { NebulaPageReq } from '@/components/nebula-pro-table/params';
 import type { UserResp } from '@/types/auth-management';
 
-export type ChannelType = 'SITE' | 'EMAIL' | 'WECOM_GROUP_WEBHOOK' | 'FEISHU_GROUP_WEBHOOK' | 'DINGTALK_GROUP_WEBHOOK' | (string & Record<never, never>);
+export type ChannelType = 'SITE' | 'EMAIL' | 'WECOM_GROUP_WEBHOOK' | 'FEISHU_GROUP_WEBHOOK' | 'DINGTALK_GROUP_WEBHOOK' | 'PUSH' | (string & Record<never, never>);
 /** 订阅偏好只涉及用户维度渠道，群机器人不参与偏好判定。 */
 export type NotifyPreferenceChannel = 'SITE' | 'EMAIL' | 'PUSH' | (string & Record<never, never>);
 /**
@@ -173,6 +173,8 @@ export interface CreateNotifyTemplateReq {
   /** 通知类别 code，可空。空值归入 DEFAULT 类别 */
   readonly categoryCode?: string;
   readonly fields?: readonly NotifyTemplateFieldReq[];
+  /** 渠道变体，可空。为空时由服务端按全部渠道生成空变体占位 */
+  readonly variants?: readonly CreateNotifyTemplateVariantReq[];
 }
 
 export interface UpdateNotifyTemplateReq {

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { NebulaProvider } from '@/providers/nebula-provider';
 import { useAuthStore } from '@/stores/auth-store';
+import { useNotifyStore } from '@/stores/notify';
 import type { CurrentAnnouncementResp } from '@/types/notify';
 import { PopupAnnouncement, type PopupAnnouncementService } from './popup-announcement';
 
@@ -59,7 +60,10 @@ describe('PopupAnnouncement', () => {
 
   afterEach(() => {
     cleanup();
-    act(() => useAuthStore.getState().clearUser());
+    act(() => {
+      useAuthStore.getState().clearUser();
+      useNotifyStore.setState(useNotifyStore.getInitialState(), true);
+    });
   });
 
   it('renders nothing for an unauthenticated user', async () => {
@@ -207,5 +211,46 @@ describe('PopupAnnouncement', () => {
 
     await user.click(within(errorDialog).getByRole('button', { name: /重\s*试/ }));
     expect(await screen.findByRole('dialog', { name: '系统公告' })).toBeInTheDocument();
+  });
+
+  it('reloads announcements when a realtime signal arrives while idle', async () => {
+    const service = renderPopup(createService({
+      listCurrentPopupAnnouncements: vi.fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([baseAnnouncement]),
+    }));
+
+    await waitFor(() => expect(service.listCurrentPopupAnnouncements).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      useNotifyStore.getState().notifySignalReceived();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(service.listCurrentPopupAnnouncements).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('dialog', { name: '系统公告' })).toBeInTheDocument();
+  });
+
+  it('keeps a displayed announcement when a realtime signal arrives', async () => {
+    const user = userEvent.setup();
+    const service = renderPopup(createService({
+      listCurrentPopupAnnouncements: vi.fn()
+        .mockResolvedValueOnce([baseAnnouncement])
+        .mockResolvedValueOnce([]),
+    }));
+
+    expect(await screen.findByRole('dialog', { name: '系统公告' })).toBeInTheDocument();
+
+    await act(async () => {
+      useNotifyStore.getState().notifySignalReceived();
+      await Promise.resolve();
+    });
+
+    // 用户正在阅读时不被信号打断，也不重复拉取
+    expect(screen.getByRole('dialog', { name: '系统公告' })).toBeInTheDocument();
+    expect(service.listCurrentPopupAnnouncements).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: '知道了' }));
+    expect(screen.queryByRole('dialog', { name: '系统公告' })).not.toBeInTheDocument();
   });
 });

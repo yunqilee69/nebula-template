@@ -112,9 +112,7 @@ function createAuthService(): AuthManagementService {
 }
 
 const ANNOUNCEMENT_PERMISSIONS = [
-  'NOTIFY_ANNOUNCEMENT_CREATE',
-  'NOTIFY_ANNOUNCEMENT_EDIT',
-  'NOTIFY_ANNOUNCEMENT_DELETE',
+  'NOTIFY_ANNOUNCEMENT_MANAGE',
 ] as const;
 
 function renderPage(

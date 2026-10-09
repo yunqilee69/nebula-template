@@ -401,7 +401,7 @@ export function NotificationSendPanel({
         </Form.Item>
       ) : null}
 
-      <Access permission="NOTIFY_SEND_EXECUTE" fallback={null}>
+      <Access permission="NOTIFY_SEND" fallback={null}>
         <Button type="primary" icon={<SendOutlined />} onClick={() => void previewSend()}>
           预览并发送
         </Button>

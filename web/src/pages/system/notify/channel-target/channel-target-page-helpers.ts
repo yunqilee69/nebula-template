@@ -12,6 +12,18 @@ import type {
 export const NOTIFY_CHANNEL_TYPE = 'NOTIFY_CHANNEL_TYPE';
 export const DEFAULT_CHANNEL_TARGET_TYPE: ChannelType = 'WECOM_GROUP_WEBHOOK';
 
+/**
+ * 渠道目标只适用于"非用户维度"渠道：群机器人 Webhook 把消息投递到固定 URL。
+ *
+ * <p>站内信 / 邮件 / 推送都按用户扇出，投递目标不是渠道目标，服务端会以
+ * CHANNEL_TARGET_CHANNEL_UNSUPPORTED 拒绝，因此这里也不给选。</p>
+ */
+export const CHANNEL_TARGET_CHANNEL_TYPES: readonly ChannelType[] = [
+  'WECOM_GROUP_WEBHOOK',
+  'FEISHU_GROUP_WEBHOOK',
+  'DINGTALK_GROUP_WEBHOOK',
+];
+
 export type NotifyChannelTargetService = Pick<
   NotifyService,
   | 'pageNotifyChannelTargets'

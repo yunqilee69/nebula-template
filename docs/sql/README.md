@@ -104,7 +104,7 @@ git mv docs/sql/unreleased docs/sql/X.Y.Z
 
 ## 当前状态
 
-当前版本为 `0.2.4`。
+当前版本为 `0.2.5`。
 
 - `0.2.1/`：升级到 `0.2.1` 所需的增量脚本（`auth_login_record` 端类型列；移除失效的 `spring.servlet.multipart.*` 参数、新增 `storage.upload.*` 上传策略参数）；版本低于 `0.2.1` 的环境执行本目录脚本即可对齐。
 - `0.2.2/`：升级到 `0.2.2` 所需的增量脚本（新增微信登录提供商开关参数 `login.oauth2.provider.wechat.enabled`，默认关闭；该开关覆盖网站应用扫码与小程序两个渠道）。
@@ -114,10 +114,12 @@ git mv docs/sql/unreleased docs/sql/X.Y.Z
   - `03-notify-push-device.sql`：移动推送设备注册表与逐设备投递明细表；
   - `04-storage-file-variant.sql`：存储派生版本表 `storage_file_variant`；
   - `05-default-role-org-param.sql`：恢复「自助注册自动建号」的默认角色 / 默认组织两个登录参数（`login.oauth2.default-role-id` / `login.oauth2.default-org-id`，键名保留历史前缀，作用域见脚本头注释；用 `INSERT IGNORE` / `ON CONFLICT DO NOTHING`，**不覆盖**运维已配的值）。
+- `0.2.5/`：升级到 `0.2.5` 所需的增量脚本，按文件名顺序执行：
+  - `01-api-permission.sql`：接口权限 `auth_api` 表（新增 `API` 资源类型）；新增「接口管理」「接口权限」两个菜单与 `AUTH_API_CREATE` / `AUTH_API_EDIT` / `AUTH_API_DELETE` 三个按钮，4 行内置接口权限码，并为 `ADMIN` 补授权；同时把 4 个纯接口权限码（`AUDIT_RECORD_VIEW` / `PARAM_GENERAL_CONFIG_QUERY` / `FRONTEND_APP_RELEASE_QUERY` / `STORAGE_FILE_QUERY`）已授出的 `BUTTON` 授权**迁移**为 `API` 授权并删除旧 `auth_button` 行（按 `code` 关联重指，已授权主体不丢权限）；
+  - `02-button-permission-backfill.sql`：补登记 12 个此前只在代码里声明、未落 `auth_button` 的内置按钮权限码（`param` / `scheduler` / `frontend` 及通知模块新增项），并为 `ADMIN` 补齐授权；无归属菜单的 8 个码不在范围内；
+  - `03-notify-channel-dict.sql`：`NOTIFY_CHANNEL_TYPE` 字典补「移动推送」（`PUSH`，排序 6）项，修复模板 PUSH 变体页签与 PUSH 发送记录的渠道标签空白。
 
-`unreleased/` 当前存在，内容为尚未发版的增量脚本：
-
-- `01-api-permission.sql`：接口权限 `auth_api` 表（新增 `API` 资源类型）；新增「接口管理」「接口权限」两个菜单与 `AUTH_API_CREATE` / `AUTH_API_EDIT` / `AUTH_API_DELETE` 三个按钮，4 行内置接口权限码，并为 `ADMIN` 补授权；同时把 4 个纯接口权限码（`AUDIT_RECORD_VIEW` / `PARAM_GENERAL_CONFIG_QUERY` / `FRONTEND_APP_RELEASE_QUERY` / `STORAGE_FILE_QUERY`）已授出的 `BUTTON` 授权**迁移**为 `API` 授权并删除旧 `auth_button` 行。发版时整体更名为新版本号目录。
+`unreleased/` 当前为空：本版增量脚本已随 `0.2.5` 发布更名为版本目录。后续新增升级脚本时，再按 `mysql/`、`postgresql/` 方言子目录放入（空目录不受版本控制，需要时重建即可）。
 
 `0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
 

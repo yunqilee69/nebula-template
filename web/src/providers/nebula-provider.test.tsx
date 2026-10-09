@@ -1,6 +1,9 @@
+import { act } from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import dayjs from 'dayjs';
 import { NebulaProvider } from './nebula-provider';
+import { useLocaleStore } from '@/stores/locale-store';
 
 function getFavicon(): HTMLLinkElement | null {
   return document.head.querySelector('link[rel="icon"]');
@@ -58,5 +61,33 @@ describe('NebulaProvider theme styling', () => {
     expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(document.documentElement.style.getPropertyValue('--nebula-color-bg-layout')).toBe('#101820');
     expect(document.documentElement.style.getPropertyValue('--nebula-color-text')).toBe('#e5eef7');
+  });
+});
+
+describe('NebulaProvider locale', () => {
+  afterEach(() => {
+    useLocaleStore.getState().setLocale('zh-CN');
+    dayjs.locale('en');
+  });
+
+  it('applies the dayjs locale matching the app locale so date panels render localized months', async () => {
+    dayjs.locale('en');
+    render(
+      <NebulaProvider>
+        <div>content</div>
+      </NebulaProvider>,
+    );
+
+    // 默认 locale 为 zh-CN：dayjs 全局语言包应同步为 zh-cn（DatePicker 面板月份/星期文案来源）
+    await waitFor(() => {
+      expect(dayjs.locale()).toBe('zh-cn');
+    });
+
+    act(() => {
+      useLocaleStore.getState().setLocale('en-US');
+    });
+    await waitFor(() => {
+      expect(dayjs.locale()).toBe('en');
+    });
   });
 });

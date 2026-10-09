@@ -135,6 +135,15 @@ DELETE FROM auth_menu
 WHERE id = '0196dbe0a6f17000a000000000000023'
    OR code = 'NOTIFY_SEND';
 
+-- 「站内消息」管理菜单没有对应的前端页面（菜单组件注册表里没有 SiteMessagePage），
+-- 已从种子菜单中移除；MySQL 侧本就没有这一行，保留这段是为了与 postgresql 方言脚本对齐，
+-- 并清理任何历史环境里残留的同名行。按 code 删除，避免误伤 id 已改作他用的环境。
+DELETE FROM auth_permission
+WHERE resource_type = 'MENU'
+  AND resource_id IN (SELECT id FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE');
+
+DELETE FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE';
+
 INSERT INTO auth_menu (
     id, name, parent_id, path, sort, code, icon, component, type, status,
     hidden, external_url, visible_in_breadcrumb, visible_in_tab,
@@ -787,7 +796,11 @@ AS new_values ON DUPLICATE KEY UPDATE
     remark = new_values.remark,
     update_time = new_values.update_time;
 
--- 认证与通知按钮
+-- 内置按钮（认证 / 通知 / 参数 / 调度 / 前端）
+-- menu_id 必须指向真实存在的菜单：按钮权限页按菜单树逐个菜单拉取按钮，
+-- menu_id 指向不存在的菜单会让按钮在授权页不可见、授不出去（静默失败）。
+-- 新增按钮码时三件事缺一不可：所属模块的 *ButtonCodes 定义常量、控制器方法加
+-- @NebulaPermission、在此处或对应版本增量脚本里登记同名 code 与真实 menu_id。
 INSERT INTO auth_button (
     id, menu_id, code, name, type, sort, status, create_time, update_time
 ) VALUES
@@ -826,7 +839,23 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000104', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_CREATE', '新增通知类别', 'add', 1, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000105', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_EDIT', '编辑通知类别', 'edit', 2, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000106', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_DELETE', '删除通知类别', 'delete', 3, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000107', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_QUERY', '查询通知类别', 'query', 4, 1, NOW(), NOW())
+    ('0196dbe0a6f17000a000000000000107', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_QUERY', '查询通知类别', 'query', 4, 1, NOW(), NOW()),
+    -- 通知模块其余按钮
+    ('0196dbe0a6f17000a000000000000108', '0196dbe0a6f17000a000000000000021', 'NOTIFY_TEMPLATE_MANAGE', '管理通知模板', 'edit', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000109', '0196dbe0a6f17000a000000000000021', 'NOTIFY_SEND', '发送通知', 'send', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000010a', '0196dbe0a6f17000a000000000000022', 'NOTIFY_ANNOUNCEMENT_MANAGE', '管理公告', 'edit', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000010b', '0196dbe0a6f17000a000000000000024', 'NOTIFY_RECORD_VIEW', '查看通知记录', 'query', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000010c', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_QUERY', '查询渠道目标', 'query', 4, 1, NOW(), NOW()),
+    -- 参数模块按钮
+    ('0196dbe0a6f17000a000000000000501', '0196dbe0a6f17000a000000000000013', 'PARAM_CREATE', '新增参数', 'add', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000502', '0196dbe0a6f17000a000000000000013', 'PARAM_UPDATE', '编辑参数', 'edit', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000503', '0196dbe0a6f17000a000000000000013', 'PARAM_DELETE', '删除参数', 'delete', 3, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000504', '0196dbe0a6f17000a000000000000014', 'PARAM_GENERAL_CONFIG_EDIT', '编辑高级配置', 'edit', 1, 1, NOW(), NOW()),
+    -- 调度模块按钮
+    ('0196dbe0a6f17000a000000000000601', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_MANAGE', '管理定时任务', 'edit', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000602', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, NOW(), NOW()),
+    -- 前端模块按钮
+    ('0196dbe0a6f17000a000000000000701', '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     menu_id = new_values.menu_id,
     name = new_values.name,
@@ -896,7 +925,8 @@ INSERT INTO sys_dict_item (
     ('019cf114a00070008000000000000042', 'NOTIFY_CHANNEL_TYPE', '邮件', 'EMAIL', 2, 1, NULL, '邮件通知渠道', NOW(), NOW()),
     ('019cf114a00070008000000000000043', 'NOTIFY_CHANNEL_TYPE', '企业微信群机器人', 'WECOM_GROUP_WEBHOOK', 3, 1, NULL, '企业微信群机器人 Webhook 通知渠道', NOW(), NOW()),
     ('019cf114a00070008000000000000044', 'NOTIFY_CHANNEL_TYPE', '飞书群机器人', 'FEISHU_GROUP_WEBHOOK', 4, 1, NULL, '飞书群机器人 Webhook 通知渠道', NOW(), NOW()),
-    ('019cf114a00070008000000000000045', 'NOTIFY_CHANNEL_TYPE', '钉钉群机器人', 'DINGTALK_GROUP_WEBHOOK', 5, 1, NULL, '钉钉群机器人 Webhook 通知渠道', NOW(), NOW())
+    ('019cf114a00070008000000000000045', 'NOTIFY_CHANNEL_TYPE', '钉钉群机器人', 'DINGTALK_GROUP_WEBHOOK', 5, 1, NULL, '钉钉群机器人 Webhook 通知渠道', NOW(), NOW()),
+    ('019cf114a0007000800000000000004b', 'NOTIFY_CHANNEL_TYPE', '移动推送', 'PUSH', 6, 1, NULL, '移动端推送通知渠道', NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     dict_code = new_values.dict_code,
     name = new_values.name,

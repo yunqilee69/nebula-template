@@ -44,28 +44,36 @@ function handleSessionExpired() {
   setTimeout(() => { notifying = false; }, 0);
 }
 
+/**
+ * 用 refresh token 换取新的 access token。
+ *
+ * <p>普通请求的 401 自动重试与站内信 SSE 长连接共用这一份刷新逻辑，
+ * 避免长连接自己再实现一遍刷新并造成并发刷新。</p>
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken) return null;
+
+  try {
+    const response = await request<LoginResp>({
+      method: 'POST',
+      url: '/api/auth/refresh',
+      data: { refreshToken },
+      _nebulaSkipAuthRefresh: true,
+    });
+
+    if (!response.accessToken) return null;
+
+    saveAuthTokens(response);
+    return response.accessToken;
+  } catch {
+    return null;
+  }
+}
+
 export const requestClient = createRequestClient({
   getToken: getStoredAccessToken,
-  refreshToken: async () => {
-    const refreshToken = getStoredRefreshToken();
-    if (!refreshToken) return null;
-
-    try {
-      const response = await request<LoginResp>({
-        method: 'POST',
-        url: '/api/auth/refresh',
-        data: { refreshToken },
-        _nebulaSkipAuthRefresh: true,
-      });
-
-      if (!response.accessToken) return null;
-
-      saveAuthTokens(response);
-      return response.accessToken;
-    } catch {
-      return null;
-    }
-  },
+  refreshToken: refreshAccessToken,
   onRefreshFailed: () => {
     handleSessionExpired();
   },

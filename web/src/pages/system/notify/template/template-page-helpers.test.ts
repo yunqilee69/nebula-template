@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   SYSTEM_TEMPLATE_VARIABLES,
   buildNotifyTemplatePageReq,
+  createDefaultVariants,
   extractCustomTemplateVariables,
+  mergeVariantsWithDefaults,
   toCreateNotifyTemplateReq,
   toNotifyTemplateFormValues,
   toUpdateNotifyTemplateReq,
@@ -118,5 +120,60 @@ describe('notify template category', () => {
     });
 
     expect(formValues).not.toHaveProperty('categoryCode');
+  });
+});
+
+describe('notify template variants', () => {
+  it('seeds one editable placeholder per channel, including PUSH', () => {
+    const variants = createDefaultVariants();
+
+    expect(variants.map((variant) => variant.channelType)).toEqual([
+      'SITE',
+      'EMAIL',
+      'WECOM_GROUP_WEBHOOK',
+      'FEISHU_GROUP_WEBHOOK',
+      'DINGTALK_GROUP_WEBHOOK',
+      'PUSH',
+    ]);
+    expect(variants.every((variant) => variant.enabled === false && variant.contentTemplate === '')).toBe(true);
+  });
+
+  it('returns a fresh copy so two forms do not share variant objects', () => {
+    expect(createDefaultVariants()[0]).not.toBe(createDefaultVariants()[0]);
+  });
+
+  it('fills unconfigured channels when a template only has some variants', () => {
+    const merged = mergeVariantsWithDefaults([
+      { channelType: 'EMAIL', contentTemplate: '订单已支付', enabled: true },
+    ]);
+
+    expect(merged.map((variant) => variant.channelType)).toEqual([
+      'SITE',
+      'EMAIL',
+      'WECOM_GROUP_WEBHOOK',
+      'FEISHU_GROUP_WEBHOOK',
+      'DINGTALK_GROUP_WEBHOOK',
+      'PUSH',
+    ]);
+    expect(merged.find((variant) => variant.channelType === 'EMAIL')).toMatchObject({
+      contentTemplate: '订单已支付',
+      enabled: true,
+    });
+    expect(merged.find((variant) => variant.channelType === 'SITE')).toMatchObject({
+      contentTemplate: '',
+      enabled: false,
+    });
+  });
+
+  it('submits variants on create so a template can be configured in one pass', () => {
+    const request = toCreateNotifyTemplateReq({
+      templateCode: 'ORDER_PAID',
+      templateName: '订单支付成功',
+      variants: [{ channelType: 'EMAIL', contentTemplate: ' 订单已支付 ', enabled: true }],
+    });
+
+    expect(request.variants).toEqual([
+      { channelType: 'EMAIL', contentTemplate: '订单已支付', enabled: true },
+    ]);
   });
 });

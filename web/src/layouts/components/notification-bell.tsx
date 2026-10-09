@@ -51,6 +51,12 @@ const useStyles = createStyles(({ token }) => ({
 
 const MESSAGE_ITEM_KEY_PREFIX = 'message:';
 
+/**
+ * 兜底轮询间隔：实时通道（SSE）是主路径，轮询只用于通道不可用或标签页被挂起时
+ * 补齐未读数，因此不再按分钟级频率请求后端。
+ */
+const FALLBACK_POLL_INTERVAL_MS = 300_000;
+
 type PreviewState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'loading' }
@@ -112,12 +118,20 @@ export function NotificationBell({ service = notifyService, onOpenInboxTab }: No
     };
 
     refreshUnreadCount();
-    const intervalId = window.setInterval(refreshUnreadCount, 60_000);
+    const intervalId = window.setInterval(refreshUnreadCount, FALLBACK_POLL_INTERVAL_MS);
+    // 实时通道在标签页后台/断线期间可能漏信号，恢复可见时补拉一次
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUnreadCount();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
       requestSequenceRef.current += 1;
       window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [service, setUnreadCount, userId]);
 

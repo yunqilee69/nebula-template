@@ -113,7 +113,7 @@ export function AnnouncementTable({
       fixed: 'right',
       width: 200,
       render: (_, record) => record.status === 2 ? null : (
-        <Access permission="NOTIFY_ANNOUNCEMENT_EDIT" fallback={null}>
+        <Access permission="NOTIFY_ANNOUNCEMENT_MANAGE" fallback={null}>
           <Space size="small">
             <Button
               type="link"
@@ -182,7 +182,7 @@ export function AnnouncementTable({
         >
           刷新
         </Button>,
-        <Access key="create" permission="NOTIFY_ANNOUNCEMENT_CREATE" fallback={null}>
+        <Access key="create" permission="NOTIFY_ANNOUNCEMENT_MANAGE" fallback={null}>
           <Button
             type="primary"
             icon={<PlusOutlined />}

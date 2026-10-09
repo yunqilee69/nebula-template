@@ -165,10 +165,8 @@ function createService(overrides: Partial<NotifyTemplateService> = {}): NotifyTe
 }
 
 const TEMPLATE_PERMISSIONS = [
-  'NOTIFY_TEMPLATE_CREATE',
-  'NOTIFY_TEMPLATE_EDIT',
-  'NOTIFY_TEMPLATE_DELETE',
-  'NOTIFY_SEND_EXECUTE',
+  'NOTIFY_TEMPLATE_MANAGE',
+  'NOTIFY_SEND',
 ] as const;
 
 const authService = {
@@ -225,6 +223,42 @@ describe('TemplateManagementPage', () => {
     expect(within(row).queryByRole('button', { name: /发送/ })).not.toBeInTheDocument();
     expect(within(row).queryByRole('button', { name: /编辑/ })).not.toBeInTheDocument();
     expect(within(row).queryByRole('button', { name: /删除/ })).not.toBeInTheDocument();
+  });
+
+  it('renders an editable variant tab per channel when creating a template', async () => {
+    const user = userEvent.setup();
+    const service = createService();
+    renderPage(service);
+
+    await waitFor(() => getRow('ORDER_APPROVED'));
+    await user.click(screen.getByRole('button', { name: /新增模板/ }));
+
+    const title = await screen.findByText('新增通知模板', { selector: '.ant-modal-title' });
+    const dialog = title.closest('.ant-modal');
+    if (!(dialog instanceof HTMLElement)) {
+      throw new Error('Unable to find create template modal');
+    }
+    for (const channel of ['SITE', 'EMAIL', 'WECOM_GROUP_WEBHOOK', 'FEISHU_GROUP_WEBHOOK', 'DINGTALK_GROUP_WEBHOOK', 'PUSH']) {
+      expect(within(dialog).getByRole('tab', { name: channel })).toBeInTheDocument();
+    }
+    // 渠道标签由渠道集合直接取自，不应出现「变体 N」这类下标兜底文案
+    expect(within(dialog).queryByText(/^变体 \d+$/)).not.toBeInTheDocument();
+
+    // 新建即可一并提交各渠道变体，不再要求先保存模板再回来配置
+    await user.type(within(dialog).getByPlaceholderText('请输入模板编码'), 'ORDER_PAID');
+    await user.type(within(dialog).getByPlaceholderText('请输入模板名称'), '订单支付成功');
+    await user.click(within(dialog).getByRole('button', { name: /保\s*存/ }));
+
+    await waitFor(() => {
+      expect(service.createNotifyTemplate).toHaveBeenCalledWith(expect.objectContaining({
+        templateCode: 'ORDER_PAID',
+        variants: expect.arrayContaining([
+          expect.objectContaining({ channelType: 'SITE' }),
+          expect.objectContaining({ channelType: 'EMAIL' }),
+          expect.objectContaining({ channelType: 'PUSH' }),
+        ]),
+      }));
+    });
   });
 
   it('loads template detail and renders parameters plus variant tabs read-only', async () => {

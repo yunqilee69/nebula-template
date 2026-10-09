@@ -157,7 +157,7 @@ const authService = {
 
 function renderPage(
   service = createNotifyService(),
-  permissions: readonly string[] = ['NOTIFY_SEND_EXECUTE'],
+  permissions: readonly string[] = ['NOTIFY_SEND'],
 ) {
   render(
     <NebulaProvider>
