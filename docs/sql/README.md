@@ -77,12 +77,15 @@ for f in docs/sql/init/postgresql/*.sql; do psql -d nebula -f "$f"; done
 
 版本目录（如 `0.2.1/`）以**目标版本**命名，存放**升级到该版本**需要执行的增量脚本，同样按方言分子目录。它与 `CHANGELOG.md` 的版本段落对应：某个版本目录里的内容，应当是发版时该版 CHANGELOG 段落中需要落库的部分，两者一起整理。
 
-开发中的脚本放在 `unreleased/` 目录，**发版时**再整体更名为新版本号——与 CHANGELOG 中 `[Unreleased]` 段落改写为 `[X.Y.Z] - 日期` 是同一时机、同一动作：
+开发中的脚本放在 `unreleased/` 目录，**发版时**再整体更名为新版本号——与 CHANGELOG 中 `[Unreleased]` 段落改写为 `[X.Y.Z] - 日期` 是同一时机、同一动作。这两件事已由发版脚本一并完成，不要手工分开做（漏做会让本版增量 SQL 滞留在 `unreleased/` 而漏发）：
 
 ```bash
-# 发布 X.Y.Z 时执行（unreleased/ 为空则跳过，随后按需重建空的 unreleased/）
-git mv docs/sql/unreleased docs/sql/X.Y.Z
+# 发布 X.Y.Z 时执行（unreleased/ 为空则跳过，并重建空的 unreleased/；
+# 同时把本行「当前版本为」与 CHANGELOG 的 [Unreleased] 一起收口）
+scripts/set-version.sh X.Y.Z --release
 ```
+
+脚本只做机械动作，**各版本目录的脚本说明（下方「当前状态」里的条目）仍需人工补写**。
 
 升级规则：**从当前版本之后的下一个版本目录开始，按版本号升序逐个执行，直到目标版本目录为止（含目标版本自身）。**
 
