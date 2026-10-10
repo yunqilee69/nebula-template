@@ -46,6 +46,7 @@ const menuItems: NebulaMenuItem[] = [
     key: '/system',
     path: '/system',
     name: '系统管理',
+    type: 'CATALOG',
     children: [{ key: '/system/users', path: '/system/users', name: '用户管理' }],
   },
 ];
@@ -705,6 +706,7 @@ describe('NebulaLayout', () => {
         key: '/system',
         path: '/system',
         name: '系统管理',
+        type: 'CATALOG',
         children: [
           { key: '/system/users', path: '/system/users', name: '用户管理' },
           {
@@ -799,6 +801,58 @@ describe('NebulaLayout', () => {
     expect(within(breadcrumb).getByText('系统管理')).toBeInTheDocument();
     expect(within(breadcrumb).getByText('用户管理')).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveTextContent('用户内容');
+  });
+
+  it('navigates a MENU with children without rendering its children as a submenu', async () => {
+    const parentMenuItems: NebulaMenuItem[] = [
+      {
+        key: '/parent',
+        path: '/parent',
+        name: '父菜单',
+        type: 'MENU',
+        children: [{ key: '/parent/child', path: '/parent/child', name: '子菜单', type: 'MENU' }],
+      },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={['/parent/child']}>
+        <NebulaLayout title="Test" menuItems={parentMenuItems}>
+          <Routes>
+            <Route path="/parent" element={<h1>父菜单内容</h1>} />
+            <Route path="/parent/child" element={<h1>子菜单内容</h1>} />
+          </Routes>
+        </NebulaLayout>
+      </MemoryRouter>,
+    );
+
+    const navigation = await screen.findByRole('navigation', { name: '主导航' });
+    const parentLink = within(navigation).getByRole('link', { name: '父菜单' });
+    expect(parentLink).toBeInTheDocument();
+    // 菜单不是分组：菜单挂菜单是数据错误，不渲染展开箭头
+    expect(within(navigation).getByRole('menuitem', { name: '父菜单' })).not.toHaveClass('ant-menu-submenu');
+    expect(within(navigation).queryByRole('link', { name: '子菜单' })).not.toBeInTheDocument();
+
+    await userEvent.click(parentLink);
+    expect(screen.getByRole('main')).toHaveTextContent('父菜单内容');
+  });
+
+  it('treats an unknown menu type as a navigable menu rather than a catalog', async () => {
+    const unknownTypeItems: NebulaMenuItem[] = [
+      { key: '/future', path: '/future', name: '未来菜单', type: 'FUTURE_TYPE' },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={['/future']}>
+        <NebulaLayout title="Test" menuItems={unknownTypeItems}>
+          <Routes>
+            <Route path="/future" element={<h1>未来内容</h1>} />
+          </Routes>
+        </NebulaLayout>
+      </MemoryRouter>,
+    );
+
+    const navigation = await screen.findByRole('navigation', { name: '主导航' });
+    expect(within(navigation).getByRole('link', { name: '未来菜单' })).toBeInTheDocument();
   });
 
   it('degrades safely when activeMenuPath points to a missing menu item', async () => {

@@ -193,11 +193,15 @@ function findMenuPath(items: NebulaMenuItem[], path: string, parents: NebulaMenu
   return [];
 }
 
-function isNavigableMenuItem(item: NebulaMenuItem): boolean {
-  if (item.children?.length) return false;
+/** 只有目录才是分组；其余类型（含未知类型）一律视为菜单 */
+const CATALOG_MENU_TYPE = 'CATALOG';
 
-  const type = item.type?.toUpperCase();
-  return type === undefined || type === 'MENU' || type === 'IFRAME' || type === 'EXTERNAL';
+/**
+ * 判断菜单项是否可导航。分组与否只由菜单类型决定：目录固定不可点击，其余类型都是可跳转页面。
+ * type 缺失按菜单处理。
+ */
+function isNavigableMenuItem(item: NebulaMenuItem): boolean {
+  return item.type?.toUpperCase() !== CATALOG_MENU_TYPE;
 }
 
 function isVisibleInRouteTabs(item: NebulaMenuItem): boolean {
@@ -207,13 +211,17 @@ function isVisibleInRouteTabs(item: NebulaMenuItem): boolean {
 function toMenuItems(items: NebulaMenuItem[]): MenuProps['items'] {
   return items
     .filter((item) => !item.hidden)
-    .map((item) => ({
-      key: toTabKey(item.path),
-      icon: item.iconNode ?? resolveNebulaIcon(item.icon),
-      label: isNavigableMenuItem(item) ? <Link to={item.path}>{item.name}</Link> : item.name,
-      title: item.name,
-      children: item.children?.length ? toMenuItems(item.children) : undefined,
-    }));
+    .map((item) => {
+      const navigable = isNavigableMenuItem(item);
+      return {
+        key: toTabKey(item.path),
+        icon: item.iconNode ?? resolveNebulaIcon(item.icon),
+        label: navigable ? <Link to={item.path}>{item.name}</Link> : item.name,
+        title: item.name,
+        // 菜单不是分组：即使挂了子菜单也不展开成子节点，那是数据错误，数据修好后自然消失
+        children: !navigable && item.children?.length ? toMenuItems(item.children) : undefined,
+      };
+    });
 }
 
 function createSidebarCollapseIcon(collapsed: boolean, className?: string): ReactNode {

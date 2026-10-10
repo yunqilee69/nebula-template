@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS auth_menu (
     code VARCHAR(100) NOT NULL,
     icon VARCHAR(50),
     component VARCHAR(200),
-    type VARCHAR(100),
+    type VARCHAR(100) NOT NULL DEFAULT 'MENU',
     status SMALLINT NOT NULL DEFAULT 1,
     hidden BOOLEAN NOT NULL DEFAULT FALSE,
     external_url VARCHAR(500),

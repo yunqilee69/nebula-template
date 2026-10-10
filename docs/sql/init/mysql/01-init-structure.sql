@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS auth_menu (
     code VARCHAR(100) NOT NULL COMMENT '菜单编码，唯一',
     icon VARCHAR(50) COMMENT '图标',
     component VARCHAR(200) COMMENT '前端组件路径',
-    type VARCHAR(100) COMMENT '类型：目录、菜单、内嵌、外链',
+    type VARCHAR(100) NOT NULL DEFAULT 'MENU' COMMENT '类型：目录、菜单、内嵌、外链',
     status SMALLINT NOT NULL DEFAULT 1 COMMENT '状态：0禁用 1启用',
     hidden TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否隐藏：0否 1是',
     external_url VARCHAR(500) COMMENT '外链地址',
