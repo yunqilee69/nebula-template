@@ -10,6 +10,8 @@ interface NotifyState {
   setUnreadCount: (unreadCount: number) => void;
   incrementUnread: () => void;
   decrementUnread: () => void;
+  /** 一次减多条，供「全部已读」这类批量动作按服务端返回的条数修正。 */
+  decrementUnreadBy: (count: number) => void;
   notifySignalReceived: () => void;
 }
 
@@ -26,6 +28,10 @@ export const useNotifyStore = create<NotifyState>((set) => ({
   },
   decrementUnread: () => {
     set((state) => ({ unreadCount: Math.max(0, state.unreadCount - 1) }));
+  },
+  decrementUnreadBy: (count) => {
+    if (!Number.isFinite(count) || count <= 0) return;
+    set((state) => ({ unreadCount: Math.max(0, state.unreadCount - Math.floor(count)) }));
   },
   notifySignalReceived: () => {
     set((state) => ({ signalVersion: state.signalVersion + 1 }));

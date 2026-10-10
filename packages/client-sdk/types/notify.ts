@@ -1,7 +1,8 @@
 /**
  * 站内信、公告与通知偏好契约，对应后端 `nebula-notify` 的 Req/Resp。
  *
- * <p>来源：`SiteMessageResp`、`SiteMessagePageReq`、`AnnouncementResp`、`CurrentAnnouncementResp`、
+ * <p>来源：`SiteMessageResp`、`SiteMessagePageReq`、`SiteMessageCategoryResp`、
+ * `MarkAllSiteMessagesReadReq`、`AnnouncementResp`、`CurrentAnnouncementResp`、
  * `CurrentAnnouncementPageReq`、`NotifyPreferenceResp`、`NotifyCategoryPreferenceResp`、
  * `NotifyChannelPreferenceResp`、`NotifyPreferenceItemReq`、`UpdateNotifyPreferenceReq`。</p>
  */
@@ -15,6 +16,10 @@ export interface SiteMessageResp {
   receiverUserId?: string;
   title?: string;
   content?: string;
+  /** 通知类别 code，落库时随发送记录冗余。 */
+  categoryCode?: string;
+  /** 通知类别名称，由服务端按类别表补齐。 */
+  categoryName?: string;
   readStatus?: boolean;
   readTime?: string;
   createTime?: string;
@@ -25,8 +30,22 @@ export interface SiteMessageResp {
 export interface SiteMessagePageReq extends BasePageReq {
   receiverUserId?: string;
   readStatus?: boolean;
+  categoryCode?: string;
   createTimeFrom?: string;
   createTimeTo?: string;
+}
+
+/** 当前用户站内信的类别聚合项。 */
+export interface SiteMessageCategoryResp {
+  code: string;
+  name?: string;
+  totalCount?: number;
+  unreadCount?: number;
+}
+
+/** 全部标记已读请求：省略 `categoryCode` 表示全部类别。 */
+export interface MarkAllSiteMessagesReadReq {
+  categoryCode?: string;
 }
 
 /** 公告分页项（管理端）。 */

@@ -1,23 +1,20 @@
-import { Alert, Modal, Skeleton, Tabs, Tag, Typography } from 'antd';
+import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { Alert, Button, Modal, Space, Tabs, theme as antdTheme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { NebulaPageResp } from '@/components/nebula-pro-table';
+import { SiteMessageDetail } from '@/components/site-message-list/site-message-detail';
+import { SiteMessageList } from '@/components/site-message-list/site-message-list';
+import type { SiteMessageListService } from '@/components/site-message-list/site-message-list.types';
+import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
+import { useNotice } from '@/hooks/use-notice';
 import { notifyService } from '@/services/notify';
 import type { NotifyService } from '@/services/notify';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNotifyStore } from '@/stores/notify';
 import type { SiteMessageResp } from '@/types/notify';
-import { SiteMessageTable } from './site-message-table';
-import type { SiteMessageTableHandle } from './site-message-table';
 import { CurrentAnnouncementTable } from './current-announcement-table';
 
-export interface InboxService {
-  readonly pageSiteMessages: (
-    data: Parameters<NotifyService['pageSiteMessages']>[0],
-  ) => Promise<NebulaPageResp<SiteMessageResp>>;
-  readonly deleteSiteMessage: NotifyService['deleteSiteMessage'];
-  readonly markSiteMessageRead: NotifyService['markSiteMessageRead'];
-  readonly markSiteMessageUnread: NotifyService['markSiteMessageUnread'];
+export interface InboxService extends SiteMessageListService {
   readonly markSiteMessagesRead: NotifyService['markSiteMessagesRead'];
   readonly markSiteMessagesUnread: NotifyService['markSiteMessagesUnread'];
   readonly pageCurrentAnnouncements: NotifyService['pageCurrentAnnouncements'];
@@ -28,207 +25,125 @@ export interface NotificationInboxPageProps {
   readonly service?: InboxService;
 }
 
-interface MessageDetailProps {
-  readonly message: SiteMessageResp | undefined;
-}
-
-function MessageDetail({ message }: MessageDetailProps) {
-  if (!message) {
-    return (
-      <Skeleton active paragraph={{ rows: 4 }} title={false} />
-    );
-  }
-
-  return (
-    <article>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <Typography.Title level={4}>
-            {message.title}
-          </Typography.Title>
-          <div className="flex flex-wrap gap-3">
-            <Typography.Text type="secondary">{message.createTime ?? '时间未知'}</Typography.Text>
-            {message.readTime && (
-              <Typography.Text type="secondary">已读于 {message.readTime}</Typography.Text>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Tag color={message.readStatus ? 'default' : 'blue'} variant="filled">
-            {message.readStatus ? '已读' : '未读'}
-          </Tag>
-        </div>
-      </header>
-      <Typography.Paragraph className="mt-4 whitespace-pre-wrap break-words">
-        {message.content}
-      </Typography.Paragraph>
-    </article>
-  );
-}
-
-function updateMessageReadStatus(
-  messages: readonly SiteMessageResp[],
-  messageIds: readonly string[],
-  readStatus: boolean,
-): readonly SiteMessageResp[] {
-  const messageIdSet = new Set(messageIds);
-  return messages.map((message) => (
-    messageIdSet.has(message.id) ? { ...message, readStatus, readTime: readStatus ? message.readTime : undefined } : message
-  ));
-}
-
-type PendingReadStatusAction = 'read' | 'unread';
+type BatchAction = 'read' | 'unread';
 
 export function NotificationInboxPage({ service = notifyService }: NotificationInboxPageProps) {
+  const { t } = useNebulaI18n();
+  const notice = useNotice();
+  const { token } = antdTheme.useToken();
   const currentUserId = useAuthStore((state) => state.user?.id);
   const incrementUnread = useNotifyStore((state) => state.incrementUnread);
   const decrementUnread = useNotifyStore((state) => state.decrementUnread);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [messages, setMessages] = useState<readonly SiteMessageResp[]>([]);
-  const [readError, setReadError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deletingMessageId, setDeletingMessageId] = useState<string>();
-  const [pendingReadStatusAction, setPendingReadStatusAction] = useState<PendingReadStatusAction>();
-  const tableRef = useRef<SiteMessageTableHandle | null>(null);
-  const markedReadMessageIdsRef = useRef(new Set<string>());
-  const pendingReadMessageIdsRef = useRef(new Set<string>());
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [batchError, setBatchError] = useState<string>();
+  const [batchAction, setBatchAction] = useState<BatchAction>();
+  // 批量动作后让列表重新从第一页拉取，避免列表与后端状态漂移
+  const [reloadToken, setReloadToken] = useState(0);
+  const closedMessageIdsRef = useRef(new Set<string>());
+  // 见过的消息 id：用于区分「这条被删了/被筛掉了」与「列表还没加载到它」
+  const seenMessageIdsRef = useRef(new Set<string>());
+
   const searchMessageId = searchParams.get('messageId') ?? undefined;
   const [activeMessageId, setActiveMessageId] = useState<string | undefined>(searchMessageId);
-  const activeMessageIdRef = useRef<string | undefined>(searchMessageId);
+  // 深链进来的消息：只在这里补一次「打开即已读」，点击列表行由列表自己处理
+  const [deepLinkMessageId] = useState(() => searchMessageId);
+  const deepLinkMarkedRef = useRef(false);
 
-  const syncActiveMessageId = useCallback((messageId: string | undefined) => {
-    activeMessageIdRef.current = messageId;
-    setActiveMessageId(messageId);
-  }, []);
-
-  const selectedMessage = useMemo(
-    () => activeMessageId ? messages.find((message) => message.id === activeMessageId) : undefined,
+  const activeMessage = useMemo(
+    () => (activeMessageId ? messages.find((message) => message.id === activeMessageId) : undefined),
     [activeMessageId, messages],
   );
-
-  const handleDataLoaded = useCallback((nextMessages: readonly SiteMessageResp[]) => {
-    setMessages(nextMessages);
-  }, []);
 
   const selectMessage = useCallback((message: SiteMessageResp) => {
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.set('messageId', message.id);
     setSearchParams(nextSearchParams);
-    syncActiveMessageId(message.id);
-    setReadError(null);
-    setDeleteError(null);
-  }, [searchParams, setSearchParams, syncActiveMessageId]);
+    setActiveMessageId(message.id);
+    closedMessageIdsRef.current.delete(message.id);
+  }, [searchParams, setSearchParams]);
 
   const closeDetail = useCallback(() => {
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.delete('messageId');
     setSearchParams(nextSearchParams, { replace: true });
-    syncActiveMessageId(undefined);
-  }, [searchParams, setSearchParams, syncActiveMessageId]);
+    if (activeMessageId) closedMessageIdsRef.current.add(activeMessageId);
+    setActiveMessageId(undefined);
+  }, [activeMessageId, searchParams, setSearchParams]);
 
-  const deleteMessage = useCallback((message: SiteMessageResp) => {
-    const messageId = message.id;
-    setDeleteError(null);
-    setDeletingMessageId(messageId);
-
-    void service.deleteSiteMessage(messageId).then(
-      () => {
-        setMessages((currentMessages) => currentMessages.filter((message) => message.id !== messageId));
-        if (activeMessageIdRef.current === messageId) {
-          closeDetail();
-        }
-        void tableRef.current?.reload();
-      },
-      () => {
-        setDeleteError('删除消息失败，请重试');
-      },
-    ).finally(() => {
-      setDeletingMessageId((currentMessageId) => currentMessageId === messageId ? undefined : currentMessageId);
-    });
-  }, [closeDetail, service]);
-
-  const markMessagesRead = useCallback((selectedMessages: readonly SiteMessageResp[]) => {
-    if (selectedMessages.length === 0) return;
-
-    const messageIds = selectedMessages.map((message) => message.id);
-    const changedCount = selectedMessages.filter((message) => !message.readStatus).length;
-    setReadError(null);
-    setDeleteError(null);
-    setPendingReadStatusAction('read');
-
-    void service.markSiteMessagesRead(messageIds).then(
-      () => {
-        for (const messageId of messageIds) {
-          markedReadMessageIdsRef.current.add(messageId);
-        }
-        for (let index = 0; index < changedCount; index += 1) {
-          decrementUnread();
-        }
-        setMessages((currentMessages) => updateMessageReadStatus(currentMessages, messageIds, true));
-        void tableRef.current?.reload();
-      },
-      () => {
-        setReadError('批量标记已读失败，请重试');
-      },
-    ).finally(() => {
-      setPendingReadStatusAction((currentAction) => currentAction === 'read' ? undefined : currentAction);
-    });
-  }, [decrementUnread, service]);
-
-  const markMessagesUnread = useCallback((selectedMessages: readonly SiteMessageResp[]) => {
-    if (selectedMessages.length === 0) return;
-
-    const messageIds = selectedMessages.map((message) => message.id);
-    const changedCount = selectedMessages.filter((message) => message.readStatus).length;
-    setReadError(null);
-    setDeleteError(null);
-    setPendingReadStatusAction('unread');
-
-    void service.markSiteMessagesUnread(messageIds).then(
-      () => {
-        for (const messageId of messageIds) {
-          markedReadMessageIdsRef.current.delete(messageId);
-        }
-        for (let index = 0; index < changedCount; index += 1) {
-          incrementUnread();
-        }
-        setMessages((currentMessages) => updateMessageReadStatus(currentMessages, messageIds, false));
-        void tableRef.current?.reload();
-      },
-      () => {
-        setReadError('批量标记未读失败，请重试');
-      },
-    ).finally(() => {
-      setPendingReadStatusAction((currentAction) => currentAction === 'unread' ? undefined : currentAction);
-    });
-  }, [incrementUnread, service]);
+  const handleDataLoaded = useCallback((nextMessages: readonly SiteMessageResp[]) => {
+    for (const message of nextMessages) seenMessageIdsRef.current.add(message.id);
+    setMessages(nextMessages);
+    setDataLoaded(true);
+  }, []);
 
   useEffect(() => {
-    syncActiveMessageId(searchMessageId);
-  }, [searchMessageId, syncActiveMessageId]);
+    setActiveMessageId(searchMessageId);
+    if (searchMessageId) closedMessageIdsRef.current.delete(searchMessageId);
+  }, [searchMessageId]);
+
+  // 目标消息被删除或已被筛掉时收起详情，避免停在一个永远加载不出来的骨架屏上
+  useEffect(() => {
+    if (!dataLoaded || !activeMessageId) return;
+    if (!seenMessageIdsRef.current.has(activeMessageId)) return;
+    if (messages.some((message) => message.id === activeMessageId)) return;
+    if (closedMessageIdsRef.current.has(activeMessageId)) return;
+    closeDetail();
+  }, [activeMessageId, closeDetail, dataLoaded, messages]);
 
   useEffect(() => {
-    if (!selectedMessage || selectedMessage.readStatus) return;
-    if (markedReadMessageIdsRef.current.has(selectedMessage.id)) return;
-    if (pendingReadMessageIdsRef.current.has(selectedMessage.id)) return;
-
-    const messageId = selectedMessage.id;
-    pendingReadMessageIdsRef.current.add(messageId);
-    setReadError(null);
-
-    void service.markSiteMessagesRead([messageId]).then(
+    if (!deepLinkMessageId || deepLinkMarkedRef.current) return;
+    const message = messages.find((item) => item.id === deepLinkMessageId);
+    if (!message || message.readStatus) return;
+    deepLinkMarkedRef.current = true;
+    void service.markSiteMessageRead(deepLinkMessageId).then(
       () => {
-        markedReadMessageIdsRef.current.add(messageId);
         decrementUnread();
-        setMessages((currentMessages) => updateMessageReadStatus(currentMessages, [messageId], true));
+        setReloadToken((current) => current + 1);
       },
       () => {
-        setReadError('标记已读失败，请重试');
+        deepLinkMarkedRef.current = false;
+      },
+    );
+  }, [decrementUnread, deepLinkMessageId, messages, service]);
+
+  const applyBatchAction = useCallback((
+    selectedMessages: readonly SiteMessageResp[],
+    clearSelection: () => void,
+    action: BatchAction,
+  ) => {
+    if (selectedMessages.length === 0) return;
+
+    const messageIds = selectedMessages.map((message) => message.id);
+    const changedCount = selectedMessages.filter((message) => (
+      action === 'read' ? !message.readStatus : message.readStatus
+    )).length;
+    setBatchError(undefined);
+    setBatchAction(action);
+
+    const request = action === 'read'
+      ? service.markSiteMessagesRead(messageIds)
+      : service.markSiteMessagesUnread(messageIds);
+
+    void request.then(
+      () => {
+        for (let index = 0; index < changedCount; index += 1) {
+          if (action === 'read') decrementUnread();
+          else incrementUnread();
+        }
+        notice.success(t(action === 'read' ? 'siteMessage.batch.markReadSuccess' : 'siteMessage.batch.markUnreadSuccess'));
+        clearSelection();
+        setReloadToken((current) => current + 1);
+      },
+      () => {
+        setBatchError(t(action === 'read' ? 'siteMessage.batch.markReadFailed' : 'siteMessage.batch.markUnreadFailed'));
       },
     ).finally(() => {
-      pendingReadMessageIdsRef.current.delete(messageId);
+      setBatchAction((current) => (current === action ? undefined : current));
     });
-  }, [decrementUnread, selectedMessage, service]);
+  }, [decrementUnread, incrementUnread, notice, service, t]);
 
   return (
     <section className="flex h-full min-h-0 flex-col">
@@ -237,37 +152,56 @@ export function NotificationInboxPage({ service = notifyService }: NotificationI
         items={[
           {
             key: 'messages',
-            label: '站内信',
+            label: t('siteMessage.tabs.messages'),
             children: (
               <div className="min-h-0">
-                {readError && <Alert className="mb-3" showIcon title={readError} type="error" />}
-                {deleteError && <Alert className="mb-3" showIcon title={deleteError} type="error" />}
-                <SiteMessageTable
-                  ref={tableRef}
-                  currentUserId={currentUserId}
-                  deletingMessageId={deletingMessageId}
-                  pendingReadStatusAction={pendingReadStatusAction}
-                  selectedMessageId={activeMessageId}
+                {batchError ? <Alert className="mb-3" showIcon title={batchError} type="error" /> : null}
+                <SiteMessageList
                   service={service}
+                  receiverUserId={currentUserId}
+                  selectable
+                  showMessageActions
+                  selectedMessageId={activeMessageId}
+                  reloadToken={reloadToken}
                   onDataLoaded={handleDataLoaded}
-                  onDelete={deleteMessage}
-                  onMarkRead={markMessagesRead}
-                  onMarkUnread={markMessagesUnread}
                   onSelect={selectMessage}
+                  renderBatchActions={(selectedMessages, clearSelection) => (
+                    <Space size="small">
+                      <Button
+                        size="small"
+                        icon={<CheckOutlined />}
+                        aria-label={t('siteMessage.batch.markRead')}
+                        disabled={batchAction !== undefined}
+                        loading={batchAction === 'read'}
+                        onClick={() => applyBatchAction(selectedMessages, clearSelection, 'read')}
+                      >
+                        {t('siteMessage.batch.markRead')}
+                      </Button>
+                      <Button
+                        size="small"
+                        icon={<CloseOutlined />}
+                        aria-label={t('siteMessage.batch.markUnread')}
+                        disabled={batchAction !== undefined}
+                        loading={batchAction === 'unread'}
+                        onClick={() => applyBatchAction(selectedMessages, clearSelection, 'unread')}
+                      >
+                        {t('siteMessage.batch.markUnread')}
+                      </Button>
+                    </Space>
+                  )}
                 />
 
-                {selectedMessage ? (
+                {activeMessageId ? (
                   <Modal
-                    title="消息详情"
-                    aria-label="消息详情"
+                    title={t('siteMessage.message.detailTitle')}
+                    aria-label={t('siteMessage.message.detailTitle')}
                     open
+                    width={token.screenSM}
                     footer={null}
                     onCancel={closeDetail}
                     destroyOnHidden
                   >
-                    <MessageDetail
-                      message={selectedMessage}
-                    />
+                    <SiteMessageDetail message={activeMessage} />
                   </Modal>
                 ) : null}
               </div>
@@ -275,7 +209,7 @@ export function NotificationInboxPage({ service = notifyService }: NotificationI
           },
           {
             key: 'announcements',
-            label: '公告',
+            label: t('siteMessage.tabs.announcements'),
             children: (
               <CurrentAnnouncementTable service={service} />
             ),

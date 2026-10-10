@@ -19,6 +19,11 @@ import { clearAuthTokens } from '@/utils/auth/token-session';
 const notifyMocks = vi.hoisted(() => ({
   getUnreadSiteMessageCount: vi.fn().mockResolvedValue(0),
   pageSiteMessages: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+  listSiteMessageCategories: vi.fn().mockResolvedValue([]),
+  markAllSiteMessagesRead: vi.fn().mockResolvedValue(0),
+  markSiteMessageRead: vi.fn().mockResolvedValue(undefined),
+  markSiteMessageUnread: vi.fn().mockResolvedValue(undefined),
+  deleteSiteMessage: vi.fn().mockResolvedValue(undefined),
   listCurrentPopupAnnouncements: vi.fn().mockResolvedValue([]),
   markAnnouncementRead: vi.fn().mockResolvedValue(undefined),
 }));
@@ -138,6 +143,11 @@ describe('NebulaLayout', () => {
   beforeEach(() => {
     notifyMocks.getUnreadSiteMessageCount.mockResolvedValue(0);
     notifyMocks.pageSiteMessages.mockResolvedValue({ data: [], total: 0 });
+    notifyMocks.listSiteMessageCategories.mockResolvedValue([]);
+    notifyMocks.markAllSiteMessagesRead.mockResolvedValue(0);
+    notifyMocks.markSiteMessageRead.mockResolvedValue(undefined);
+    notifyMocks.markSiteMessageUnread.mockResolvedValue(undefined);
+    notifyMocks.deleteSiteMessage.mockResolvedValue(undefined);
     notifyMocks.listCurrentPopupAnnouncements.mockResolvedValue([]);
     notifyMocks.markAnnouncementRead.mockResolvedValue(undefined);
     useAppStore.getState().setSiderCollapsed(false);
@@ -220,12 +230,12 @@ describe('NebulaLayout', () => {
       expect(await screen.findByRole('button', { name: '通知，0 条未读' })).toBeInTheDocument();
     });
 
-    it('opens notification inbox as a localized route tab from the bell dropdown', async () => {
+    it('opens notification inbox as a localized route tab from the bell panel', async () => {
       const user = userEvent.setup();
       renderLayoutWithoutRightContent('/');
 
       await user.click(await screen.findByRole('button', { name: '通知，0 条未读' }));
-      await user.click(await screen.findByRole('menuitem', { name: '查看全部消息' }));
+      await user.click(await screen.findByRole('button', { name: '查看更多' }));
 
       expect(await screen.findByRole('tab', { name: '我的消息' })).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('main')).toHaveTextContent('我的消息内容');

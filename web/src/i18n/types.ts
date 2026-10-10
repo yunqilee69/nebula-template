@@ -534,30 +534,6 @@ export interface NebulaProfileInfoMessages {
     password: string;
     oauth2: string;
     loginRecords: string;
-    notifyPreference: string;
-  };
-  notifyPreference: {
-    description: string;
-    mandatoryTag: string;
-    channel: {
-      site: string;
-      email: string;
-      push: string;
-    };
-    actions: {
-      save: string;
-      reset: string;
-      resetConfirmTitle: string;
-      resetConfirmContent: string;
-    };
-    empty: string;
-    feedback: {
-      loadFailed: string;
-      saveSuccess: string;
-      saveFailed: string;
-      resetSuccess: string;
-      resetFailed: string;
-    };
   };
   actions: {
     save: string;
@@ -1545,6 +1521,86 @@ export interface NebulaSelectMessages {
   allOrgs: string;
 }
 
+export interface NebulaSiteMessageMessages {
+  panel: {
+    title: string;
+    viewAll: string;
+    preference: string;
+    close: string;
+    back: string;
+  };
+  tabs: {
+    messages: string;
+    announcements: string;
+  };
+  filter: {
+    all: string;
+    unreadOnly: string;
+    categoryPlaceholder: string;
+    categoryAriaLabel: string;
+    markAllRead: string;
+    markAllReadConfirmTitle: string;
+    markAllReadConfirmContent: string;
+    markAllReadSuccess: string;
+    markAllReadFailed: string;
+  };
+  batch: {
+    select: string;
+    selectAll: string;
+    selectedCountSuffix: string;
+    markRead: string;
+    markUnread: string;
+    markReadSuccess: string;
+    markUnreadSuccess: string;
+    markReadFailed: string;
+    markUnreadFailed: string;
+  };
+  message: {
+    unread: string;
+    read: string;
+    readAt: string;
+    unknownTime: string;
+    detailTitle: string;
+    loadFailed: string;
+    reload: string;
+    empty: string;
+    loadMore: string;
+    noMore: string;
+    markReadFailed: string;
+    markUnread: string;
+    markUnreadFailed: string;
+    delete: string;
+    deleteConfirmTitle: string;
+    deleteConfirmContent: string;
+    deleteFailed: string;
+    viewDetail: string;
+  };
+  preference: {
+    description: string;
+    mandatoryTag: string;
+    channel: {
+      site: string;
+      email: string;
+      push: string;
+    };
+    actions: {
+      refresh: string;
+      save: string;
+      reset: string;
+      resetConfirmTitle: string;
+      resetConfirmContent: string;
+    };
+    empty: string;
+    feedback: {
+      loadFailed: string;
+      saveSuccess: string;
+      saveFailed: string;
+      resetSuccess: string;
+      resetFailed: string;
+    };
+  };
+}
+
 export interface NebulaMessages {
   common: NebulaCommonMessages;
   layout: NebulaLayoutMessages;
@@ -1554,6 +1610,7 @@ export interface NebulaMessages {
   audit: NebulaAuditMessages;
   onlineUser: NebulaOnlineUserMessages;
   loginLog: NebulaLoginLogMessages;
+  siteMessage: NebulaSiteMessageMessages;
 }
 
 /** Recursive type that generates all dot-notation paths to string leaves. */

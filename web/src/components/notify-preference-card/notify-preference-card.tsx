@@ -1,5 +1,5 @@
 import { ReloadOutlined, SaveOutlined, UndoOutlined } from '@ant-design/icons';
-import { Button, Card, Divider, Empty, Popconfirm, Space, Switch, Tag, Typography, theme as antdTheme } from 'antd';
+import { Button, Divider, Empty, Popconfirm, Space, Switch, Tag, Typography, theme as antdTheme } from 'antd';
 import { createStyles } from 'antd-style';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
@@ -14,6 +14,13 @@ export interface NotifyPreferenceCardProps {
 }
 
 const useNotifyPreferenceStyles = createStyles(({ token }) => ({
+  toolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: token.marginSM,
+    marginBottom: token.marginSM,
+  },
   group: {
     marginBottom: token.marginMD,
   },
@@ -40,6 +47,12 @@ interface CategoryGroup {
   }[];
 }
 
+/**
+ * 消息订阅管理：按「通知类别 × 渠道」逐项开关，支持保存与恢复默认。
+ *
+ * <p>不自带标题与外框——它固定嵌在站内信面板的「订阅管理」视图里，
+ * 标题栏由面板提供，避免容器内再套一层卡片。</p>
+ */
 export function NotifyPreferenceCard({ service }: NotifyPreferenceCardProps) {
   const { t } = useNebulaI18n();
   const notice = useNotice();
@@ -62,7 +75,7 @@ export function NotifyPreferenceCard({ service }: NotifyPreferenceCardProps) {
     try {
       applyPreference(await service.getPreference());
     } catch (error: unknown) {
-      notice.error(t('auth.profileInfo.notifyPreference.feedback.loadFailed'));
+      notice.error(t('siteMessage.preference.feedback.loadFailed'));
       const message = error instanceof Error ? error.message : String(error);
       console.error('Failed to load notify preference', message);
     } finally {
@@ -78,9 +91,9 @@ export function NotifyPreferenceCard({ service }: NotifyPreferenceCardProps) {
     setSaving(true);
     try {
       applyPreference(await service.updatePreference(buildUpdatePayload(toggles)));
-      notice.success(t('auth.profileInfo.notifyPreference.feedback.saveSuccess'));
+      notice.success(t('siteMessage.preference.feedback.saveSuccess'));
     } catch (error: unknown) {
-      notice.error(t('auth.profileInfo.notifyPreference.feedback.saveFailed'));
+      notice.error(t('siteMessage.preference.feedback.saveFailed'));
       const message = error instanceof Error ? error.message : String(error);
       console.error('Failed to save notify preference', message);
     } finally {
@@ -92,9 +105,9 @@ export function NotifyPreferenceCard({ service }: NotifyPreferenceCardProps) {
     setResetting(true);
     try {
       applyPreference(await service.resetPreference());
-      notice.success(t('auth.profileInfo.notifyPreference.feedback.resetSuccess'));
+      notice.success(t('siteMessage.preference.feedback.resetSuccess'));
     } catch (error: unknown) {
-      notice.error(t('auth.profileInfo.notifyPreference.feedback.resetFailed'));
+      notice.error(t('siteMessage.preference.feedback.resetFailed'));
       const message = error instanceof Error ? error.message : String(error);
       console.error('Failed to reset notify preference', message);
     } finally {
@@ -103,9 +116,9 @@ export function NotifyPreferenceCard({ service }: NotifyPreferenceCardProps) {
   }, [applyPreference, notice, service, t]);
 
   const channelLabels = useMemo<Record<string, string>>(() => ({
-    SITE: t('auth.profileInfo.notifyPreference.channel.site'),
-    EMAIL: t('auth.profileInfo.notifyPreference.channel.email'),
-    PUSH: t('auth.profileInfo.notifyPreference.channel.push'),
+    SITE: t('siteMessage.preference.channel.site'),
+    EMAIL: t('siteMessage.preference.channel.email'),
+    PUSH: t('siteMessage.preference.channel.push'),
   }), [t]);
 
   const categoryGroups = useMemo<CategoryGroup[]>(() => {
@@ -125,24 +138,27 @@ export function NotifyPreferenceCard({ service }: NotifyPreferenceCardProps) {
   const disabled = saving || resetting;
 
   return (
-    <Card
-      title={t('auth.profileInfo.sections.notifyPreference')}
-      loading={loading}
-      extra={<Button icon={<ReloadOutlined />} onClick={() => void loadPreference()}>{t('auth.profileInfo.actions.refresh')}</Button>}
-    >
+    <div>
+      <div className={styles.toolbar}>
+        <Typography.Text type="secondary">{t('siteMessage.preference.description')}</Typography.Text>
+        <Button
+          icon={<ReloadOutlined />}
+          loading={loading}
+          onClick={() => void loadPreference()}
+        >
+          {t('siteMessage.preference.actions.refresh')}
+        </Button>
+      </div>
+
       {categoryGroups.length === 0 ? (
-        <Empty description={t('auth.profileInfo.notifyPreference.empty')} />
+        <Empty description={t('siteMessage.preference.empty')} />
       ) : (
         <Space orientation="vertical" size={token.marginMD} className="w-full">
-          <Typography.Paragraph type="secondary" className={styles.hint}>
-            {t('auth.profileInfo.notifyPreference.description')}
-          </Typography.Paragraph>
-
           {categoryGroups.map((group) => (
             <div key={group.code} className={styles.group} data-testid={`notify-pref-group-${group.code}`}>
               <Space size={token.marginXS}>
                 <Typography.Text strong>{group.name}</Typography.Text>
-                {group.mandatory ? <Tag color="warning">{t('auth.profileInfo.notifyPreference.mandatoryTag')}</Tag> : null}
+                {group.mandatory ? <Tag color="warning">{t('siteMessage.preference.mandatoryTag')}</Tag> : null}
               </Space>
               {group.description ? (
                 <Typography.Paragraph type="secondary" className={styles.hint}>{group.description}</Typography.Paragraph>
@@ -170,20 +186,20 @@ export function NotifyPreferenceCard({ service }: NotifyPreferenceCardProps) {
 
           <Space size={token.marginSM}>
             <Button type="primary" icon={<SaveOutlined />} loading={saving} disabled={resetting} onClick={() => void savePreference()}>
-              {t('auth.profileInfo.notifyPreference.actions.save')}
+              {t('siteMessage.preference.actions.save')}
             </Button>
             <Popconfirm
-              title={t('auth.profileInfo.notifyPreference.actions.resetConfirmTitle')}
-              description={t('auth.profileInfo.notifyPreference.actions.resetConfirmContent')}
+              title={t('siteMessage.preference.actions.resetConfirmTitle')}
+              description={t('siteMessage.preference.actions.resetConfirmContent')}
               onConfirm={() => void resetPreference()}
             >
               <Button danger icon={<UndoOutlined />} loading={resetting} disabled={saving}>
-                {t('auth.profileInfo.notifyPreference.actions.reset')}
+                {t('siteMessage.preference.actions.reset')}
               </Button>
             </Popconfirm>
           </Space>
         </Space>
       )}
-    </Card>
+    </div>
   );
 }

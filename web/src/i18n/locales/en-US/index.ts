@@ -6,6 +6,7 @@ import { layout } from './layout';
 import { loginLog } from './login-log';
 import { onlineUser } from './online-user';
 import { scheduler } from './scheduler';
+import { siteMessage } from './site-message';
 import { system } from './system';
 
 export const enUS: NebulaMessages = {
@@ -17,4 +18,5 @@ export const enUS: NebulaMessages = {
   audit,
   onlineUser,
   loginLog,
+  siteMessage,
 };

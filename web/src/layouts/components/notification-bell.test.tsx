@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -14,22 +14,21 @@ const messages: readonly SiteMessageResp[] = Array.from({ length: 6 }, (_, index
   receiverUserId: 'current-user',
   title: `消息 ${index + 1}`,
   content: `消息内容 ${index + 1}`,
+  categoryCode: 'SECURITY',
+  categoryName: '安全与账号',
   readStatus: index > 1,
   createTime: `2026-08-09 10:0${index}:00`,
 }));
-
-function deferred<T>() {
-  let resolve: (value: T | PromiseLike<T>) => void = () => undefined;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
-}
 
 function createService(overrides: Partial<NotificationBellService> = {}): NotificationBellService {
   return {
     getUnreadSiteMessageCount: vi.fn().mockResolvedValue(4),
     pageSiteMessages: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+    listSiteMessageCategories: vi.fn().mockResolvedValue([]),
+    markAllSiteMessagesRead: vi.fn().mockResolvedValue(0),
+    markSiteMessageRead: vi.fn().mockResolvedValue(undefined),
+    markSiteMessageUnread: vi.fn().mockResolvedValue(undefined),
+    deleteSiteMessage: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -77,7 +76,7 @@ describe('NotificationBell', () => {
     await waitFor(() => expect(service.getUnreadSiteMessageCount).toHaveBeenCalledOnce());
 
     expect(useNotifyStore.getState().unreadCount).toBe(4);
-    expect(screen.getByRole('button', { name: '通知，4 条未读' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '通知，4 条未读' })).toBeInTheDocument();
   });
 
   it('falls back to polling the unread count every 5 minutes', async () => {
@@ -136,8 +135,12 @@ describe('NotificationBell', () => {
 
   it('cleans up polling and ignores stale unread responses after logout', async () => {
     vi.useFakeTimers();
-    const unreadRequest = deferred<number>();
-    const getUnreadSiteMessageCount = vi.fn().mockReturnValue(unreadRequest.promise);
+    let resolveUnreadCount: (value: number) => void = () => undefined;
+    const getUnreadSiteMessageCount = vi.fn().mockReturnValue(
+      new Promise<number>((resolvePromise) => {
+        resolveUnreadCount = resolvePromise;
+      }),
+    );
     renderBell(createService({ getUnreadSiteMessageCount }));
 
     await act(async () => Promise.resolve());
@@ -146,7 +149,7 @@ describe('NotificationBell', () => {
     act(() => useAuthStore.getState().clearUser());
     await act(async () => {
       vi.advanceTimersByTime(300_000);
-      unreadRequest.resolve(9);
+      resolveUnreadCount(9);
       await Promise.resolve();
     });
 
@@ -155,90 +158,56 @@ describe('NotificationBell', () => {
     expect(screen.queryByRole('button', { name: /通知/ })).not.toBeInTheDocument();
   });
 
-  it('loads up to five unread current-user messages in backend order when opened', async () => {
+  it('opens the notification panel and lists the current user messages', async () => {
     const user = userEvent.setup();
-    const previewRequest = deferred<{ data: SiteMessageResp[]; total: number }>();
     const service = renderBell(createService({
-      pageSiteMessages: vi.fn().mockReturnValue(previewRequest.promise),
+      pageSiteMessages: vi.fn().mockResolvedValue({ data: [...messages.slice(0, 2)], total: 2 }),
     }));
 
     await user.click(await screen.findByRole('button', { name: '通知，4 条未读' }));
 
-    expect(await screen.findByText('正在加载消息')).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '站内信' })).toBeInTheDocument();
+    expect(await screen.findByText('消息 1')).toBeInTheDocument();
+    expect(screen.getByText('消息 2')).toBeInTheDocument();
+    expect(screen.queryByText('消息 3')).not.toBeInTheDocument();
     expect(service.pageSiteMessages).toHaveBeenCalledWith({
       pageNum: 1,
-      pageSize: 5,
+      pageSize: 10,
       receiverUserId: 'current-user',
-      readStatus: false,
     });
-
-    await act(async () => previewRequest.resolve({ data: [...messages.slice(0, 2)], total: 2 }));
-
-    const menu = await screen.findByRole('menu', { name: '通知消息' });
-    const renderedMessages = within(menu).getAllByRole('menuitem').slice(0, 2);
-    expect(renderedMessages.map((item) => item.textContent)).toEqual([
-      '消息 12026-08-09 10:00:00未读',
-      '消息 22026-08-09 10:01:00未读',
-    ]);
-    expect(within(menu).queryByText('消息 3')).not.toBeInTheDocument();
   });
 
-  it('shows a useful empty state when the current user has no messages', async () => {
+  it('shows an empty state when the current user has no messages', async () => {
     const user = userEvent.setup();
     renderBell();
 
     await user.click(await screen.findByRole('button', { name: '通知，4 条未读' }));
 
     expect(await screen.findByText('暂无消息')).toBeInTheDocument();
-    expect(screen.getByText('当前没有站内消息')).toBeInTheDocument();
   });
 
-  it('shows a recoverable error state when loading the preview fails', async () => {
-    const user = userEvent.setup();
-    renderBell(createService({
-      pageSiteMessages: vi.fn().mockRejectedValue(new Error('network error')),
-    }));
-
-    await user.click(await screen.findByRole('button', { name: '通知，4 条未读' }));
-
-    expect(await screen.findByText('消息加载失败')).toBeInTheDocument();
-    expect(screen.getByText('请检查网络后重试')).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: '重新加载' })).toBeInTheDocument();
-  });
-
-  it('retries preview loading from the error state', async () => {
-    const user = userEvent.setup();
-    const pageSiteMessages = vi.fn()
-      .mockRejectedValueOnce(new Error('network error'))
-      .mockResolvedValueOnce({ data: [messages[0]], total: 1 });
-    renderBell(createService({ pageSiteMessages }));
-
-    await user.click(await screen.findByRole('button', { name: '通知，4 条未读' }));
-    await user.click(await screen.findByRole('menuitem', { name: '重新加载' }));
-
-    expect(pageSiteMessages).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText('消息 1')).toBeInTheDocument();
-  });
-
-  it('navigates to the notification inbox from the preview menu', async () => {
-    const user = userEvent.setup();
-    renderBell();
-
-    await user.click(await screen.findByRole('button', { name: '通知，4 条未读' }));
-    await user.click(await screen.findByRole('menuitem', { name: '查看全部消息' }));
-
-    expect(await screen.findByRole('heading', { name: '通知收件箱' })).toBeInTheDocument();
-  });
-
-  it('requests an inbox route tab before opening a specific preview message', async () => {
+  it('navigates to the notification inbox from the panel', async () => {
     const user = userEvent.setup();
     const onOpenInboxTab = vi.fn();
-    renderBell(createService({ pageSiteMessages: vi.fn().mockResolvedValue({ data: [messages[0]], total: 1 }) }), onOpenInboxTab);
+    renderBell(createService(), onOpenInboxTab);
 
     await user.click(await screen.findByRole('button', { name: '通知，4 条未读' }));
-    await user.click(await screen.findByRole('menuitem', { name: /消息 1/ }));
+    await user.click(await screen.findByRole('button', { name: '查看更多' }));
 
     expect(onOpenInboxTab).toHaveBeenCalledWith('/notify/inbox');
     expect(await screen.findByRole('heading', { name: '通知收件箱' })).toBeInTheDocument();
+  });
+
+  it('opens the message detail inside the panel without leaving the page', async () => {
+    const user = userEvent.setup();
+    renderBell(createService({
+      pageSiteMessages: vi.fn().mockResolvedValue({ data: [messages[0]], total: 1 }),
+    }));
+
+    await user.click(await screen.findByRole('button', { name: '通知，4 条未读' }));
+    await user.click(await screen.findByRole('listitem', { name: '消息 1' }));
+
+    expect(await screen.findByText('消息内容 1')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '通知收件箱' })).not.toBeInTheDocument();
   });
 });

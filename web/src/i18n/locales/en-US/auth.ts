@@ -242,26 +242,7 @@ export const auth: NebulaAuthMessages = {
   },
   profileInfo: {
     title: 'Profile',
-    sections: { basic: 'Basic Information', password: 'Change Password', oauth2: 'Third-party Accounts', loginRecords: 'Login Records', notifyPreference: 'Notification Preferences' },
-    notifyPreference: {
-      description: 'Choose which channels deliver each category of notification. Categories marked "Required" are account-security notices and cannot be turned off.',
-      mandatoryTag: 'Required',
-      channel: { site: 'In-app', email: 'Email', push: 'App Notification' },
-      actions: {
-        save: 'Save Preferences',
-        reset: 'Restore Defaults',
-        resetConfirmTitle: 'Restore default notification preferences?',
-        resetConfirmContent: 'This clears your channel switches, restoring system defaults.',
-      },
-      empty: 'No configurable notification categories',
-      feedback: {
-        loadFailed: 'Failed to load notification preferences',
-        saveSuccess: 'Notification preferences saved',
-        saveFailed: 'Failed to save notification preferences',
-        resetSuccess: 'Default notification preferences restored',
-        resetFailed: 'Failed to restore default notification preferences',
-      },
-    },
+    sections: { basic: 'Basic Information', password: 'Change Password', oauth2: 'Third-party Accounts', loginRecords: 'Login Records' },
     actions: { save: 'Save Profile', changePassword: 'Change Password', refresh: 'Refresh', bind: 'Bind', unbind: 'Unbind', uploadAvatar: 'Upload Avatar' },
     fields: { username: 'Username', accountName: 'Account', displayName: 'Display Name', nickname: 'Nickname', avatar: 'Avatar', email: 'Email', phone: 'Phone', status: 'Status', createTime: 'Created At', oldPassword: 'Current Password', newPassword: 'New Password', confirmPassword: 'Confirm New Password' },
     columns: { loginType: 'Login Method', clientType: 'Client Type', loginIp: 'Login IP', deviceInfo: 'Client', loginTime: 'Login Time', success: 'Result', failReason: 'Failure Reason' },

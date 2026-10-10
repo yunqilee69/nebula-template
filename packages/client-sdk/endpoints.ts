@@ -69,11 +69,13 @@ export const PARAM_ENDPOINTS = {
 /** 站内信 / 公告 / 通知偏好 / 推送设备端点。 */
 export const NOTIFY_ENDPOINTS = {
   siteMessagesPage: '/api/notify/site-messages/page',
+  siteMessagesCategories: '/api/notify/site-messages/categories',
   siteMessagesUnreadCount: '/api/notify/site-messages/unread-count',
   siteMessageRead: (id: string) => `/api/notify/site-messages/${encodeURIComponent(id)}/read`,
   siteMessageUnread: (id: string) => `/api/notify/site-messages/${encodeURIComponent(id)}/unread`,
   siteMessagesReadBatch: '/api/notify/site-messages/read',
   siteMessagesUnreadBatch: '/api/notify/site-messages/unread',
+  siteMessagesReadAll: '/api/notify/site-messages/read-all',
   announcementsCurrentPage: '/api/notify/announcements/current/page',
   announcementsCurrentPopup: '/api/notify/announcements/current/popup',
   announcementRead: (id: string) => `/api/notify/announcements/${encodeURIComponent(id)}/read`,

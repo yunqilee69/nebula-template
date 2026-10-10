@@ -242,26 +242,7 @@ export const auth: NebulaAuthMessages = {
   },
   profileInfo: {
     title: '个人信息',
-    sections: { basic: '基本资料', password: '修改密码', oauth2: '第三方账号绑定', loginRecords: '登录记录', notifyPreference: '消息设置' },
-    notifyPreference: {
-      description: '选择每类通知的接收渠道；带「强制」标记的类别为账号安全类提醒，不可关闭。',
-      mandatoryTag: '强制',
-      channel: { site: '站内信', email: '邮件', push: 'App通知' },
-      actions: {
-        save: '保存设置',
-        reset: '恢复默认',
-        resetConfirmTitle: '确认恢复默认消息设置？',
-        resetConfirmContent: '将清除当前账号的渠道开关，恢复为系统默认。',
-      },
-      empty: '暂无可配置的通知类别',
-      feedback: {
-        loadFailed: '消息设置加载失败',
-        saveSuccess: '消息设置已保存',
-        saveFailed: '消息设置保存失败',
-        resetSuccess: '已恢复默认消息设置',
-        resetFailed: '恢复默认消息设置失败',
-      },
-    },
+    sections: { basic: '基本资料', password: '修改密码', oauth2: '第三方账号绑定', loginRecords: '登录记录' },
     actions: { save: '保存资料', changePassword: '修改密码', refresh: '刷新', bind: '绑定', unbind: '解绑', uploadAvatar: '上传头像' },
     fields: { username: '用户名', accountName: '账号', displayName: '显示名称', nickname: '昵称', avatar: '头像', email: '邮箱', phone: '手机号', status: '状态', createTime: '创建时间', oldPassword: '原密码', newPassword: '新密码', confirmPassword: '确认新密码' },
     columns: { loginType: '登录方式', clientType: '端类型', loginIp: '登录 IP', deviceInfo: '客户端', loginTime: '登录时间', success: '结果', failReason: '失败原因' },

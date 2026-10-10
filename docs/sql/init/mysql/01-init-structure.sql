@@ -405,6 +405,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_category (
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) NOT NULL,
     record_id VARCHAR(64) NOT NULL COMMENT '通知记录ID',
+    category_code VARCHAR(32) NOT NULL DEFAULT 'DEFAULT' COMMENT '通知类别 code，随发送记录冗余',
     receiver_user_id VARCHAR(64) NOT NULL COMMENT '接收用户ID',
     title VARCHAR(255) COMMENT '标题',
     content TEXT NOT NULL COMMENT '内容',
@@ -416,7 +417,8 @@ CREATE TABLE IF NOT EXISTS sys_site_message (
     KEY idx_site_message_receiver (receiver_user_id),
     KEY idx_site_message_read (read_status),
     KEY idx_site_message_record (record_id),
-    KEY idx_site_message_receiver_read_time (receiver_user_id, read_status, create_time)
+    KEY idx_site_message_receiver_read_time (receiver_user_id, read_status, create_time),
+    KEY idx_site_message_receiver_category (receiver_user_id, category_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='站内信表';
 
 CREATE TABLE IF NOT EXISTS sys_announcement (

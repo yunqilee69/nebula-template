@@ -69,6 +69,24 @@ describe('useNotifyStore', () => {
     expect(useNotifyStore.getState().unreadCount).toBe(0);
   });
 
+  it.each([
+    { input: 12, count: 5, expected: 7 },
+    { input: 3, count: 10, expected: 0 },
+    { input: 4, count: 0, expected: 4 },
+    { input: 4, count: -3, expected: 4 },
+    { input: 4, count: Number.NaN, expected: 4 },
+  ])('decrements $input unread by $count to $expected', ({ input, count, expected }) => {
+    // Given a known unread count
+    const { decrementUnreadBy, setUnreadCount } = useNotifyStore.getState();
+    setUnreadCount(input);
+
+    // When a bulk read action reports how many messages it affected
+    decrementUnreadBy(count);
+
+    // Then the count drops by that many and never goes negative
+    expect(useNotifyStore.getState().unreadCount).toBe(expected);
+  });
+
   it('restores the initial state for test and session isolation', () => {
     // Given a store changed by a previous consumer
     useNotifyStore.getState().setUnreadCount(8);

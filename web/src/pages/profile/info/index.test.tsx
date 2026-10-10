@@ -3,12 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NebulaProvider } from '@/providers/nebula-provider';
 import type { ProfileService } from '@/api/profile';
-import type { NotifyPreferenceService } from '@/api/notify-preference';
 import { request } from '@/request/request';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLocaleStore } from '@/stores/locale-store';
 import type { CurrentUser } from '@/types/auth';
-import type { NotifyPreferenceResp } from '@/types/notify';
 import type { LoginRecordResp, PageResp, ProfileResp } from '@/types/profile';
 import type { AvatarUploadResult } from './avatar-upload';
 import { redirectToAuthorizeUrl } from '@/pages/login/wechat-redirect-navigation';
@@ -96,37 +94,6 @@ const uploadedAvatarTask: AvatarUploadResult['task'] = {
   status: 'COMPLETED',
 };
 
-const notifyPreference: NotifyPreferenceResp = {
-  categories: [
-    {
-      code: 'SECURITY',
-      name: '安全与账号',
-      mandatory: true,
-      sort: 10,
-      channels: [{ channel: 'SITE', enabled: true, editable: false }],
-    },
-    {
-      code: 'TODO',
-      name: '待办与审批',
-      mandatory: false,
-      sort: 20,
-      channels: [
-        { channel: 'SITE', enabled: true, editable: false },
-        { channel: 'PUSH', enabled: true, editable: true },
-      ],
-    },
-  ],
-};
-
-function createNotifyPreferenceService(overrides: Partial<NotifyPreferenceService> = {}): NotifyPreferenceService {
-  return {
-    getPreference: vi.fn().mockResolvedValue(notifyPreference),
-    updatePreference: vi.fn().mockResolvedValue(notifyPreference),
-    resetPreference: vi.fn().mockResolvedValue(notifyPreference),
-    ...overrides,
-  };
-}
-
 function createService(overrides: Partial<ProfileService> = {}): ProfileService {
   return {
     getProfile: vi.fn().mockResolvedValue(profile),
@@ -167,7 +134,7 @@ function setStoredUser(overrides: Partial<CurrentUser> = {}) {
 function renderPage(service = createService(), props: Partial<Parameters<typeof ProfileInfoPage>[0]> = {}) {
   render(
     <NebulaProvider>
-      <ProfileInfoPage service={service} notifyPreferenceService={createNotifyPreferenceService()} {...props} />
+      <ProfileInfoPage service={service} {...props} />
     </NebulaProvider>,
   );
   return service;
@@ -203,8 +170,8 @@ describe('ProfileInfoPage', () => {
     expect(screen.getByText('密码错误')).toBeInTheDocument();
     expect(screen.getAllByText('账号')).not.toHaveLength(0);
     expect(screen.getByText('显示名称')).toBeInTheDocument();
-    expect(await screen.findByText('消息设置')).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: '待办与审批 App通知' })).toBeEnabled();
+    // 消息设置已迁到站内信面板，个人信息页不再渲染该区块
+    expect(screen.queryByText('消息设置')).not.toBeInTheDocument();
     expect(service.getProfile).toHaveBeenCalledTimes(1);
     expect(service.listOAuth2Bindings).toHaveBeenCalledTimes(1);
     expect(service.pageLoginRecords).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 });
@@ -449,7 +416,7 @@ describe('ProfileInfoPage', () => {
     expect(screen.getByRole('button', { name: /Save Profile/ })).toBeInTheDocument();
     expect(screen.getAllByText('Account')).not.toHaveLength(0);
     expect(screen.getByText('Display Name')).toBeInTheDocument();
-    expect(await screen.findByText('Notification Preferences')).toBeInTheDocument();
+    expect(await screen.findByText('Login Records')).toBeInTheDocument();
     expect(await screen.findByText('127.0.0.1')).toBeInTheDocument();
   });
 });

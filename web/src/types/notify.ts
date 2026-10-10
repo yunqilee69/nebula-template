@@ -321,6 +321,10 @@ export interface SiteMessageDto {
   readonly id: string;
   readonly recordId: string;
   readonly receiverUserId: string;
+  /** 通知类别 code，服务端在站内信上冗余一份。 */
+  readonly categoryCode?: string;
+  /** 通知类别名称，服务端按类别缓存补齐；类别已停用时回落为 code 原文。 */
+  readonly categoryName?: string;
   readonly title: string;
   readonly content: string;
   readonly readStatus: boolean;
@@ -331,9 +335,24 @@ export interface SiteMessageDto {
 
 export interface SiteMessagePageReq extends NebulaPageReq {
   readonly receiverUserId?: string;
+  /** 通知类别 code，为空表示不按类别过滤。 */
+  readonly categoryCode?: string;
   readonly readStatus?: boolean;
   readonly createTimeFrom?: string;
   readonly createTimeTo?: string;
+}
+
+/** 当前用户站内信的类别聚合项，只包含实际收到过消息的类别。 */
+export interface SiteMessageCategoryDto {
+  readonly code: string;
+  readonly name?: string;
+  readonly totalCount?: number;
+  readonly unreadCount?: number;
+}
+
+/** 一键全部已读请求，`categoryCode` 为空表示不限类别。 */
+export interface MarkAllSiteMessagesReadReq {
+  readonly categoryCode?: string;
 }
 
 export interface SiteMessageReadStatusBatchReq {
@@ -355,6 +374,7 @@ export type NotifyTemplateVariantResp = NotifyTemplateVariantDto;
 export type NotifyChannelTargetResp = NotifyChannelTargetDto;
 export type NotifyCategoryResp = NotifyCategoryDto;
 export type SiteMessageResp = SiteMessageDto;
+export type SiteMessageCategoryResp = SiteMessageCategoryDto;
 
 /** 类别下的渠道开关，对应后端 `NotifyChannelPreferenceResp`。 */
 export interface NotifyChannelPreference {

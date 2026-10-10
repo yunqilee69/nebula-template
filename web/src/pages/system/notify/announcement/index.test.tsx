@@ -86,6 +86,8 @@ function createNotifyService(overrides: Partial<NotifyService> = {}): NotifyServ
     markSiteMessagesUnread: vi.fn(),
     deleteSiteMessage: vi.fn(),
     removeSiteMessage: vi.fn(),
+    listSiteMessageCategories: vi.fn().mockResolvedValue([]),
+    markAllSiteMessagesRead: vi.fn(),
     ...overrides,
   };
 }

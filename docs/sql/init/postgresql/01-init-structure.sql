@@ -692,6 +692,7 @@ COMMENT ON COLUMN sys_notify_category.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) PRIMARY KEY,
     record_id VARCHAR(64) NOT NULL,
+    category_code VARCHAR(32) NOT NULL DEFAULT 'DEFAULT',
     receiver_user_id VARCHAR(64) NOT NULL,
     title VARCHAR(255),
     content TEXT NOT NULL,
@@ -705,10 +706,12 @@ CREATE INDEX IF NOT EXISTS idx_site_message_receiver ON sys_site_message (receiv
 CREATE INDEX IF NOT EXISTS idx_site_message_read ON sys_site_message (read_status);
 CREATE INDEX IF NOT EXISTS idx_site_message_record ON sys_site_message (record_id);
 CREATE INDEX IF NOT EXISTS idx_site_message_receiver_read_time ON sys_site_message (receiver_user_id, read_status, create_time);
+CREATE INDEX IF NOT EXISTS idx_site_message_receiver_category ON sys_site_message (receiver_user_id, category_code);
 
 COMMENT ON TABLE sys_site_message IS '站内信表';
 COMMENT ON COLUMN sys_site_message.id IS '主键';
 COMMENT ON COLUMN sys_site_message.record_id IS '通知记录ID';
+COMMENT ON COLUMN sys_site_message.category_code IS '通知类别 code，随发送记录冗余';
 COMMENT ON COLUMN sys_site_message.receiver_user_id IS '接收用户ID';
 COMMENT ON COLUMN sys_site_message.title IS '标题';
 COMMENT ON COLUMN sys_site_message.content IS '内容';

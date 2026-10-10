@@ -5,8 +5,6 @@ import { useNotice } from '@/hooks/use-notice';
 import { useStoragePreviewUrl } from '@/hooks/use-storage-preview-url';
 import { profileService as defaultProfileService } from '@/api/profile';
 import type { ProfileService } from '@/api/profile';
-import { notifyPreferenceService as defaultNotifyPreferenceService } from '@/api/notify-preference';
-import type { NotifyPreferenceService } from '@/api/notify-preference';
 import { redirectToAuthorizeUrl } from '@/pages/login/wechat-redirect-navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import type { OAuth2BindingResp, ProfileResp } from '@/types/profile';
@@ -24,17 +22,14 @@ import {
 import { profileStorageService } from './profile-storage-service';
 import { LoginRecordsCard, OAuth2BindingsCard, PasswordCard } from './section-cards';
 import type { PasswordFormValues } from './section-cards';
-import { NotifyPreferenceCard } from './notify-preference-card';
 
 export interface ProfileInfoPageProps {
   service?: ProfileService;
-  notifyPreferenceService?: NotifyPreferenceService;
   uploadAvatar?: (file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadResult>;
 }
 
-export function ProfileInfoPage({ service: serviceProp, notifyPreferenceService: notifyPreferenceServiceProp, uploadAvatar }: ProfileInfoPageProps) {
+export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileInfoPageProps) {
   const service = serviceProp ?? defaultProfileService;
-  const notifyPreferenceService = notifyPreferenceServiceProp ?? defaultNotifyPreferenceService;
   const { t } = useNebulaI18n();
   const notice = useNotice();
   const { token } = antdTheme.useToken();
@@ -246,8 +241,6 @@ export function ProfileInfoPage({ service: serviceProp, notifyPreferenceService:
         />
 
         <PasswordCard form={passwordForm} saving={passwordSaving} onSubmit={submitPassword} />
-
-        <NotifyPreferenceCard service={notifyPreferenceService} />
 
         <OAuth2BindingsCard
           bindings={bindings}

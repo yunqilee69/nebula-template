@@ -10,6 +10,7 @@ import type {
   CreateNotifyTemplateReq,
   CurrentAnnouncementPageReq,
   CurrentAnnouncementResp,
+  MarkAllSiteMessagesReadReq,
   NotifyCategoryPageReq,
   NotifyCategoryResp,
   NotifyChannelTargetPageReq,
@@ -22,6 +23,7 @@ import type {
   NotifyTemplatePageReq,
   NotifyTemplateResp,
   SendNotifyReq,
+  SiteMessageCategoryResp,
   SiteMessageReadStatusBatchReq,
   SiteMessagePageReq,
   TestEmailNotifyReq,
@@ -67,6 +69,8 @@ export interface NotifyService {
   readonly getNotifyRecord: (id: string) => Promise<NotifyRecordDetailResp>;
   readonly pageNotifyRecords: (data: NotifyRecordPageReq) => Promise<NebulaPageResp<NotifyRecordResp>>;
   readonly pageSiteMessages: (data: SiteMessagePageReq) => Promise<NebulaPageResp<SiteMessageResp>>;
+  readonly listSiteMessageCategories: () => Promise<readonly SiteMessageCategoryResp[]>;
+  readonly markAllSiteMessagesRead: (data?: MarkAllSiteMessagesReadReq) => Promise<number>;
   readonly getUnreadSiteMessageCount: () => Promise<UnreadSiteMessageCount>;
   readonly markSiteMessageRead: (id: string) => Promise<void>;
   readonly markSiteMessageUnread: (id: string) => Promise<void>;
@@ -150,6 +154,10 @@ export const notifyService: NotifyService = {
     request<NebulaPageResp<NotifyRecordResp>>({ method: 'POST', url: '/api/notify/records/page', data }),
   pageSiteMessages: (data) =>
     request<NebulaPageResp<SiteMessageResp>>({ method: 'POST', url: '/api/notify/site-messages/page', data }),
+  listSiteMessageCategories: () =>
+    request<readonly SiteMessageCategoryResp[]>({ method: 'GET', url: '/api/notify/site-messages/categories' }),
+  markAllSiteMessagesRead: (data) =>
+    request<number>({ method: 'PUT', url: '/api/notify/site-messages/read-all', data: data ?? {} }),
   getUnreadSiteMessageCount: () =>
     request<UnreadSiteMessageCount>({ method: 'GET', url: '/api/notify/site-messages/unread-count' }),
   markSiteMessageRead: (id) =>
