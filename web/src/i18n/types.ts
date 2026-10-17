@@ -807,6 +807,16 @@ export interface NebulaParamMessages {
   inputs: {
     value: string;
   };
+  encrypted: {
+    label: string;
+    configured: string;
+    unconfigured: string;
+    keepHint: string;
+    clearConfirm: string;
+    set: string;
+    modify: string;
+    clear: string;
+  };
   columns: {
     paramKey: string;
     paramName: string;

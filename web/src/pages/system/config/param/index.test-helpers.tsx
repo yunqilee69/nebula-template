@@ -11,6 +11,22 @@ export const paramRecord: SystemParamResp = { id: 'param-1', paramKey: 'security
 
 export const paramDetailRecord: SystemParamDetailResp = { ...paramRecord, paramValue: 'secret-token' };
 
+export const encryptedParamRecord: SystemParamResp = {
+  id: 'param-encrypted',
+  paramKey: 'notify.email.password',
+  paramName: 'SMTP Password',
+  dataType: DataType.STRING,
+  moduleCode: 'system',
+  encrypted: true,
+};
+
+/** 加密参数的详情不回传明文：paramValue 为 null，只给 configured 标记。 */
+export const encryptedParamDetail: SystemParamDetailResp = {
+  ...encryptedParamRecord,
+  paramValue: null,
+  configured: true,
+};
+
 export const featureFlagDictType: DictTypeDetailResp = {
   id: 'dict-type-1',
   code: 'FEATURE_FLAG',

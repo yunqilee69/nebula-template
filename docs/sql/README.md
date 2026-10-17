@@ -122,7 +122,10 @@ scripts/set-version.sh X.Y.Z --release
   - `02-button-permission-backfill.sql`：补登记 12 个此前只在代码里声明、未落 `auth_button` 的内置按钮权限码（`param` / `scheduler` / `frontend` 及通知模块新增项），并为 `ADMIN` 补齐授权；无归属菜单的 8 个码不在范围内；
   - `03-notify-channel-dict.sql`：`NOTIFY_CHANNEL_TYPE` 字典补「移动推送」（`PUSH`，排序 6）项，修复模板 PUSH 变体页签与 PUSH 发送记录的渠道标签空白。
 
-`unreleased/` 当前为空：本版增量脚本已随 `0.2.5` 发布更名为版本目录。后续新增升级脚本时，再按 `mysql/`、`postgresql/` 方言子目录放入（空目录不受版本控制，需要时重建即可）。
+`unreleased/` 存放下一个版本尚未发版的增量脚本（`mysql/`、`postgresql/` 两个方言子目录各一套，内容等价，按文件名顺序执行）：
+
+  - `03-sys-param-encrypted-flag.sql`：`sys_param` 增加「加密存储」标记列 `is_encrypted`（`nebula-base-crypto` 同批次）；
+  - `04-exposure-hardening.sql`：暴露面治理——登记动态缓存查询接口权限码 `FRONTEND_CACHE_QUERY` 并补 `ADMIN` 授权；删除密码重置模板的 `defaultPassword` 字段行并把正文里的密码占位符换成「向管理员索取 / 忘记密码」文案。
 
 `0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
 

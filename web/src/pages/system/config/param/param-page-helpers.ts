@@ -1,4 +1,5 @@
 import { DataType, type CreateSystemParamReq, type DataType as ParamDataType, type SystemParamDetailResp, type UpdateSystemParamReq } from '@/types/param';
+import type { EncryptedValueChange, EncryptedValueChangeKind } from '@/components/encrypted-value-field';
 import type { ParamValueInputValue } from './components/param-value-input';
 import { normalizeParamValue } from './param-page-shared';
 
@@ -22,6 +23,12 @@ export const paramI18n = {
     cancel: 'system.config.param.actions.cancel',
     revealValue: 'system.config.param.actions.revealValue',
     hideValue: 'system.config.param.actions.hideValue',
+  },
+  inputs: {
+    value: 'system.config.param.inputs.value',
+  },
+  encrypted: {
+    label: 'system.config.param.encrypted.label',
   },
   columns: {
     paramKey: 'system.config.param.columns.paramKey',
@@ -89,6 +96,10 @@ export interface ParamFormValues {
   readonly dataType: ParamDataType;
   readonly optionCode?: string;
   readonly moduleCode?: string;
+  /** 仅创建：是否加密存储，勾选后 dataType 锁定为 STRING。 */
+  readonly encrypted?: boolean;
+  /** 仅更新加密参数：加密值三态意图（keep/set/clear）。 */
+  readonly encryptedValue?: EncryptedValueChange;
 }
 
 export type ParamFormState =
@@ -103,8 +114,8 @@ export function getParamRevealKey(record: SystemParamDetailResp): string | undef
   return normalizeOptionalText(record.id) ?? normalizeOptionalText(record.paramKey);
 }
 
-export function formatParamCellText(value: string | number | boolean | undefined): string {
-  if (value === undefined || value === '') return '-';
+export function formatParamCellText(value: string | number | boolean | null | undefined): string {
+  if (value === undefined || value === null || value === '') return '-';
   return String(value);
 }
 
@@ -113,12 +124,14 @@ export function usesDictionaryOptions(dataType: ParamDataType): boolean {
 }
 
 export function toCreateParamReq(values: ParamFormValues): CreateSystemParamReq {
-  return {
+  const req: CreateSystemParamReq = {
     paramKey: normalizeRequiredText(values.paramKey),
     paramName: normalizeRequiredText(values.paramName),
     dataType: values.dataType,
     ...buildOptionalParamPayload(values),
   };
+  setIfDefined(req, 'encrypted', values.encrypted ? true : undefined);
+  return req;
 }
 
 export function toUpdateParamReq(values: ParamFormValues): UpdateSystemParamReq {
@@ -134,7 +147,8 @@ export function toParamFormValues(detail: SystemParamDetailResp): Partial<ParamF
   setIfDefined(values, 'paramKey', detail.paramKey);
   setIfDefined(values, 'paramName', detail.paramName);
   setIfDefined(values, 'description', detail.description);
-  setIfDefined(values, 'paramValue', detail.paramValue);
+  // 加密参数的详情不回传明文（null）：不写入表单，避免被当成待提交的值。
+  setIfDefined(values, 'paramValue', detail.paramValue ?? undefined);
   setIfDefined(values, 'dataType', detail.dataType);
   setIfDefined(values, 'optionCode', detail.optionCode);
   setIfDefined(values, 'moduleCode', detail.moduleCode);
@@ -143,7 +157,7 @@ export function toParamFormValues(detail: SystemParamDetailResp): Partial<ParamF
 
 function buildOptionalParamPayload(values: ParamFormValues): Partial<CreateSystemParamReq> {
   const payload: Partial<CreateSystemParamReq> = {};
-  const paramValue = normalizeParamValueForPayload(values);
+  const paramValue = resolveParamValue(values);
   setIfDefined(payload, 'description', normalizeOptionalText(values.description));
   setIfDefined(payload, 'paramValue', paramValue);
   if (usesDictionaryOptions(values.dataType)) {
@@ -151,6 +165,30 @@ function buildOptionalParamPayload(values: ParamFormValues): Partial<CreateSyste
   }
   setIfDefined(payload, 'moduleCode', normalizeOptionalText(values.moduleCode));
   return payload;
+}
+
+/**
+ * 加密参数的编辑意图翻译：`keep` 省略 paramValue 字段（不修改值）；`set` 提交新明文；`clear` 提交空串。
+ * 明文非加密参数直接走常规归一化。
+ */
+function resolveParamValue(values: ParamFormValues): string | undefined {
+  const intent = values.encryptedValue;
+  if (!intent) return normalizeParamValueForPayload(values);
+
+  const kind: EncryptedValueChangeKind = intent.kind;
+  switch (kind) {
+    case 'keep':
+      return undefined;
+    case 'clear':
+      return '';
+    case 'set': {
+      // 空明文等价于「不修改」：空串在本接口另有「清除值」的语义，两者不能混用。
+      const plaintext = intent.value ?? '';
+      return plaintext === '' ? undefined : plaintext;
+    }
+    default:
+      return assertNever(kind);
+  }
 }
 
 function normalizeParamValueForPayload(values: ParamFormValues): string | undefined {

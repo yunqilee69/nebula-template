@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dictService } from '@/services/dict';
 import { useDictCacheStore } from '@/stores/dict-cache-store';
 import { DataType, type SystemParamDetailResp, type SystemParamResp } from '@/types/param';
-import { createParamPage, createParamService, enabledFeatureItem, featureFlagDictType, getModalByTitle, getPopoverActionButton, getSelectTrigger, getSelectTriggerByName, getTableRowByText, paramDetailRecord, paramRecord, renderParamManagementPage, systemModuleItem } from './index.test-helpers';
+import { createParamPage, createParamService, enabledFeatureItem, encryptedParamDetail, encryptedParamRecord, featureFlagDictType, getModalByTitle, getPopoverActionButton, getSelectTrigger, getSelectTriggerByName, getTableRowByText, paramDetailRecord, paramRecord, renderParamManagementPage, systemModuleItem } from './index.test-helpers';
 
 vi.mock('@/services/dict', () => ({
   dictService: {
@@ -214,7 +214,6 @@ describe('ParamManagementPage', () => {
     });
     expect(service.createParam).toHaveBeenCalledWith(expect.not.objectContaining({
       renderEnabled: expect.anything(),
-      sensitive: expect.anything(),
       minValue: expect.anything(),
       validatorRegex: expect.anything(),
     }));
@@ -250,6 +249,98 @@ describe('ParamManagementPage', () => {
         paramName: 'Retry Count Edited',
         dataType: DataType.INT,
         paramValue: '4',
+      }));
+    });
+  });
+
+  it('creates a parameter with encrypted storage and locks the data type to STRING', async () => {
+    const user = userEvent.setup();
+    const service = renderParamManagementPage();
+
+    await user.click(await screen.findByRole('button', { name: /新增参数/ }));
+    await waitFor(() => expect(getModalByTitle('新增参数')).toBeInTheDocument());
+    const modal = getModalByTitle('新增参数');
+
+    await user.click(getSelectTrigger(modal, 'dataType'));
+    await user.click(await screen.findByText('整数'));
+    expect(within(modal).getByRole('spinbutton', { name: '参数值' })).toBeInTheDocument();
+
+    expect(within(modal).getByText('加密存储')).toBeInTheDocument();
+    await user.click(within(modal).getByRole('checkbox', { name: '加密存储' }));
+
+    expect(getSelectTrigger(modal, 'dataType')).toHaveClass('ant-select-disabled');
+    await waitFor(() => expect(within(modal).getByRole('textbox', { name: '参数值' })).toBeInTheDocument());
+    expect(within(modal).queryByRole('spinbutton')).not.toBeInTheDocument();
+
+    await user.type(within(modal).getByPlaceholderText('请输入参数键'), 'notify.email.password');
+    await user.type(within(modal).getByPlaceholderText('请输入参数名'), 'SMTP Password');
+    await user.type(within(modal).getByRole('textbox', { name: '参数值' }), 'plain-secret');
+    await user.click(within(modal).getByRole('button', { name: /保\s*存/ }));
+
+    await waitFor(() => {
+      expect(service.createParam).toHaveBeenCalledWith({
+        paramKey: 'notify.email.password',
+        paramName: 'SMTP Password',
+        dataType: DataType.STRING,
+        paramValue: 'plain-secret',
+        encrypted: true,
+      });
+    });
+  });
+
+  it('edits an encrypted parameter without a plaintext channel and keeps its value when left empty', async () => {
+    const user = userEvent.setup();
+    const service = createParamService({
+      pageParams: vi.fn().mockResolvedValue(createParamPage([encryptedParamRecord])),
+      getParam: vi.fn().mockResolvedValue(encryptedParamDetail),
+    });
+    renderParamManagementPage(service);
+
+    await screen.findByText('notify.email.password');
+    await user.click(screen.getByRole('button', { name: /编辑/ }));
+
+    await waitFor(() => expect(service.getParam).toHaveBeenCalledWith('param-encrypted'));
+    const modal = getModalByTitle('编辑参数');
+    expect(await within(modal).findByText('已配置')).toBeInTheDocument();
+    expect(within(modal).getByText('****')).toBeInTheDocument();
+    expect(within(modal).queryByRole('textbox', { name: '参数值' })).not.toBeInTheDocument();
+
+    await user.click(within(modal).getByRole('button', { name: /修\s*改/ }));
+    await user.click(within(modal).getByRole('button', { name: /保\s*存/ }));
+
+    await waitFor(() => {
+      expect(service.updateParam).toHaveBeenCalledWith('param-encrypted', expect.objectContaining({
+        paramName: 'SMTP Password',
+        dataType: DataType.STRING,
+        moduleCode: 'system',
+      }));
+    });
+    const updateReq = vi.mocked(service.updateParam).mock.calls[0]?.[1];
+    expect(updateReq).not.toHaveProperty('paramValue');
+    expect(updateReq).not.toHaveProperty('encrypted');
+  });
+
+  it('submits the newly typed plaintext for an encrypted parameter', async () => {
+    const user = userEvent.setup();
+    const service = createParamService({
+      pageParams: vi.fn().mockResolvedValue(createParamPage([encryptedParamRecord])),
+      getParam: vi.fn().mockResolvedValue(encryptedParamDetail),
+    });
+    renderParamManagementPage(service);
+
+    await screen.findByText('notify.email.password');
+    await user.click(screen.getByRole('button', { name: /编辑/ }));
+
+    const modal = getModalByTitle('编辑参数');
+    await within(modal).findByText('已配置');
+    await user.click(within(modal).getByRole('button', { name: /修\s*改/ }));
+    await user.type(within(modal).getByPlaceholderText('请输入参数值'), 'rotated-secret');
+    await user.click(within(modal).getByRole('button', { name: /保\s*存/ }));
+
+    await waitFor(() => {
+      expect(service.updateParam).toHaveBeenCalledWith('param-encrypted', expect.objectContaining({
+        paramName: 'SMTP Password',
+        paramValue: 'rotated-secret',
       }));
     });
   });

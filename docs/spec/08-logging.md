@@ -570,29 +570,23 @@ log.info("生成Token: accessToken={}", accessToken);
 log.info("请求URL: url={}", "/api/auth?token=" + accessToken);
 ```
 
-**Token 脱敏函数示例**：
+**Token 脱敏函数（示例，按需在本模块内实现）**：
 
 ```java
 /**
- * Token 脱敏工具类
+ * Token 脱敏：保留前 8 位，其余截断
  */
-public class LogMaskUtils {
-
-    /**
-     * 脱敏 Token，保留前8位
-     */
-    public static String maskToken(String token) {
-        if (token == null || token.isEmpty()) {
-            return "";
-        }
-        if (token.length() <= 8) {
-            return "***";
-        }
-        return token.substring(0, 8) + "...";
+public static String maskToken(String token) {
+    if (token == null || token.isEmpty()) {
+        return "";
     }
-
+    if (token.length() <= 8) {
+        return "***";
+    }
+    return token.substring(0, 8) + "...";
+}
     /**
-     * 脱敏手机号，保留前3后4
+     * 手机号脱敏：保留前 3 后 4
      */
     public static String maskPhone(String phone) {
         if (phone == null || phone.length() < 7) {
@@ -602,7 +596,7 @@ public class LogMaskUtils {
     }
 
     /**
-     * 脱敏身份证号，保留前3后4
+     * 身份证号脱敏：保留前 3 后 4
      */
     public static String maskIdCard(String idCard) {
         if (idCard == null || idCard.length() < 7) {
@@ -612,6 +606,8 @@ public class LogMaskUtils {
     }
 }
 ```
+
+项目**没有**公共脱敏工具类（`nebula-base-common` 里不存在 `LogMaskUtils` 之类的类型）：脱敏规则与数据归属强相关，由持有数据的模块自己实现，避免出现"一个工具类按字段名猜语义"的公共类型。审计链路的脱敏不走这里，它按 `nebula.audit.mask-fields` 配置的字段名单在落库前抹除（默认已含 `password`、`token`、`idCard`、`phone`、`email`、`receiver`、`loginAccount` 等，见审计模块 README）。
 
 ### 3.4 个人信息脱敏
 

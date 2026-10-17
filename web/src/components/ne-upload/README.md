@@ -16,6 +16,18 @@ The components upload files to temporary storage and return upload task metadata
 
 Pass `sourceEntity` and `sourceId` with `listBySource` to load existing formal files. Pass `sourceType` to load a specific business slot. Leave `sourceType` empty to load all files for the business object. The component still displays only up to `maxCount` files.
 
+## Thumbnails
+
+For image files the component points the thumbnail at the server's `thumb` derivation, which is far
+smaller than the original. It does so only when `listBySource` reports a `thumb` entry in the file's
+`variants` list — asking for a derivation the server never produced would make every thumbnail load
+the original image and log a fallback warning on each request. When image processing is disabled and
+no derivation exists, the thumbnail falls back to the original.
+
+Preview and download URLs carry a strong `ETag` and a private `Cache-Control`, so browsers revalidate
+instead of re-downloading. Attachments listed by name (download semantics) are served `no-store` and
+are never cached.
+
 ## Supported Props
 
 ### NeUpload

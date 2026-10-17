@@ -64,6 +64,16 @@ export function useParamValueRenderer({ service, notice, translate }: ParamValue
   }, [notice, revealedParamDetails, revealedValueKeys, service, translate]);
 
   return useCallback((record: SystemParamResp) => {
+    // 加密行不提供「查看」入口：该入口会调用详情接口取回明文，是既有的明文回显通道。
+    if (record.encrypted) {
+      return (
+        <Space size="small">
+          <Typography.Text type="secondary">{translate(paramI18n.encrypted.label)}</Typography.Text>
+          <Typography.Text code>{PARAM_MASKED_VALUE}</Typography.Text>
+        </Space>
+      );
+    }
+
     const revealKey = getParamRevealKey(record);
     const revealed = revealKey ? revealedValueKeys.has(revealKey) : false;
     const detail = revealKey ? revealedParamDetails.get(revealKey) : undefined;

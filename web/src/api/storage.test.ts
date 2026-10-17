@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildAcceptAttribute,
+  buildStorageDownloadUrl,
   createStorageService,
   isExtensionAllowed,
   parseAllowedExtensions,
@@ -65,6 +66,15 @@ describe('createStorageService', () => {
     const service = createStorageService(vi.fn());
 
     expect(service.getDownloadUrl('file-1', '合同.pdf')).toBe('/api/storage/download?fileId=file-1&filename=%E5%90%88%E5%90%8C.pdf');
+  });
+
+  it('appends the variant only when one is given', () => {
+    expect(buildStorageDownloadUrl('file-1', 'avatar.png', 'thumb'))
+      .toBe('/api/storage/download?fileId=file-1&filename=avatar.png&variant=thumb');
+    // variant 为空串或空白等价于不传，避免生成 variant= 这类无效查询参数
+    expect(buildStorageDownloadUrl('file-1', 'avatar.png', '  '))
+      .toBe('/api/storage/download?fileId=file-1&filename=avatar.png');
+    expect(buildStorageDownloadUrl('file-1')).toBe('/api/storage/download?fileId=file-1');
   });
 
   afterEach(() => {

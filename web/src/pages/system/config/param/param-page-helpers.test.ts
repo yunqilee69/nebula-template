@@ -12,7 +12,6 @@ const removedContractFields = [
   'validatorMessage',
   'renderEnabled',
   'placeholder',
-  'sensitive',
   'editable',
   'visible',
   'displayOrder',
@@ -29,7 +28,6 @@ describe('parameter page request helpers', () => {
       moduleCode: '  system  ',
       optionCode: '  FEATURE_FLAG  ',
       renderEnabled: true,
-      sensitive: true,
       editable: true,
       visible: true,
       minValue: 1,
@@ -69,7 +67,6 @@ describe('parameter page request helpers', () => {
       optionCode: '  RETRY_OPTIONS  ',
       moduleCode: '  system  ',
       renderEnabled: false,
-      sensitive: false,
       editable: true,
       visible: false,
       minValue: 1,
@@ -117,5 +114,77 @@ describe('parameter page request helpers', () => {
       optionCode: 'TITLE_OPTIONS',
       moduleCode: 'site',
     });
+  });
+
+  it('omits paramValue when an encrypted value keeps its current value', () => {
+    const req = toUpdateParamReq({
+      paramKey: 'notify.email.password',
+      paramName: 'SMTP Password',
+      dataType: DataType.STRING,
+      encryptedValue: { kind: 'keep' },
+    });
+
+    expect(req).toEqual({ paramName: 'SMTP Password', dataType: DataType.STRING });
+    expect(req).not.toHaveProperty('paramValue');
+    expect(req).not.toHaveProperty('encrypted');
+  });
+
+  it('submits the new plaintext verbatim when an encrypted value is set', () => {
+    expect(toUpdateParamReq({
+      paramKey: 'notify.email.password',
+      paramName: 'SMTP Password',
+      dataType: DataType.STRING,
+      encryptedValue: { kind: 'set', value: ' new-secret ' },
+    }).paramValue).toBe(' new-secret ');
+  });
+
+  it('submits an empty paramValue when an encrypted value is cleared', () => {
+    expect(toUpdateParamReq({
+      paramKey: 'notify.email.password',
+      paramName: 'SMTP Password',
+      dataType: DataType.STRING,
+      encryptedValue: { kind: 'clear' },
+    }).paramValue).toBe('');
+  });
+
+  it('treats an empty encrypted draft as no change rather than a clear', () => {
+    expect(toUpdateParamReq({
+      paramKey: 'notify.email.password',
+      paramName: 'SMTP Password',
+      dataType: DataType.STRING,
+      encryptedValue: { kind: 'set', value: '' },
+    })).not.toHaveProperty('paramValue');
+  });
+
+  it('carries the encrypted flag on create only when it is checked', () => {
+    const baseValues = {
+      paramKey: 'notify.email.password',
+      paramName: 'SMTP Password',
+      dataType: DataType.STRING,
+      paramValue: 'plain-secret',
+    };
+
+    expect(toCreateParamReq(baseValues)).toEqual({
+      paramKey: 'notify.email.password',
+      paramName: 'SMTP Password',
+      dataType: DataType.STRING,
+      paramValue: 'plain-secret',
+    });
+    expect(toCreateParamReq({ ...baseValues, encrypted: true }).encrypted).toBe(true);
+  });
+
+  it('drops the null paramValue of an encrypted detail', () => {
+    const values = toParamFormValues({
+      id: 'param-1',
+      paramKey: 'notify.email.password',
+      paramName: 'SMTP Password',
+      dataType: DataType.STRING,
+      encrypted: true,
+      configured: true,
+      paramValue: null,
+    });
+
+    expect(values).not.toHaveProperty('paramValue');
+    expect(values.paramName).toBe('SMTP Password');
   });
 });

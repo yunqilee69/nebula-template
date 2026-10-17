@@ -40,6 +40,9 @@ export function ParamManagementPage({ service = defaultParamService }: { readonl
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  // 加密标记与「是否已配置」来自详情：列表不返回 paramValue，因此编辑态只能靠详情驱动。
+  const [editEncrypted, setEditEncrypted] = useState(false);
+  const [editConfigured, setEditConfigured] = useState(false);
 
   const dataTypeOptions = useMemo(
     () => PARAM_DATA_TYPE_VALUES.map((value) => ({ label: translate(paramI18n.dataTypes[value]), value })),
@@ -63,6 +66,8 @@ export function ParamManagementPage({ service = defaultParamService }: { readonl
 
   const openCreateModal = useCallback(() => {
     setFormState({ mode: 'create' });
+    setEditEncrypted(false);
+    setEditConfigured(false);
     form.resetFields();
     form.setFieldsValue({
       dataType: DataType.STRING,
@@ -74,11 +79,15 @@ export function ParamManagementPage({ service = defaultParamService }: { readonl
     async (record: SystemParamResp) => {
       if (!record.id) return;
       setFormState({ mode: 'update', paramId: record.id });
+      setEditEncrypted(false);
+      setEditConfigured(false);
       form.resetFields();
       setModalOpen(true);
       setDetailLoading(true);
       try {
         const detail = await service.getParam(record.id);
+        setEditEncrypted(detail.encrypted === true);
+        setEditConfigured(detail.configured === true);
         form.setFieldsValue(toParamFormValues(detail));
       } catch (error: unknown) {
         if (error instanceof Error) {
@@ -97,6 +106,8 @@ export function ParamManagementPage({ service = defaultParamService }: { readonl
   const closeModal = useCallback(() => {
     setModalOpen(false);
     setFormState({ mode: 'create' });
+    setEditEncrypted(false);
+    setEditConfigured(false);
     form.resetFields();
   }, [form]);
 
@@ -217,6 +228,8 @@ export function ParamManagementPage({ service = defaultParamService }: { readonl
         open={modalOpen}
         submitting={submitting}
         detailLoading={detailLoading}
+        encryptedParam={editEncrypted}
+        encryptedConfigured={editConfigured}
         translate={translate}
         onSubmit={() => void submitParam()}
         onCancel={closeModal}

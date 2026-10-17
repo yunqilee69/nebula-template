@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Button, Platform, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   AUTH_ENDPOINTS,
@@ -26,11 +27,14 @@ import {
 } from '../packages/client-sdk/index.ts';
 import { runBootstrap, type BootstrapResult } from './src/bootstrap/index.ts';
 import { createAppRuntimeConfig } from './src/config/app-config.ts';
-import { createLoginService } from './src/auth/login-service.ts';
+import { createLoginService, isUsernameRegisterAllowed } from './src/auth/login-service.ts';
+import { createProfileService } from './src/auth/profile-service.ts';
 import { PermissionProvider } from './src/auth/usePermission.tsx';
 import { mapMenuToNavigation } from './src/navigation/menu-to-nav.ts';
+import { AccountSecurityScreen } from './src/screens/AccountSecurityScreen.tsx';
 import { LoginScreen } from './src/screens/LoginScreen.tsx';
 import { ProfileScreen } from './src/screens/ProfileScreen.tsx';
+import { RegisterScreen } from './src/screens/RegisterScreen.tsx';
 import { TabRoutesScreen } from './src/screens/TabRoutesScreen.tsx';
 import { createRequestClient } from './src/request/client.ts';
 import { createFetchTransport } from './src/request/transport.ts';
@@ -71,6 +75,7 @@ const request = createRequestClient({
 });
 
 const loginService = createLoginService({ request: request.request, session: sessionManager });
+const profileService = createProfileService({ request: request.request });
 
 type BootState =
   | { status: 'loading' }
@@ -79,6 +84,29 @@ type BootState =
   | { status: 'error'; message: string };
 
 const Tab = createBottomTabNavigator();
+const ProfileStack = createNativeStackNavigator();
+
+/** 「我的」Tab 内部栈：个人中心 → 账号安全。 */
+function ProfileTab({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout: () => Promise<void> }) {
+  return (
+    <ProfileStack.Navigator>
+      <ProfileStack.Screen name="ProfileOverview" options={{ title: '我的' }}>
+        {({ navigation }) => (
+          <ProfileScreen
+            user={bootstrap.currentUser}
+            permissionCodes={bootstrap.permissionCodes}
+            roleCodes={bootstrap.roleCodes}
+            onLogout={onLogout}
+            onOpenAccountSecurity={() => navigation.navigate('AccountSecurity')}
+          />
+        )}
+      </ProfileStack.Screen>
+      <ProfileStack.Screen name="AccountSecurity" options={{ title: '账号安全' }}>
+        {() => <AccountSecurityScreen profileService={profileService} />}
+      </ProfileStack.Screen>
+    </ProfileStack.Navigator>
+  );
+}
 
 /** 主界面：权限上下文 + 菜单驱动的底部 Tab + 「我的」。 */
 function MainApp({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout: () => Promise<void> }) {
@@ -97,15 +125,8 @@ function MainApp({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout
               {() => <TabRoutesScreen tab={tab} />}
             </Tab.Screen>
           ))}
-          <Tab.Screen name="__profile" options={{ title: '我的' }}>
-            {() => (
-              <ProfileScreen
-                user={bootstrap.currentUser}
-                permissionCodes={bootstrap.permissionCodes}
-                roleCodes={bootstrap.roleCodes}
-                onLogout={onLogout}
-              />
-            )}
+          <Tab.Screen name="__profile" options={{ title: '我的', headerShown: false }}>
+            {() => <ProfileTab bootstrap={bootstrap} onLogout={onLogout} />}
           </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>
@@ -115,6 +136,7 @@ function MainApp({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout
 
 export default function App() {
   const [state, setState] = useState<BootState>({ status: 'loading' });
+  const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login');
 
   /** 拉取匿名 init，用于登录页拿到权威登录开关。失败则回落 init 兜底默认值。 */
   const fetchLoginConfig = useCallback(async (): Promise<FrontendLoginConfigResp | null> => {
@@ -135,6 +157,7 @@ export default function App() {
 
   /** 启动引导：恢复会话 → 有可用会话则拉 init + current-user，否则进入登录页。 */
   const boot = useCallback(async () => {
+    setAuthScreen('login');
     setState({ status: 'loading' });
     await sessionManager.restore();
 
@@ -178,6 +201,34 @@ export default function App() {
     [boot],
   );
 
+  const handlePhoneLogin = useCallback(
+    async (phone: string, code: string) => {
+      await loginService.phoneLogin({ phone, code });
+      await boot();
+    },
+    [boot],
+  );
+
+  const handleEmailLogin = useCallback(
+    async (email: string, code: string) => {
+      await loginService.emailLogin({ email, code });
+      await boot();
+    },
+    [boot],
+  );
+
+  const handleSendPhoneCode = useCallback(async (phone: string) => {
+    await loginService.sendPhoneCode(phone);
+  }, []);
+
+  const handleSendEmailCode = useCallback(async (email: string) => {
+    await loginService.sendEmailCode(email);
+  }, []);
+
+  const handleRegister = useCallback(async (username: string, password: string) => {
+    await loginService.register({ username, password });
+  }, []);
+
   const handleLogout = useCallback(async () => {
     await loginService.logout();
     await boot();
@@ -190,9 +241,28 @@ export default function App() {
           <ActivityIndicator />
         </View>
       )}
-      {state.status === 'anonymous' && (
-        <LoginScreen loginConfig={state.loginConfig} onLogin={handleLogin} />
-      )}
+      {state.status === 'anonymous' &&
+        (authScreen === 'register' ? (
+          <RegisterScreen
+            loginConfig={state.loginConfig}
+            onRegister={handleRegister}
+            onBack={() => setAuthScreen('login')}
+          />
+        ) : (
+          <LoginScreen
+            loginConfig={state.loginConfig}
+            onLogin={handleLogin}
+            onPhoneLogin={handlePhoneLogin}
+            onEmailLogin={handleEmailLogin}
+            onSendPhoneCode={handleSendPhoneCode}
+            onSendEmailCode={handleSendEmailCode}
+            onRegister={
+              isUsernameRegisterAllowed(state.loginConfig)
+                ? () => setAuthScreen('register')
+                : undefined
+            }
+          />
+        ))}
       {state.status === 'error' && (
         <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}>
           <Text>{state.message}</Text>

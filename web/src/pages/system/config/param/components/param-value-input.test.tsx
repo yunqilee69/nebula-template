@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { dictService } from '@/services/dict';
 import { useDictCacheStore } from '@/stores/dict-cache-store';
@@ -82,6 +83,31 @@ describe('ParamValueInput', () => {
 
     rerender(<ParamValueInput dataType={DataType.BOOLEAN} value={true} onChange={handleChange} />);
     expect(screen.getByRole('switch', { name: 'system.config.param.inputs.value' })).toBeChecked();
+  });
+
+  it('renders the encrypted field instead of a plaintext control and forwards the change intent', async () => {
+    const user = userEvent.setup();
+    const handleChange = vi.fn();
+
+    // 受控值即使已是三态意图，加密字段也只展示「已配置」，密文/明文都不进输入框。
+    const { container } = render(
+      <ParamValueInput
+        dataType={DataType.STRING}
+        encrypted
+        encryptedConfigured
+        value={{ kind: 'keep' }}
+        onChange={handleChange}
+      />,
+    );
+
+    expect(screen.getByText('system.config.param.encrypted.configured')).toBeInTheDocument();
+    expect(screen.getByText('****')).toBeInTheDocument();
+    expect(container.querySelector('textarea')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /encrypted\.modify/ }));
+    await user.type(screen.getByLabelText('system.config.param.inputs.value'), 'rotated');
+
+    expect(handleChange).toHaveBeenLastCalledWith({ kind: 'set', value: 'rotated' });
   });
 
   it('loads SINGLE and MULTIPLE options from the dictionary service', async () => {

@@ -321,6 +321,62 @@ describe('NeUpload', () => {
     expect(uploadRequest).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('requests the thumb variant for backfilled images that actually have a thumb derivation', async () => {
+    // 受保护 URL 会走位置决议；这里只需断言回填出的 URL，不关心渲染结果
+    vi.mocked(request).mockResolvedValue([{ mode: 'PROXY', url: '/api/storage/download?fileId=file-img' }]);
+    const listBySource = vi.fn().mockResolvedValue([
+      {
+        id: 'file-img',
+        fileName: 'avatar.png',
+        fileMimeType: 'image/png',
+        variants: [{ variant: 'thumb', width: 320, height: 320, fileSize: 2048 }],
+      },
+    ]);
+    const onChange = vi.fn();
+
+    render(
+      <NeImageUpload sourceEntity="user-profile" sourceId="u-1" listBySource={listBySource} onChange={onChange} />,
+    );
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    // 有 thumb 派生才带 variant：否则每个缩略图位都在拉原图
+    expect(onChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({
+        thumbUrl: '/api/storage/download?fileId=file-img&filename=avatar.png&variant=thumb',
+      }),
+    ]);
+  });
+
+  it('keeps the origin URL when the image has no thumb derivation', async () => {
+    vi.mocked(request).mockResolvedValue([{ mode: 'PROXY', url: '/api/storage/download?fileId=file-img' }]);
+    const listBySource = vi.fn().mockResolvedValue([
+      // 未开启图片处理时服务端不会产出派生行；此时带 variant 只会让后端每次都回退原图并打 WARN
+      { id: 'file-img', fileName: 'avatar.png', fileMimeType: 'image/png', variants: [] },
+    ]);
+    const onChange = vi.fn();
+
+    render(
+      <NeImageUpload sourceEntity="user-profile" sourceId="u-1" listBySource={listBySource} onChange={onChange} />,
+    );
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ thumbUrl: '/api/storage/download?fileId=file-img&filename=avatar.png' }),
+    ]);
+  });
+
+  it('never marks non-image files as having a thumbnail', async () => {
+    const listBySource = vi.fn().mockResolvedValue([
+      { id: 'file-1', fileName: 'a.pdf', fileMimeType: 'application/pdf', variants: [{ variant: 'thumb' }] },
+    ]);
+    const onChange = vi.fn();
+
+    render(<NeUpload sourceEntity="contract" sourceId="c-1" listBySource={listBySource} onChange={onChange} />);
+
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ thumbUrl: undefined })]);
+  });
 });
 
 describe('NeImageUpload', () => {

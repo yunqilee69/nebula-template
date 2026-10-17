@@ -52,11 +52,20 @@ export interface StorageFileResp {
   createTime?: string;
 }
 
+/** 可用派生版本（缩略图等），非图片文件为空数组。 */
+export interface StorageFileVariantResp {
+  variant: string;
+  width?: number;
+  height?: number;
+  fileSize?: number;
+}
+
 export interface StorageFileDetailResp extends StorageFileResp {
   fileHash?: string;
   uploadTaskId?: string;
   uploadUserId?: string;
   updateTime?: string;
+  variants?: StorageFileVariantResp[];
 }
 
 export interface StorageSignedDownloadResp {

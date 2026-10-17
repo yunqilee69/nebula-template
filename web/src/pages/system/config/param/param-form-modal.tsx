@@ -1,4 +1,4 @@
-import { Form, Input, Modal, Select } from 'antd';
+import { Checkbox, Form, Input, Modal, Select } from 'antd';
 import type { FormInstance } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { DictSelect } from '@/components/dict-select';
@@ -20,6 +20,10 @@ interface ParamFormModalProps {
   readonly open: boolean;
   readonly submitting: boolean;
   readonly detailLoading: boolean;
+  /** 被编辑的参数是否为加密参数（详情返回）；仅 update 模式有意义。 */
+  readonly encryptedParam: boolean;
+  /** 该加密参数是否已配置值（详情返回）；密文与明文都不进表单。 */
+  readonly encryptedConfigured: boolean;
   readonly translate: (key: string) => string;
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
@@ -54,15 +58,22 @@ export function ParamFormModal({
   open,
   submitting,
   detailLoading,
+  encryptedParam,
+  encryptedConfigured,
   translate,
   onSubmit,
   onCancel,
 }: ParamFormModalProps) {
   const dataType = Form.useWatch('dataType', form) ?? DataType.STRING;
   const optionCode = Form.useWatch('optionCode', form);
+  const encryptedChecked = Form.useWatch('encrypted', form) === true;
   const selectedOptionCode = typeof optionCode === 'string' ? optionCode : undefined;
   const disabled = submitting || detailLoading;
   const showOptionCode = usesDictionaryOptions(dataType);
+  // 加密开关只在创建时可勾选；编辑加密参数时值固定为字符串，故一并锁定。
+  const showEncryptedOption = mode === 'create';
+  const editEncryptedParam = mode === 'update' && encryptedParam;
+  const dataTypeLocked = (showEncryptedOption && encryptedChecked) || editEncryptedParam;
   const [optionCodeOptions, setOptionCodeOptions] = useState<ParamSelectOption[]>([]);
   const [optionCodeLoading, setOptionCodeLoading] = useState(false);
 
@@ -78,6 +89,10 @@ export function ParamFormModal({
   useEffect(() => {
     if (!showOptionCode) form.setFieldValue('optionCode', undefined);
   }, [form, showOptionCode]);
+
+  useEffect(() => {
+    if (dataTypeLocked) form.setFieldValue('dataType', DataType.STRING);
+  }, [dataTypeLocked, form]);
 
   useEffect(() => {
     if (!open) return;
@@ -124,14 +139,30 @@ export function ParamFormModal({
           <Input placeholder={translate(paramI18n.placeholders.paramName)} />
         </Form.Item>
         <Form.Item name="dataType" label={translate(paramI18n.fields.dataType)} rules={[{ required: true, message: translate(paramI18n.validation.dataTypeRequired) }]}>
-          <Select options={dataTypeOptions} placeholder={translate(paramI18n.placeholders.dataType)} />
+          <Select disabled={disabled || dataTypeLocked} options={dataTypeOptions} placeholder={translate(paramI18n.placeholders.dataType)} />
         </Form.Item>
-        <Form.Item name="paramValue" label={translate(paramI18n.fields.paramValue)} rules={valueRules}>
-          <ParamValueInput
-            dataType={dataType}
-            optionCode={selectedOptionCode}
-          />
-        </Form.Item>
+        {showEncryptedOption ? (
+          <Form.Item name="encrypted" label={translate(paramI18n.encrypted.label)} valuePropName="checked">
+            <Checkbox disabled={disabled} />
+          </Form.Item>
+        ) : null}
+        {editEncryptedParam ? (
+          <Form.Item name="encryptedValue" label={translate(paramI18n.fields.paramValue)}>
+            <ParamValueInput
+              dataType={dataType}
+              disabled={disabled}
+              encrypted
+              encryptedConfigured={encryptedConfigured}
+            />
+          </Form.Item>
+        ) : (
+          <Form.Item name="paramValue" label={translate(paramI18n.fields.paramValue)} rules={valueRules}>
+            <ParamValueInput
+              dataType={dataType}
+              optionCode={selectedOptionCode}
+            />
+          </Form.Item>
+        )}
         <Form.Item name="moduleCode" label={translate(paramI18n.fields.moduleCode)}>
           <DictSelect
             dictCode={PARAM_MODULE_DICT_CODE}

@@ -88,9 +88,11 @@ const storageDownloadPath = '/api/storage/download';
 export const STORAGE_DOWNLOAD_LOCATION_PATH = '/api/storage/download-location';
 
 /** 构造服务端代理下载地址（PROXY 模式与鉴权 blob 获取使用）。 */
-export function buildStorageDownloadUrl(fileId: string, filename?: string) {
+export function buildStorageDownloadUrl(fileId: string, filename?: string, variant?: string) {
   const searchParams = new URLSearchParams({ fileId });
   if (filename) searchParams.set('filename', filename);
+  const normalizedVariant = normalizeOptionalText(variant);
+  if (normalizedVariant) searchParams.set('variant', normalizedVariant);
   return `${storageDownloadPath}?${searchParams.toString()}`;
 }
 

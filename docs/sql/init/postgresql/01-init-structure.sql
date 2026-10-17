@@ -893,6 +893,7 @@ CREATE TABLE IF NOT EXISTS sys_param (
     param_name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
     param_value TEXT,
+    is_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
     data_type VARCHAR(20) NOT NULL DEFAULT 'STRING',
     option_code VARCHAR(50),
     module_code VARCHAR(50),
@@ -912,6 +913,7 @@ COMMENT ON COLUMN sys_param.param_key IS '参数键，唯一';
 COMMENT ON COLUMN sys_param.param_name IS '参数名称';
 COMMENT ON COLUMN sys_param.description IS '参数描述';
 COMMENT ON COLUMN sys_param.param_value IS '参数值';
+COMMENT ON COLUMN sys_param.is_encrypted IS '是否加密存储：false-否，true-是；值是否真的是密文以 enc: 前缀为准';
 COMMENT ON COLUMN sys_param.data_type IS '数据类型：STRING/INT/DOUBLE/BOOLEAN/SINGLE/MULTIPLE';
 COMMENT ON COLUMN sys_param.option_code IS '选项编码，关联数据字典';
 COMMENT ON COLUMN sys_param.module_code IS '所属模块编码';

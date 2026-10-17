@@ -4,5 +4,6 @@ export * from './dict.ts';
 export * from './enums.ts';
 export * from './frontend.ts';
 export * from './notify.ts';
+export * from './profile.ts';
 export * from './push.ts';
 export * from './storage.ts';

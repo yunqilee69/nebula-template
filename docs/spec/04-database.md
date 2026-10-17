@@ -200,7 +200,7 @@ CREATE TABLE sys_nt (...);               -- nt 缩写不明确，应为 sys_noti
 | 是否内建 | `builtin` | `is_builtin` | `sys_param.is_builtin` | 系统内建标记 |
 | 是否置顶 | `pinned` | `is_pinned` | `sys_announcement.is_pinned` | 置顶标记 |
 | 是否弹窗 | `popup` | `is_popup` | `sys_announcement.is_popup` | 弹窗显示 |
-| 是否敏感 | `sensitive` | `is_sensitive` | `sys_param.is_sensitive` | 敏感数据标记 |
+| 是否加密存储 | `encrypted` | `is_encrypted` | `sys_param.is_encrypted` | 值加密存储标记 |
 | 是否可编辑 | `editable` | `is_editable` | `sys_param.is_editable` | 编辑权限标记 |
 | 是否可见 | `visible` | `is_visible` | `sys_param.is_visible` | 显示控制 |
 | 是否已删除 | `deleted` | `is_deleted` | `sys_param.is_deleted` | 软删除标记 |

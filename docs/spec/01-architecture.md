@@ -132,6 +132,7 @@ nebula-base/
 ├── nebula-base-mybatis   # MyBatis Plus配置、雪花ID
 ├── nebula-base-web       # Web拦截器、异常处理、响应封装
 ├── nebula-base-cache     # Caffeine/Redis缓存抽象
+├── nebula-base-crypto    # 对称加解密（AES-256-GCM 信封、算法与密钥 SPI）
 ├── nebula-base-cloud     # Feign配置、上下文透传
 ```
 
@@ -196,7 +197,7 @@ nebula-auth/
 | 层级 | 允许依赖 | 禁止依赖 |
 |---|---|---|
 | `*-api` | `base-common`、其他模块 `*-api`（仅限契约复用，且不得成环） | `core`、`local`、`remote`、`service`、其他模块 `*-core` |
-| `*-core` | `*-api`、`base-common`、`base-mybatis`、`base-cache`、其他模块 `*-api` | `local`、`remote`、`service`、其他模块 `*-core` |
+| `*-core` | `*-api`、`base-common`、`base-mybatis`、`base-cache`、`base-crypto`、其他模块 `*-api` | `local`、`remote`、`service`、其他模块 `*-core` |
 | `*-local` | `*-api`、`*-core`、`base-web` | `remote`、其他模块 `*-local` |
 | `*-remote` | `*-api`、`base-cloud`、`spring-cloud-openfeign` | `core`、`local`、其他模块 `*-remote` |
 | `*-service` | `*-local`、其他模块 `*-remote`、`base-mybatis`、`base-cache` | 其他模块 `*-local`、其他模块 `*-core` |

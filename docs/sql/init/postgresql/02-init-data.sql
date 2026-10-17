@@ -860,7 +860,8 @@ INSERT INTO auth_api (
     ('0196dbe0a6f17000a000000000000401', 'AUDIT_RECORD_VIEW', '审计记录查询', 'audit', 1, '审计记录分页与详情查询；界面上没有"查询"按钮，属列表接口准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000402', 'PARAM_GENERAL_CONFIG_QUERY', '通用配置查询', 'param', 2, '通用配置读取；前端初始化时按需拉取', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000403', 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000404', 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('0196dbe0a6f17000a000000000000404', 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000405', 'FRONTEND_CACHE_QUERY', '动态缓存查询', 'frontend', 5, '动态缓存列表查询；响应会回传缓存条目值，属管理端调试准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     module = EXCLUDED.module,
@@ -965,8 +966,7 @@ INSERT INTO sys_notify_template_field (
 ) VALUES
     ('019cf114a00090008000000000000004', '019cf114a00090008000000000000001', 'userId', '接收用户ID', TRUE, NULL, 'user-1', '被重置密码的用户ID', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('019cf114a00090008000000000000005', '019cf114a00090008000000000000001', 'username', '登录账号', TRUE, NULL, 'alice', '被重置密码的登录账号', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('019cf114a00090008000000000000006', '019cf114a00090008000000000000001', 'nickname', '用户昵称', FALSE, '', 'Alice', '被重置密码的用户昵称', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('019cf114a00090008000000000000007', '019cf114a00090008000000000000001', 'defaultPassword', '重置后密码', TRUE, NULL, '12345678', '管理员重置后的默认密码', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('019cf114a00090008000000000000006', '019cf114a00090008000000000000001', 'nickname', '用户昵称', FALSE, '', 'Alice', '被重置密码的用户昵称', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (template_id, field_code) DO UPDATE SET
     field_name = EXCLUDED.field_name,
     is_required = EXCLUDED.is_required,
@@ -983,7 +983,7 @@ INSERT INTO sys_notify_template_variant (
         '019cf114a00090008000000000000001',
         'SITE',
         '密码已重置',
-        '您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。重置后密码：${defaultPassword}。请登录后及时修改密码。重置时间：${notify.currentDateTime}',
+        '您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。新密码请向管理员索取，或通过忘记密码流程自助重置。请登录后及时修改密码。重置时间：${notify.currentDateTime}',
         TRUE,
         '密码重置站内信通知',
         CURRENT_TIMESTAMP,
@@ -994,7 +994,7 @@ INSERT INTO sys_notify_template_variant (
         '019cf114a00090008000000000000001',
         'EMAIL',
         'Nebula 账号密码已重置',
-        '您好，您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。重置后密码：${defaultPassword}。请登录后及时修改密码。如非本人预期，请联系管理员。重置时间：${notify.currentDateTime}',
+        '您好，您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。新密码请向管理员索取，或通过忘记密码流程自助重置。如非本人预期，请联系管理员。重置时间：${notify.currentDateTime}',
         TRUE,
         '密码重置邮件通知',
         CURRENT_TIMESTAMP,
@@ -1063,6 +1063,19 @@ ON CONFLICT (param_key) DO UPDATE SET
     module_code = EXCLUDED.module_code,
     is_builtin = EXCLUDED.is_builtin,
     update_time = EXCLUDED.update_time;
+
+-- ----------------------------------------------------------------------------
+-- param / 加密标记
+-- ----------------------------------------------------------------------------
+-- 密钥不在库中（只来自环境变量 NEBULA_CRYPTO_KEY_*），这里只声明「哪些参数的值必须加密
+-- 存储」。全新环境的种子值是明文，应用按「无 enc: 前缀即历史明文」直通读取，首次写入时
+-- 自愈为密文；存量环境的值由幂等回填作业加密。
+UPDATE sys_param
+SET is_encrypted = TRUE
+WHERE param_key IN (
+    'notify.email.password',
+    'login.username.reset-default-password'
+);
 
 -- ----------------------------------------------------------------------------
 -- param / 清理已废弃参数

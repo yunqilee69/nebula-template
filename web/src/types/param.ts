@@ -16,11 +16,16 @@ export interface SystemParamDetailResp {
   paramKey?: string;
   paramName?: string;
   description?: string;
-  paramValue?: string;
+  /** 加密参数的值为机密：接口不回传明文，此处为 null；明文参数照常返回。 */
+  paramValue?: string | null;
   dataType?: DataType;
   optionCode?: string;
   moduleCode?: string;
   builtin?: boolean;
+  /** 该参数的值是否加密存储。 */
+  encrypted?: boolean;
+  /** 加密参数是否已配置值（非加密参数的取值无意义）。 */
+  configured?: boolean;
   createTime?: string;
   updateTime?: string;
 }
@@ -32,6 +37,8 @@ export interface SystemParamResp {
   description?: string;
   dataType?: DataType;
   moduleCode?: string;
+  /** 列表不返回 paramValue，行级用该标记决定是否渲染明文回显通道。 */
+  encrypted?: boolean;
   createTime?: string;
   updateTime?: string;
 }
@@ -52,8 +59,11 @@ export interface CreateSystemParamReq {
   optionCode?: string;
   moduleCode?: string;
   builtin?: boolean;
+  /** 仅创建生效：值以明文提交，由后端加密落库；缺省为 false。 */
+  encrypted?: boolean;
 }
 
+/** 更新请求不含 encrypted：参数是否加密在创建时确定，不可变更。 */
 export interface UpdateSystemParamReq {
   paramName: string;
   description?: string;

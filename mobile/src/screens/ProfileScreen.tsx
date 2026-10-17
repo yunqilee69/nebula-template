@@ -1,5 +1,5 @@
 /**
- * 「我的」页：展示当前登录态、角色与权限码，并提供登出。
+ * 「我的」页：展示当前登录态、角色与权限码，并提供账号安全入口与登出。
  *
  * <p>依赖 React Native 运行时，不进入 `tsc` 编译图。
  * 页面内的「管理员入口」用 `<Access>` 做超管/权限码守卫，作为权限控制的可见验证。</p>
@@ -15,9 +15,17 @@ export interface ProfileScreenProps {
   permissionCodes: readonly string[];
   roleCodes: readonly string[];
   onLogout: () => Promise<void>;
+  /** 打开账号安全页；未提供时隐藏入口。 */
+  onOpenAccountSecurity?: () => void;
 }
 
-export function ProfileScreen({ user, permissionCodes, roleCodes, onLogout }: ProfileScreenProps) {
+export function ProfileScreen({
+  user,
+  permissionCodes,
+  roleCodes,
+  onLogout,
+  onOpenAccountSecurity,
+}: ProfileScreenProps) {
   const [loggingOut, setLoggingOut] = useState(false);
   const can = usePermission();
 
@@ -29,6 +37,20 @@ export function ProfileScreen({ user, permissionCodes, roleCodes, onLogout }: Pr
         <Text style={styles.meta}>角色：{roleCodes.length > 0 ? roleCodes.join('、') : '（无）'}</Text>
         <Text style={styles.meta}>权限码：{permissionCodes.length} 条</Text>
       </View>
+
+      {onOpenAccountSecurity ? (
+        <Pressable
+          style={styles.menuItem}
+          onPress={onOpenAccountSecurity}
+          testID="profile-account-security"
+        >
+          <View style={styles.menuText}>
+            <Text style={styles.menuTitle}>账号安全</Text>
+            <Text style={styles.menuDesc}>账号信息、其他登录方式、登录记录</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>权限验证</Text>
@@ -70,6 +92,20 @@ const styles = StyleSheet.create({
   name: { fontSize: 20, fontWeight: '600', color: '#0f172a' },
   sectionTitle: { fontSize: 15, fontWeight: '600', color: '#0f172a', marginBottom: 2 },
   meta: { fontSize: 13, color: '#475569' },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  menuText: { flex: 1, gap: 3 },
+  menuTitle: { fontSize: 15, fontWeight: '600', color: '#0f172a' },
+  menuDesc: { fontSize: 12, color: '#64748b' },
+  chevron: { fontSize: 22, color: '#94a3b8', lineHeight: 24 },
   allowed: { fontSize: 14, color: '#16a34a' },
   denied: { fontSize: 14, color: '#94a3b8' },
   logout: {

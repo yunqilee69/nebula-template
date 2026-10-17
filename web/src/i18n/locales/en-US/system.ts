@@ -85,6 +85,16 @@ export const system: NebulaSystemMessages = {
       inputs: {
         value: 'Parameter Value',
       },
+      encrypted: {
+        label: 'Encrypted Storage',
+        configured: 'Configured',
+        unconfigured: 'Not Configured',
+        keepHint: 'Leave empty to keep the current value',
+        clearConfirm: 'Clear the configured encrypted value?',
+        set: 'Set',
+        modify: 'Modify',
+        clear: 'Clear',
+      },
       columns: {
         paramKey: 'Parameter Key',
         paramName: 'Parameter Name',

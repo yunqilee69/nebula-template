@@ -2,8 +2,8 @@
  * 认证与会话契约，对应后端 `nebula-auth` 的 Req/Resp。
  *
  * <p>字段与服务端 DTO 严格一致，来源：
- * `LoginResp`、`CurrentUserResp`、`MenuTreeResp`、`LoginReq`、`RefreshTokenReq`、
- * `PhoneLoginReq`、`EmailLoginReq`。</p>
+ * `LoginResp`、`CurrentUserResp`、`MenuTreeResp`、`LoginReq`、`RegisterReq`、
+ * `RefreshTokenReq`、`PhoneLoginReq`、`EmailLoginReq`。</p>
  */
 
 /** 登录响应。 */
@@ -22,6 +22,15 @@ export interface LoginReq {
   password: string;
   captcha?: string;
   captchaKey?: string;
+}
+
+/** 用户名密码注册请求。 */
+export interface RegisterReq {
+  username: string;
+  password: string;
+  nickname?: string;
+  phone?: string;
+  email?: string;
 }
 
 /** 刷新 token 请求。refreshToken 单次有效。 */

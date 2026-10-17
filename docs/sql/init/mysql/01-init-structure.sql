@@ -536,6 +536,7 @@ CREATE TABLE IF NOT EXISTS sys_param (
     param_name VARCHAR(100) NOT NULL COMMENT '参数名称',
     description VARCHAR(500) COMMENT '参数描述',
     param_value TEXT COMMENT '参数值',
+    is_encrypted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否加密存储：0-否，1-是；值是否真的是密文以 enc: 前缀为准',
     data_type VARCHAR(20) NOT NULL DEFAULT 'STRING' COMMENT '数据类型：STRING/INT/DOUBLE/BOOLEAN/SINGLE/MULTIPLE',
     option_code VARCHAR(50) COMMENT '选项编码，关联数据字典',
     module_code VARCHAR(50) COMMENT '所属模块编码',

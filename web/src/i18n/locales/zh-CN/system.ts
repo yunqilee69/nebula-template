@@ -85,6 +85,16 @@ export const system: NebulaSystemMessages = {
       inputs: {
         value: '参数值',
       },
+      encrypted: {
+        label: '加密存储',
+        configured: '已配置',
+        unconfigured: '未配置',
+        keepHint: '留空则不修改',
+        clearConfirm: '确定清除该加密参数的值吗？',
+        set: '设置',
+        modify: '修改',
+        clear: '清除',
+      },
       columns: {
         paramKey: '参数键',
         paramName: '参数名',

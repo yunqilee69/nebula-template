@@ -1,6 +1,8 @@
 import { Input, InputNumber, Switch } from 'antd';
 import type { Rule } from 'antd/es/form';
 import { useCallback, useMemo } from 'react';
+import { EncryptedValueField } from '@/components/encrypted-value-field';
+import type { EncryptedValueChange } from '@/components/encrypted-value-field';
 import { DictSelect } from '@/components/dict-select';
 import { DataType, type DataType as ParamDataType } from '@/types/param';
 import { normalizeParamValue } from '../param-page-shared';
@@ -9,13 +11,21 @@ import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 const PARAM_VALUE_LABEL_KEY = 'system.config.param.inputs.value';
 const PARAM_VALUE_PLACEHOLDER_KEY = 'system.config.param.placeholders.value';
 
-export type ParamValueInputValue = string | number | boolean | string[] | undefined;
+/**
+ * 加密模式下的受控值不是明文，而是 `EncryptedValueChange` 三态意图；
+ * 明文模式仍为输入控件直接消费的值。
+ */
+export type ParamValueInputValue = string | number | boolean | string[] | EncryptedValueChange | undefined;
 
 export interface ParamValueInputProps {
   readonly dataType: ParamDataType;
   readonly value?: ParamValueInputValue;
   readonly optionCode?: string;
   readonly disabled?: boolean;
+  /** 加密参数：渲染 `EncryptedValueField`，跳过明文的长度/格式规则。 */
+  readonly encrypted?: boolean;
+  /** 加密参数是否已配置值（详情返回）；密文与明文都不进输入框。 */
+  readonly encryptedConfigured?: boolean;
   readonly onChange?: (value: ParamValueInputValue) => void;
 }
 
@@ -87,10 +97,27 @@ export function ParamValueInput({
   value,
   optionCode,
   disabled = false,
+  encrypted = false,
+  encryptedConfigured = false,
   onChange,
 }: ParamValueInputProps) {
   const translate = useParamTranslator();
-  const inputValue = useMemo(() => toParamInputValue(value, dataType), [dataType, value]);
+  const inputValue = useMemo(
+    () => (encrypted ? undefined : toParamInputValue(value, dataType)),
+    [dataType, encrypted, value],
+  );
+
+  if (encrypted) {
+    return (
+      <EncryptedValueField
+        editing
+        disabled={disabled}
+        value={{ configured: encryptedConfigured }}
+        onChange={onChange}
+      />
+    );
+  }
+
   const valueLabel = translate(PARAM_VALUE_LABEL_KEY);
   const valuePlaceholder = translate(PARAM_VALUE_PLACEHOLDER_KEY);
 

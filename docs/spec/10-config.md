@@ -30,6 +30,7 @@
 |---|---|
 | Web | `nebula.web` |
 | Cache | `nebula.cache` |
+| Crypto | `nebula.crypto` |
 | MyBatis | `nebula.mybatis` |
 | ThreadPool | `nebula.threadpool` |
 | Cloud/Feign | `nebula.cloud`, `nebula.cloud.feign` |
@@ -442,6 +443,40 @@ nebula:
 6. 直链 URL 本身即下载凭据，禁止写入日志、审计快照或错误信息（见 08-logging）。
 7. 对象存储凭据只能来自环境变量，禁止写入配置文件、数据库、仓库或日志（见六、敏感配置处理规范）。
 
+### 5.5 下载响应缓存配置
+
+```yaml
+nebula:
+  storage:
+    download:
+      # 预览响应给浏览器的私有缓存秒数；0 表示不给缓存头
+      preview-max-age-seconds: ${NEBULA_STORAGE_PREVIEW_MAX_AGE_SECONDS:300}
+      # 下载位置接口的私有缓存秒数；0 表示不缓存
+      location-max-age-seconds: ${NEBULA_STORAGE_LOCATION_MAX_AGE_SECONDS:60}
+```
+
+下载接口按「预览」与「下载」两种语义分流，两者不可混用：
+
+| 语义 | 判定 | Content-Disposition | Cache-Control |
+|---|---|---|---|
+| 预览 | 未传 `filename` | `inline` | `private, max-age=<preview>, must-revalidate` |
+| 下载 | 传了 `filename` | `attachment` | `no-store` |
+
+三条硬约束：
+
+1. **预览一律 `private`，不得 `public`。** 文件受 `STORAGE_FILE_QUERY` 权限保护，进共享缓存会把受控内容暴露给中间代理与其他用户。
+2. **下载一律 `no-store`。** 带附件名的下载语义是「用户要拿最新的一份」，可缓存会让替换后的同名文件取不到。
+3. **签名分享下载 `/api/storage/download-signed` 恒 `no-store`。** 它带次数与时效限制，任何缓存都会让下载计数失真、或让过期凭据继续可用。
+
+预览响应带强 `ETag`（`fileId` + `variant` 组合）与 `Last-Modified`，命中 `If-None-Match` /
+`If-Modified-Since` 时返回 304 且**不读取文件内容**。这要求正式文件一经绑定即视为内容不可变：
+**替换文件内容必须换新的 `fileId`**，复用旧 `fileId` 覆盖内容会让客户端拿着旧 ETag 取到过期内容。
+ETag 必须把 `variant` 拼进去，否则缩略图与原图会共用同一个标识而互相串内容。
+
+`location-max-age-seconds` 必须显著小于对象存储直链有效期（默认 300 秒），否则客户端会反复拿到
+已过期的直链。直链模式下 ETag 条件请求不生效（每次签发的 URL 都不同），重复下载的治理交由对象存储侧的
+CDN 与客户端缓存策略，不在本配置覆盖范围内。
+
 ---
 
 ## 六、敏感配置处理规范
@@ -476,6 +511,13 @@ spring:
     url: ${DB_URL:jdbc:mysql://localhost:3306/nebula}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:root}  # 生产环境必须通过环境变量覆盖
+
+nebula:
+  crypto:
+    keys:
+      - id: "1"
+        # 对称加密密钥（Base64 编码的 32 字节），推荐用环境变量注入，默认空串表示未配置
+        secret: ${NEBULA_CRYPTO_KEY_1:}
 ```
 
 ### 6.2 禁止硬编码敏感值
@@ -490,18 +532,11 @@ private String secretKey = "${AUTH_TOKEN_SECRET_KEY:default-dev-key}";
 
 ### 6.3 配置文件加密（生产环境）
 
-生产环境建议使用 Jasypt 等工具加密敏感配置：
+配置文件**自身**的加密（如把 `spring.datasource.password` 写成 `ENC(...)`）本项目**未集成**任何方案：仓库里没有 Jasypt 之类的依赖，也没有对应的解密装配，照抄 `ENC(...)` 写法不会生效。生产环境的敏感配置一律走环境变量（§6.1）。
 
-```yaml
-# 加密配置示例
-spring:
-  datasource:
-    password: ENC(encrypted-password-here)
+**数据库里存放的敏感数据是另一层问题**：运行期凭据（SMTP 授权码、初始密码等）以业务数据形式落在 `sys_param` 里，会进备份、进缓存、进 Binlog，环境变量解决不了。这一层由 `nebula-base-crypto` 承担——逐行声明 `is_encrypted`，读写自动加解密，而密钥走 `nebula.crypto.keys` 配置（推荐环境变量注入，也可直接写值，见 §9.4）。
 
-jasypt:
-  encryptor:
-    password: ${JASYPT_ENCRYPTOR_PASSWORD}
-```
+两层不可互相替代：配置文件加密解决"配置源码里不能有明文"，落库加密解决"数据库与备份里不能有明文"。
 
 ---
 
@@ -619,8 +654,10 @@ public class AuthProperties {
 ### 9.4 配置文件禁止
 
 - ❌ 默认配置文件缺少关键配置项
-- ❌ 配置文件中使用硬编码密码/密钥
+- ❌ 配置文件使用硬编码密码/密钥（**限于随仓库分发的默认配置文件**，如 `nebula-app-runner/application.yml`；运维自己的部署配置不进仓库，写值属正常用法，见下方说明）
 - ❌ 配置层级混乱（如 `nebula.auth.token.expire` 应为 `nebula.auth.token.access-token-expire`）
+
+> **加解密密钥的来源不做强制**：`nebula.crypto.keys[].secret` 直接写值即可用——框架不校验来源、不要求 `${ENV:}` 占位符，`keys`/`active-key-id` 的合法性校验与密钥来源无关。推荐环境变量注入只是因为它更省心：密钥写进随仓库分发的配置会随镜像层、备份与 Git 历史一起扩散。
 
 ---
 
@@ -681,6 +718,7 @@ public class {Module}AutoConfiguration {
 | event | `nebula.event` / `nebula.event.rocketmq` |
 | web | `nebula.web` |
 | cache | `nebula.cache` |
+| crypto | `nebula.crypto` |
 | mybatis | `nebula.mybatis` |
 | gateway | `nebula.gateway` |
 | architecture | `nebula.architecture` |

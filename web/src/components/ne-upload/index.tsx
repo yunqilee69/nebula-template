@@ -11,6 +11,9 @@ import { FileUploadList, ImageUploadList } from './upload-lists';
 
 const defaultMaxCount = 1;
 
+/** 缩略图派生标识，与后端 `variant` 参数取值一致。 */
+const thumbnailVariant = 'thumb';
+
 function createLocalUid(file: File) {
   return `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`;
 }
@@ -34,8 +37,17 @@ function mapTaskToFile(current: NeUploadFile, task: UploadTaskDetailResp): NeUpl
   };
 }
 
+/** 缩略图位只在确有 thumb 派生时带 variant：否则后端每次都回退原图并打 WARN。 */
+function resolveThumbVariant(file: StorageFileDetailResp) {
+  return file.variants?.some((item) => item.variant === thumbnailVariant) ? thumbnailVariant : undefined;
+}
+
 function mapStorageFileToUploadFile(file: StorageFileDetailResp): NeUploadFile {
   const downloadUrl = buildStorageDownloadUrl(file.id, file.fileName);
+  const thumbVariant = resolveThumbVariant(file);
+  const thumbUrl = file.fileMimeType?.startsWith('image/')
+    ? (thumbVariant ? buildStorageDownloadUrl(file.id, file.fileName, thumbVariant) : downloadUrl)
+    : undefined;
   return {
     uid: file.id,
     name: file.fileName,
@@ -46,7 +58,7 @@ function mapStorageFileToUploadFile(file: StorageFileDetailResp): NeUploadFile {
     taskId: file.uploadTaskId,
     hash: file.fileHash,
     url: downloadUrl,
-    thumbUrl: file.fileMimeType?.startsWith('image/') ? downloadUrl : undefined,
+    thumbUrl,
     status: 'done',
     percent: 100,
   };
