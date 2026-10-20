@@ -262,6 +262,94 @@ describe('NeUpload', () => {
     await waitFor(() => expect(listBySource).toHaveBeenCalledWith({ sourceEntity: 'contract', sourceId: 'c-1', sourceType: 'main' }));
   });
 
+  it('reports a successful backfill with the merged file list', async () => {
+    const listBySource = vi.fn().mockResolvedValue([{ id: 'file-1', fileName: 'one.pdf' }]);
+    const onBackfillComplete = vi.fn();
+
+    render(
+      <NeUpload
+        sourceEntity="contract"
+        sourceId="c-1"
+        listBySource={listBySource}
+        onBackfillComplete={onBackfillComplete}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onBackfillComplete).toHaveBeenCalledWith([expect.objectContaining({ fileId: 'file-1', name: 'one.pdf' })], true);
+    });
+  });
+
+  it('reports a failed backfill and keeps the current files', async () => {
+    const listBySource = vi.fn().mockRejectedValue(new Error('网络错误'));
+    const onBackfillComplete = vi.fn();
+
+    render(
+      <NeUpload
+        value={[{ uid: 'local', name: 'local.txt', status: 'done', taskId: 'task-1' }]}
+        sourceEntity="contract"
+        sourceId="c-1"
+        listBySource={listBySource}
+        onBackfillComplete={onBackfillComplete}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onBackfillComplete).toHaveBeenCalledWith([expect.objectContaining({ uid: 'local' })], false);
+    });
+  });
+
+  it('keeps an upload that finishes while the backfill request is still in flight', async () => {
+    let resolveBackfill: ((items: unknown[]) => void) | undefined;
+    const listBySource = vi.fn().mockImplementation(
+      () => new Promise((resolve) => { resolveBackfill = resolve; }),
+    );
+    const uploadRequest = vi.fn().mockResolvedValue({
+      id: 'task-local',
+      taskMode: 'simple',
+      fileName: 'local.txt',
+      status: 'COMPLETED',
+    });
+    const onChange = vi.fn();
+
+    render(
+      <NeUpload
+        maxCount={3}
+        sourceEntity="contract"
+        sourceId="c-1"
+        listBySource={listBySource}
+        uploadRequest={uploadRequest}
+        onChange={onChange}
+      />,
+    );
+
+    await userEvent.upload(getFileInput(), createFile('local.txt'));
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ taskId: 'task-local', status: 'done' })]);
+    });
+
+    act(() => resolveBackfill?.([{ id: 'file-1', fileName: 'server.txt' }]));
+
+    // 有 taskId、无 fileId 表示上传完成但还没 bind，回填不能把它当成待删除项丢掉
+    await waitFor(() => {
+      const merged = onChange.mock.calls.at(-1)?.[0] as NeUploadFile[];
+      expect(merged.map((file) => file.fileId ?? file.taskId)).toEqual(
+        expect.arrayContaining(['file-1', 'task-local']),
+      );
+    });
+  });
+
+  it('does not report backfill when no source backfill is configured', async () => {
+    const onBackfillComplete = vi.fn();
+    const listBySource = vi.fn();
+
+    render(<NeUpload onBackfillComplete={onBackfillComplete} listBySource={listBySource} />);
+
+    await act(async () => {});
+    expect(listBySource).not.toHaveBeenCalled();
+    expect(onBackfillComplete).not.toHaveBeenCalled();
+  });
+
   it('renders the real progress reported by the upload implementation', async () => {
     let reportProgress: ((percent: number) => void) | undefined;
     let finishUpload: ((task: unknown) => void) | undefined;

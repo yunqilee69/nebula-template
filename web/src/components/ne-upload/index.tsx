@@ -97,6 +97,7 @@ function NeUploadView({
   style,
   uploadRequest,
   listBySource,
+  onBackfillComplete,
   deleteFile,
   onChange,
   onUploadSuccess,
@@ -116,6 +117,9 @@ function NeUploadView({
 
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  const onBackfillCompleteRef = useRef(onBackfillComplete);
+  onBackfillCompleteRef.current = onBackfillComplete;
 
   const pendingFilesRef = useRef(files);
 
@@ -150,14 +154,19 @@ function NeUploadView({
       .then((items) => {
         if (!active) return;
         const backfilledFiles = items.map(mapStorageFileToUploadFile);
-        const pendingFiles = pendingFilesRef.current.filter((f) => f.status === 'uploading' || f.status === 'error');
-        const merged = limitFiles([...backfilledFiles, ...pendingFiles], maxCount);
+        // 组件不负责 bind：上传完成但尚未绑定（有 taskId、无 fileId）的本地任务必须保留，
+        // 否则回填响应会把回填期间上传好的文件从列表里抹掉
+        const unboundFiles = pendingFilesRef.current.filter((f) => !f.fileId);
+        const merged = limitFiles([...backfilledFiles, ...unboundFiles], maxCount);
         pendingFilesRef.current = merged;
         if (!controlled) setInternalFiles(merged);
         onChangeRef.current?.(merged);
+        onBackfillCompleteRef.current?.(merged, true);
       })
       .catch((error: unknown) => {
+        if (!active) return;
         void message.error(getErrorMessage(error));
+        onBackfillCompleteRef.current?.(pendingFilesRef.current, false);
       });
 
     return () => {

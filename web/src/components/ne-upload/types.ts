@@ -38,7 +38,18 @@ export interface NeUploadProps {
    * 不回调时列表只展示不确定态进度。
    */
   uploadRequest?: (file: File, onProgress?: (percent: number) => void) => Promise<UploadTaskDetailResp>;
+  /**
+   * 回填查询实现。与 `sourceEntity`、`sourceId` 同时提供时，组件在挂载/源变化时回填已有文件。
+   * 仅负责读取，不涉及下载地址决议（下载 URL 由组件内部按 `buildStorageDownloadUrl` 生成）。
+   */
   listBySource?: (req: ListStorageFilesBySourceReq) => Promise<StorageFileDetailResp[]>;
+  /**
+   * 回填结束回调。`files` 为回填后的完整列表（服务端文件 + 本地未绑定任务），
+   * `success` 为 false 表示 `listBySource` 查询失败。
+   *
+   * 只有真正发起回填查询时才会调用；未提供 `listBySource` 或缺少 `sourceEntity`/`sourceId` 时不会调用。
+   */
+  onBackfillComplete?: (files: NeUploadFile[], success: boolean) => void;
   deleteFile?: (file: NeUploadFile) => Promise<void>;
   onChange?: (files: NeUploadFile[]) => void;
   onUploadSuccess?: (file: NeUploadFile, task: UploadTaskDetailResp) => void;

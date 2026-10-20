@@ -16,6 +16,10 @@ The components upload files to temporary storage and return upload task metadata
 
 Pass `sourceEntity` and `sourceId` with `listBySource` to load existing formal files. Pass `sourceType` to load a specific business slot. Leave `sourceType` empty to load all files for the business object. The component still displays only up to `maxCount` files.
 
+Backfill merges the server list with local files that have not been bound yet (files with a `taskId` but no `fileId`). An upload that finishes while the backfill request is still in flight therefore stays in the list instead of being dropped by the backfill response.
+
+Use `onBackfillComplete` when the page must wait for backfill before saving: the callback fires once per backfill query with the merged list and a `success` flag. It is not called when no query runs (no `listBySource`, or `sourceEntity`/`sourceId` missing), so consumers that always pass a source can treat "not called yet" as "not loaded". On failure the list is left as-is and `success` is `false`; pages can then save basic fields without submitting the file list.
+
 ## Thumbnails
 
 For image files the component points the thumbnail at the server's `thumb` derivation, which is far
@@ -49,6 +53,7 @@ are never cached.
 | `style` | `CSSProperties` | Inline styles applied to the root container. |
 | `uploadRequest` | `(file: File) => Promise<UploadTaskDetailResp>` | Upload function called for each selected file. If omitted, attempts to upload will fail with an error. |
 | `listBySource` | `(req: ListStorageFilesBySourceReq) => Promise<StorageFileDetailResp[]>` | Backfill query function. When provided together with `sourceEntity` and `sourceId`, existing files are loaded on mount. |
+| `onBackfillComplete` | `(files: NeUploadFile[], success: boolean) => void` | Called once after each backfill query settles. `files` is the merged list; `success` is `false` when the query failed. Not called when no query runs. |
 | `deleteFile` | `(file: NeUploadFile) => Promise<void>` | Called before removing a file from the list. Use to trigger server-side deletion. |
 | `onChange` | `(files: NeUploadFile[]) => void` | Called with the updated file list after uploads, removals, and backfills. Always receives at most `maxCount` files. |
 | `onUploadSuccess` | `(file: NeUploadFile, task: UploadTaskDetailResp) => void` | Called after a file uploads successfully, with the normalized file value and the raw task response. |
@@ -87,6 +92,27 @@ Inherits all `NeUpload` props except `accept` (which defaults to `"image/*"`). A
   uploadRequest={(file) => storageService.uploadSimpleFile(file)}
 />
 ```
+
+### Deferred binding with backfill gating
+
+```tsx
+const [backfill, setBackfill] = useState<{ ready: boolean; success: boolean }>({
+  ready: false,
+  success: false,
+});
+
+<NeImageUpload
+  maxCount={9}
+  sourceEntity="product"
+  sourceId={productId}
+  sourceType="gallery"
+  listBySource={storageService.listFilesBySource}
+  uploadRequest={(file) => storageService.uploadSimpleFile(file)}
+  onBackfillComplete={(_files, success) => setBackfill({ ready: true, success })}
+/>
+```
+
+Keep save disabled until `backfill.ready`; when `backfill.success` is `false`, save the basic fields and skip submitting the file list.
 
 ### All files for a business object
 
