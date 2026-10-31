@@ -728,7 +728,7 @@ tenant_configurable, allowed_endpoints, icon_url, status
 ```sql
 CREATE TABLE auth_tenant_oauth2_provider (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL,
+    tenant_id CHAR(32) NULL,
     provider_id VARCHAR(32) NOT NULL,
     channel VARCHAR(32) NOT NULL DEFAULT 'default', -- default/web/mini
     enabled TINYINT NOT NULL DEFAULT 0,

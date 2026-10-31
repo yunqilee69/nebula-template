@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_provider (
 
 CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     provider_id CHAR(32) NOT NULL COMMENT '提供商ID',
     channel VARCHAR(20) NOT NULL COMMENT '渠道：WEB/MINI/APP',
     enabled TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
 
 CREATE TABLE IF NOT EXISTS auth_tenant_invitation (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     email VARCHAR(100) COMMENT '受邀邮箱',
     phone VARCHAR(32) COMMENT '受邀手机号',
     role_id CHAR(32) COMMENT '预分配角色ID',
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS auth_tenant_invitation (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     employee_no VARCHAR(50) COMMENT '工号，租户内唯一',
     username VARCHAR(50) NOT NULL COMMENT '用户名，唯一',
     password VARCHAR(100) NOT NULL COMMENT '密码',
@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS auth_user (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_role (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     code VARCHAR(50) NOT NULL COMMENT '角色编码，唯一',
     name VARCHAR(50) NOT NULL COMMENT '角色名称',
     description VARCHAR(200) COMMENT '描述',
@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS auth_role (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_org (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     name VARCHAR(100) NOT NULL COMMENT '组织名称',
     parent_id CHAR(32) COMMENT '父组织ID，NULL为根节点',
     path VARCHAR(500) COMMENT '层级路径',
@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS auth_org (
 
 CREATE TABLE IF NOT EXISTS auth_user_org (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
     org_id CHAR(32) NOT NULL COMMENT '组织ID',
     is_main_org TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否主组织：0否 1是',
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS auth_user_org (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user_role (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
     role_id CHAR(32) NOT NULL COMMENT '角色ID',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS auth_user_role (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_menu (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     name VARCHAR(100) NOT NULL COMMENT '菜单名称',
     parent_id CHAR(32) COMMENT '父菜单ID，NULL为根节点',
     path VARCHAR(200) COMMENT '路由路径',
@@ -279,7 +279,7 @@ CREATE TABLE IF NOT EXISTS auth_menu (
 
 CREATE TABLE IF NOT EXISTS auth_button (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     menu_id CHAR(32) NOT NULL COMMENT '所属菜单ID',
     code VARCHAR(100) NOT NULL COMMENT '按钮编码，租户内唯一',
     name VARCHAR(100) NOT NULL COMMENT '按钮名称',
@@ -296,7 +296,7 @@ CREATE TABLE IF NOT EXISTS auth_button (
 
 CREATE TABLE IF NOT EXISTS auth_api (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     code VARCHAR(100) NOT NULL COMMENT '接口权限编码，租户内唯一',
     name VARCHAR(100) NOT NULL COMMENT '接口权限名称',
     module VARCHAR(50) COMMENT '所属模块编码，取值来自字典 param_module',
@@ -317,7 +317,7 @@ CREATE TABLE IF NOT EXISTS auth_api (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_permission (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     subject_type VARCHAR(20) NOT NULL COMMENT '主体类型：USER/ROLE/ORG',
     subject_id CHAR(32) NOT NULL COMMENT '主体ID',
     resource_type VARCHAR(20) NOT NULL COMMENT '资源类型：MENU/BUTTON/API',
@@ -335,7 +335,7 @@ CREATE TABLE IF NOT EXISTS auth_permission (
 
 CREATE TABLE IF NOT EXISTS auth_data_scope (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     subject_type VARCHAR(20) NOT NULL COMMENT '主体类型：USER/ROLE/ORG',
     subject_id CHAR(32) NOT NULL COMMENT '主体ID',
     resource_type VARCHAR(50) NOT NULL COMMENT '业务资源类型：ORDER/CUSTOMER/CONTRACT等',
@@ -356,7 +356,7 @@ CREATE TABLE IF NOT EXISTS auth_data_scope (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_oauth2_account (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     provider_config_id CHAR(32) NULL COMMENT '租户 OAuth2 配置 ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
     provider_id VARCHAR(50) NOT NULL COMMENT '提供商ID',
@@ -377,7 +377,7 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_account (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_dict_type (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     code VARCHAR(100) NOT NULL COMMENT '字典编码，唯一',
     name VARCHAR(100) NOT NULL COMMENT '字典名称',
     remark VARCHAR(255) COMMENT '备注',
@@ -389,7 +389,7 @@ CREATE TABLE IF NOT EXISTS sys_dict_type (
 
 CREATE TABLE IF NOT EXISTS sys_dict_item (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     dict_code VARCHAR(100) NOT NULL COMMENT '所属字典编码',
     name VARCHAR(100) NOT NULL COMMENT '字典项名称',
     parent_id CHAR(32) COMMENT '父级字典项ID',
@@ -414,7 +414,7 @@ CREATE TABLE IF NOT EXISTS sys_dict_item (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS frontend_user_preference (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
     locale_tag VARCHAR(32) COMMENT '语言标签',
     theme_code VARCHAR(64) COMMENT '预设主题编码',
@@ -450,7 +450,7 @@ CREATE TABLE IF NOT EXISTS frontend_app_release (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_notify_template (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     template_code VARCHAR(100) NOT NULL COMMENT '模板编码',
     template_name VARCHAR(100) NOT NULL COMMENT '模板名称',
     remark VARCHAR(500) COMMENT '备注',
@@ -464,7 +464,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_template (
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_field (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     template_id VARCHAR(64) NOT NULL COMMENT '通知模板ID',
     field_code VARCHAR(100) NOT NULL COMMENT '字段编码',
     field_name VARCHAR(100) NOT NULL COMMENT '字段名称',
@@ -481,7 +481,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_template_field (
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_variant (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     template_id VARCHAR(64) NOT NULL COMMENT '通知模板ID',
     channel_type VARCHAR(32) NOT NULL COMMENT '渠道类型',
     subject_template VARCHAR(255) COMMENT '标题模板',
@@ -499,7 +499,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_template_variant (
 
 CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     target_name VARCHAR(100) NOT NULL COMMENT '目标名称',
     channel_type VARCHAR(32) NOT NULL COMMENT '渠道类型',
     endpoint_url VARCHAR(1000) NOT NULL COMMENT '投递端点地址',
@@ -513,7 +513,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
 
 CREATE TABLE IF NOT EXISTS sys_notify_record (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     channel_type VARCHAR(20) NOT NULL COMMENT '渠道类型',
     template_code VARCHAR(100) COMMENT '模板编码',
     template_variant_id VARCHAR(64) COMMENT '模板渠道变体ID',
@@ -544,7 +544,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_record (
 -- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=1 的内置类别不可删除。
 CREATE TABLE IF NOT EXISTS sys_notify_category (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     code VARCHAR(32) NOT NULL COMMENT '类别编码，唯一且创建后不可修改',
     name VARCHAR(50) NOT NULL COMMENT '类别名称',
     description VARCHAR(200) DEFAULT NULL COMMENT '类别说明，用于设置页展示',
@@ -563,7 +563,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_category (
 
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     record_id VARCHAR(64) NOT NULL COMMENT '通知记录ID',
     category_code VARCHAR(32) NOT NULL DEFAULT 'DEFAULT' COMMENT '通知类别 code，随发送记录冗余',
     receiver_user_id VARCHAR(64) NOT NULL COMMENT '接收用户ID',
@@ -583,7 +583,7 @@ CREATE TABLE IF NOT EXISTS sys_site_message (
 
 CREATE TABLE IF NOT EXISTS sys_announcement (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     title VARCHAR(255) NOT NULL COMMENT '标题',
     content TEXT NOT NULL COMMENT '内容',
     status TINYINT(1) NOT NULL DEFAULT 0 COMMENT '状态',
@@ -605,7 +605,7 @@ CREATE TABLE IF NOT EXISTS sys_announcement (
 
 CREATE TABLE IF NOT EXISTS sys_announcement_target (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     announcement_id VARCHAR(64) NOT NULL COMMENT '公告ID',
     target_type VARCHAR(20) NOT NULL COMMENT '目标类型',
     target_value VARCHAR(64) NOT NULL COMMENT '目标值',
@@ -618,7 +618,7 @@ CREATE TABLE IF NOT EXISTS sys_announcement_target (
 
 CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     announcement_id VARCHAR(64) NOT NULL COMMENT '公告ID',
     user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
     read_time DATETIME NOT NULL COMMENT '已读时间',
@@ -632,7 +632,7 @@ CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
 
 CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
     category_code VARCHAR(32) NOT NULL COMMENT '通知类别 code',
     channel VARCHAR(32) NOT NULL COMMENT '渠道：SITE/EMAIL/PUSH',
@@ -650,7 +650,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
 -- push_token 是可定位到设备的个人数据：注销时清空，日志中不得完整打印。
 CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     user_id VARCHAR(64) NOT NULL COMMENT '所属用户ID，来自登录态，不接受客户端传入',
     device_id VARCHAR(128) NOT NULL COMMENT '客户端生成的稳定设备标识，全局唯一',
     platform VARCHAR(16) NOT NULL COMMENT '平台：IOS/ANDROID/OHOS',
@@ -676,7 +676,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_device (
 -- 排障要能回答"是哪台设备、哪个厂商、什么原因失败的"。刻意不落 push_token。
 CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     record_id VARCHAR(64) NOT NULL COMMENT '关联 sys_notify_record.id（channel_type=PUSH）',
     device_id VARCHAR(128) NOT NULL COMMENT '设备标识',
     user_id VARCHAR(64) DEFAULT NULL COMMENT '设备所属用户ID',
@@ -698,7 +698,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_param (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     param_key VARCHAR(150) NOT NULL COMMENT '参数键，唯一',
     param_name VARCHAR(100) NOT NULL COMMENT '参数名称',
     description VARCHAR(500) COMMENT '参数描述',
@@ -723,7 +723,7 @@ CREATE TABLE IF NOT EXISTS sys_param (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS scheduler_job (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     job_code VARCHAR(128) NOT NULL COMMENT '任务编码，唯一',
     job_name VARCHAR(128) NOT NULL COMMENT '任务名称',
     description VARCHAR(512) COMMENT '任务描述',
@@ -745,7 +745,7 @@ CREATE TABLE IF NOT EXISTS scheduler_job (
 
 CREATE TABLE IF NOT EXISTS scheduler_job_run (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     request_id VARCHAR(64) NOT NULL COMMENT '运行请求唯一标识，唯一',
     job_code VARCHAR(128) NOT NULL COMMENT '任务编码',
     trigger_source VARCHAR(32) COMMENT '触发来源：SCHEDULED/MANUAL/RETRY',
@@ -781,7 +781,7 @@ CREATE TABLE IF NOT EXISTS scheduler_job_run (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS auth_login_record (
     id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     person_id CHAR(32) DEFAULT NULL COMMENT '平台账号ID（平台侧登录时记录）',
     user_id CHAR(32) DEFAULT NULL COMMENT '用户ID；登录账号不存在等场景为空',
     login_account VARCHAR(100) NOT NULL COMMENT '登录账号（用户名/手机/邮箱/OAuth2标识）',
@@ -810,7 +810,7 @@ CREATE TABLE IF NOT EXISTS auth_login_record (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS audit_record (
     id VARCHAR(64) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     operator_id VARCHAR(64) DEFAULT NULL,
     operator_name VARCHAR(128) DEFAULT NULL,
     person_id CHAR(32) DEFAULT NULL,
@@ -841,7 +841,7 @@ CREATE TABLE IF NOT EXISTS audit_record (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS event_outbox (
     id CHAR(32) NOT NULL COMMENT 'Outbox行主键',
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     event_id VARCHAR(64) NOT NULL COMMENT '事件实例唯一标识',
     event_type VARCHAR(128) NOT NULL COMMENT '业务事件类型',
     module VARCHAR(64) NOT NULL COMMENT '事件所属模块编码',
@@ -873,7 +873,7 @@ CREATE TABLE IF NOT EXISTS event_outbox (
 
 CREATE TABLE IF NOT EXISTS event_consume_record (
     id CHAR(32) NOT NULL COMMENT '消费记录主键',
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     consumer_name VARCHAR(128) NOT NULL COMMENT '消费者名称',
     event_id VARCHAR(64) NOT NULL COMMENT '事件ID',
     idempotency_key VARCHAR(128) NOT NULL COMMENT '消费幂等键',
@@ -895,7 +895,7 @@ CREATE TABLE IF NOT EXISTS event_consume_record (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS storage_upload_task (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     task_mode VARCHAR(20) NOT NULL COMMENT '上传模式',
     file_name VARCHAR(255) NOT NULL COMMENT '文件名',
     file_extension VARCHAR(50) DEFAULT NULL COMMENT '文件扩展名',
@@ -919,7 +919,7 @@ CREATE TABLE IF NOT EXISTS storage_upload_task (
 
 CREATE TABLE IF NOT EXISTS storage_upload_part (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     task_id CHAR(32) NOT NULL COMMENT '上传任务ID',
     part_number INT NOT NULL COMMENT '分片序号',
     part_hash VARCHAR(64) DEFAULT NULL COMMENT '分片哈希',
@@ -936,7 +936,7 @@ CREATE TABLE IF NOT EXISTS storage_upload_part (
 
 CREATE TABLE IF NOT EXISTS storage_file (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     file_name VARCHAR(255) NOT NULL COMMENT '文件名',
     file_extension VARCHAR(50) DEFAULT NULL COMMENT '文件扩展名',
     file_mime_type VARCHAR(100) DEFAULT NULL COMMENT 'MIME类型',
@@ -961,7 +961,7 @@ CREATE TABLE IF NOT EXISTS storage_file (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='正式文件表';
 
 CREATE TABLE IF NOT EXISTS storage_content (
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     storage_key VARCHAR(500) NOT NULL COMMENT '存储Key',
     content LONGBLOB NOT NULL COMMENT '文件内容',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -971,7 +971,7 @@ CREATE TABLE IF NOT EXISTS storage_content (
 
 CREATE TABLE IF NOT EXISTS storage_file_variant (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
+    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100' COMMENT '租户ID',
     file_id CHAR(32) NOT NULL COMMENT '源文件ID',
     variant VARCHAR(50) NOT NULL COMMENT '派生标识，如 thumb',
     content_key VARCHAR(500) NOT NULL COMMENT '派生内容存储Key',
