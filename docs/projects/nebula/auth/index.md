@@ -1,0 +1,25 @@
+
+# Nebula Auth 模块
+
+本目录用于说明 `nebula-auth` 模块的定位、分层结构、业务能力、设计实现、接入方式、配置与建表说明。
+
+## 文档列表
+
+- [模块总览](./overview.md) - auth 模块定位、子模块结构与已提供业务能力
+- [设计与实现](./design-and-implementation.md) - 鉴权链路、JWT 处理、权限模型、本地/远程模式设计
+- [业务功能](./business-capabilities.md) - 面向业务方的能力边界、典型流程与适用场景
+- [使用方式](./usage-guide.md) - 单体接入、独立服务部署、远程消费与调用建议
+- [配置说明](./configuration.md) - `nebula.auth.*`、动态登录参数、独立服务示例配置
+- [微信扫码绑定与账号互通](./wechat-web-binding.md) - 扫码绑定流程、unionid 互通原理与前置条件
+- [建表与迁移说明](./ddl.md) - auth 相关表结构与组织类型迁移 SQL
+
+## 推荐阅读顺序
+
+建议按以下顺序阅读：
+
+1. [模块总览](./overview.md)
+2. [设计与实现](./design-and-implementation.md)
+3. [业务功能](./business-capabilities.md)
+4. [使用方式](./usage-guide.md)
+5. [配置说明](./configuration.md)
+6. [建表与迁移说明](./ddl.md)

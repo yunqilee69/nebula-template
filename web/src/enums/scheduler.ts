@@ -5,7 +5,8 @@ export type SchedulerJobRunStatus =
   | 'TERMINATED'
   | 'TIMEOUT'
   | 'SUCCESS'
-  | 'FAILED';
+  | 'FAILED'
+  | 'SKIPPED';
 
 export type SchedulerTriggerSource = 'SCHEDULED' | 'MANUAL' | 'RETRY';
 
@@ -17,6 +18,7 @@ export const RUN_STATUS_TAG_COLOR: Record<SchedulerJobRunStatus, string> = {
   TIMEOUT: 'warning',
   SUCCESS: 'success',
   FAILED: 'error',
+  SKIPPED: 'default',
 } as const;
 
 export const RUN_STATUS_LABEL_KEY: Record<SchedulerJobRunStatus, string> = {
@@ -27,6 +29,7 @@ export const RUN_STATUS_LABEL_KEY: Record<SchedulerJobRunStatus, string> = {
   TIMEOUT: 'scheduler.runStatus.timeout',
   SUCCESS: 'scheduler.runStatus.success',
   FAILED: 'scheduler.runStatus.failed',
+  SKIPPED: 'scheduler.runStatus.skipped',
 } as const;
 
 export const TRIGGER_SOURCE_TAG_COLOR: Record<SchedulerTriggerSource, string> = {

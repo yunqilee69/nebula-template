@@ -1,5 +1,6 @@
 const accessTokenKey = 'nebula-web.access-token';
 const refreshTokenKey = 'nebula-web.refresh-token';
+const tenantCodeKey = 'nebula-web.tenant-code';
 
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -12,6 +13,10 @@ export function getStoredAccessToken(): string | null {
 
 export function getStoredRefreshToken(): string | null {
   return getStorage()?.getItem(refreshTokenKey) ?? null;
+}
+
+export function getStoredTenantCode(): string | null {
+  return getStorage()?.getItem(tenantCodeKey) ?? null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +62,11 @@ export function saveAuthTokens(response: unknown): void {
   if (refreshToken) {
     storage.setItem(refreshTokenKey, refreshToken);
   }
+
+  const tenantCode = getStringField(tokenSource, ['tenantCode']);
+  if (tenantCode) {
+    storage.setItem(tenantCodeKey, tenantCode);
+  }
 }
 
 export function clearAuthTokens(): void {
@@ -65,4 +75,5 @@ export function clearAuthTokens(): void {
 
   storage.removeItem(accessTokenKey);
   storage.removeItem(refreshTokenKey);
+  storage.removeItem(tenantCodeKey);
 }

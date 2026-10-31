@@ -158,6 +158,7 @@ export const scheduler: NebulaSchedulerMessages = {
     timeout: '已超时',
     success: '成功',
     failed: '失败',
+    skipped: '已跳过',
   },
   triggerSource: {
     scheduled: '定时触发',

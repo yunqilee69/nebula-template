@@ -9,6 +9,16 @@ export interface NebulaBrandConfig {
   title?: string;
   /** App-wide brand logo shown by layouts when no local logo override is provided. */
   logo?: ReactNode;
+  /** Login-specific logo; falls back to {@link logo}. */
+  loginLogo?: ReactNode;
+  /** Login page heading; falls back to {@link name}. */
+  loginTitle?: string;
+  /** Optional login page subtitle. */
+  loginSubtitle?: string;
+  /** Optional login page background image URL. */
+  loginBackground?: string;
+  /** Optional primary color override for the tenant. */
+  themeColor?: string;
   /** Browser favicon href set by NebulaProvider at startup. */
   faviconHref?: string;
 }
@@ -17,6 +27,11 @@ export interface ResolvedNebulaBrandConfig {
   name: string;
   title: string;
   logo?: ReactNode;
+  loginLogo?: ReactNode;
+  loginTitle?: string;
+  loginSubtitle?: string;
+  loginBackground?: string;
+  themeColor?: string;
   faviconHref?: string;
 }
 
@@ -37,6 +52,11 @@ export function resolveNebulaBrand(brand?: NebulaBrandConfig): ResolvedNebulaBra
     name,
     title,
     logo: brand?.logo ?? defaultBrand.logo,
+    loginLogo: brand?.loginLogo,
+    loginTitle: brand?.loginTitle?.trim() || name,
+    loginSubtitle: brand?.loginSubtitle?.trim(),
+    loginBackground: brand?.loginBackground?.trim(),
+    themeColor: brand?.themeColor?.trim(),
     faviconHref: brand?.faviconHref,
   };
 }

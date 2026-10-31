@@ -42,4 +42,20 @@ describe('createRequestClient ApiResult compatibility', () => {
     });
     expect(onBusinessError).toHaveBeenCalledWith('invalid request, accessToken or appname is empty.');
   });
+
+  it('does not notify when the request is marked silent', async () => {
+    const onBusinessError = vi.fn();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const client = createRequestClient({ onBusinessError });
+
+    client.defaults.adapter = mockAdapter((config) => makeResponse(config, {
+      code: 19014,
+      message: '仅平台管理员可操作',
+    }));
+
+    await expect(client.get('/api/auth/account/person', { _nebulaSilent: true } as never))
+      .rejects.toThrow('仅平台管理员可操作');
+
+    expect(onBusinessError).not.toHaveBeenCalled();
+  });
 });

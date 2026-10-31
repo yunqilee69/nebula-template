@@ -25,6 +25,14 @@ export const AUTH_ENDPOINTS = {
   oauth2Binding: (providerId: string) =>
     `/api/auth/profile/oauth2/bindings/${encodeURIComponent(providerId)}`,
   loginRecordsPage: '/api/auth/profile/login-records/page',
+  tenantBindingComplete: '/api/auth/login/binding/complete',
+  personCurrent: '/api/auth/account/person',
+  personProfile: '/api/auth/account/person/profile',
+  personPassword: '/api/auth/account/person/password',
+  personTenants: '/api/auth/account/person/tenants',
+  personLinks: '/api/auth/account/person/links',
+  personLink: (id: string) => `/api/auth/account/person/links/${encodeURIComponent(id)}`,
+  personLogoutAll: '/api/auth/account/person/logout-all',
 } as const;
 
 /** 启动引导与版本检查端点。 */
@@ -103,6 +111,7 @@ export const ANONYMOUS_ENDPOINTS: readonly string[] = [
   AUTH_ENDPOINTS.forgotPasswordVerifyCode,
   AUTH_ENDPOINTS.forgotPasswordChange,
   AUTH_ENDPOINTS.getAuthConfig,
+  AUTH_ENDPOINTS.tenantBindingComplete,
   FRONTEND_ENDPOINTS.init,
   FRONTEND_ENDPOINTS.appReleaseCheck,
 ];

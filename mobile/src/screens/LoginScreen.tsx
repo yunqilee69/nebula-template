@@ -58,6 +58,9 @@ export interface LoginScreenProps {
   onSendEmailCode: (email: string) => Promise<void>;
   /** 打开注册页；未提供时隐藏注册入口。 */
   onRegister?: () => void;
+  /** 企业代码；通过子域名无法解析租户时由用户手动填写。 */
+  tenantCode?: string;
+  onTenantCodeChange?: (value: string) => void;
 }
 
 const METHOD_META: Record<FormLoginMethod, { label: string; hint: string; icon: string }> = {
@@ -78,6 +81,8 @@ export function LoginScreen({
   onSendPhoneCode,
   onSendEmailCode,
   onRegister,
+  tenantCode = '',
+  onTenantCodeChange,
 }: LoginScreenProps) {
   const enabledMethods = useMemo(() => getEnabledFormLoginMethods(loginConfig), [loginConfig]);
   const [activeMethod, setActiveMethod] = useState<FormLoginMethod>(
@@ -439,6 +444,22 @@ export function LoginScreen({
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
             <Text style={styles.title}>登录</Text>
+
+            {onTenantCodeChange ? (
+              <View style={styles.field}>
+                <Text style={styles.label}>企业代码（可选）</Text>
+                <TextInput
+                  style={styles.input}
+                  value={tenantCode}
+                  onChangeText={onTenantCodeChange}
+                  placeholder="例如 acme；已通过域名进入时可留空"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                  testID="login-tenant-code"
+                />
+              </View>
+            ) : null}
 
             {renderMethodFields()}
 

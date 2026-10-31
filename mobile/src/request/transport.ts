@@ -40,7 +40,7 @@ function buildUrl(baseURL: string | undefined, url: string, params?: QueryParams
 
 function collectResponseHeaders(response: Response): Record<string, string> {
   const headers: Record<string, string> = {};
-  response.headers.forEach((value, key) => {
+  response.headers.forEach((value: string, key: string) => {
     headers[key] = value;
   });
   return headers;
@@ -103,6 +103,7 @@ export function createFetchTransport(options: FetchTransportOptions = {}): HttpT
           method: request.method,
           headers,
           body,
+          credentials: 'include',
           ...(controller ? { signal: controller.signal } : {}),
         });
       } catch (error) {

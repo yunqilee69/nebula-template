@@ -1,5 +1,6 @@
-import { Form, Space, theme as antdTheme } from 'antd';
+import { Form, Space, Tabs, theme as antdTheme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import { useNotice } from '@/hooks/use-notice';
 import { useStoragePreviewUrl } from '@/hooks/use-storage-preview-url';
@@ -22,6 +23,7 @@ import {
 import { profileStorageService } from './profile-storage-service';
 import { LoginRecordsCard, OAuth2BindingsCard, PasswordCard } from './section-cards';
 import type { PasswordFormValues } from './section-cards';
+import { PlatformAccountPanel } from './platform-account';
 
 export interface ProfileInfoPageProps {
   service?: ProfileService;
@@ -34,6 +36,10 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
   const notice = useNotice();
   const { token } = antdTheme.useToken();
   const setStoredUser = useAuthStore((state) => state.setUser);
+  const currentUser = useAuthStore((state) => state.user);
+  const multiTenant = Boolean(currentUser?.tenantId);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'platform' ? 'platform' : 'tenant';
   const [form] = Form.useForm<ProfileFormValues>();
   const [passwordForm] = Form.useForm<PasswordFormValues>();
 
@@ -224,37 +230,58 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
     [notice, passwordForm, service, t],
   );
 
+  const tenantContent = (
+    <Space orientation="vertical" size={token.marginMD} className="w-full">
+      <BasicProfileCard
+        profile={profile}
+        avatarUrl={avatarUrl}
+        avatarPreviewUrl={avatarPreviewUrl}
+        form={form}
+        loading={profileLoading}
+        saving={saving}
+        uploadDisabled={saving || profileLoading || !profile?.id}
+        onRefresh={loadProfile}
+        onSubmit={submitProfile}
+        uploadAvatarFile={uploadAvatarFile}
+      />
+
+      <PasswordCard form={passwordForm} saving={passwordSaving} onSubmit={submitPassword} />
+
+      <OAuth2BindingsCard
+        bindings={bindings}
+        loading={bindingsLoading}
+        unbindProviderId={unbindProviderId}
+        bindProviderId={bindProviderId}
+        onRefresh={loadBindings}
+        onUnbind={unbindOAuth2}
+        onBind={startOAuth2Bind}
+      />
+
+      <LoginRecordsCard service={service} />
+    </Space>
+  );
+
+  if (!multiTenant) {
+    return tenantContent;
+  }
+
   return (
-    <>
-      <Space orientation="vertical" size={token.marginMD} className="w-full">
-        <BasicProfileCard
-          profile={profile}
-          avatarUrl={avatarUrl}
-          avatarPreviewUrl={avatarPreviewUrl}
-          form={form}
-          loading={profileLoading}
-          saving={saving}
-          uploadDisabled={saving || profileLoading || !profile?.id}
-          onRefresh={loadProfile}
-          onSubmit={submitProfile}
-          uploadAvatarFile={uploadAvatarFile}
-        />
-
-        <PasswordCard form={passwordForm} saving={passwordSaving} onSubmit={submitPassword} />
-
-        <OAuth2BindingsCard
-          bindings={bindings}
-          loading={bindingsLoading}
-          unbindProviderId={unbindProviderId}
-          bindProviderId={bindProviderId}
-          onRefresh={loadBindings}
-          onUnbind={unbindOAuth2}
-          onBind={startOAuth2Bind}
-        />
-
-        <LoginRecordsCard service={service} />
-      </Space>
-    </>
+    <Tabs
+      activeKey={activeTab}
+      onChange={(key) => setSearchParams(key === 'platform' ? { tab: 'platform' } : {}, { replace: true })}
+      items={[
+        {
+          key: 'tenant',
+          label: '企业个人信息',
+          children: tenantContent,
+        },
+        {
+          key: 'platform',
+          label: '平台个人信息',
+          children: <PlatformAccountPanel />,
+        },
+      ]}
+    />
   );
 }
 

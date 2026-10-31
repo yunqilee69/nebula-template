@@ -6,6 +6,7 @@ import { notifySessionExpired } from '@/utils/auth/session-expired';
 import { notice } from '@/providers/notice';
 import { useAuthStore } from '@/stores/auth-store';
 import type { LoginResp } from '@/types/auth';
+import { getTenantCode } from '@/utils/tenant/tenant-host';
 
 let notifying = false;
 const defaultHttpErrorMessage = '接口请求出错，请稍后重试';
@@ -73,6 +74,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 export const requestClient = createRequestClient({
   getToken: getStoredAccessToken,
+  getTenantCode,
   refreshToken: refreshAccessToken,
   onRefreshFailed: () => {
     handleSessionExpired();

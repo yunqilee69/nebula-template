@@ -49,7 +49,12 @@ PostgreSQL 初始化脚本见仓库根 `docs/sql/init/postgresql/`，脚本目�
 
 ## 升级
 
-改 `pom.xml` 中 `<nebula.version>` 即升级后端（与前端模板同版本发布，见根 README 版本配对说明）。
+1. 改 `backend/pom.xml` 中的 `<nebula.version>`（与前端模板同 tag 发布，版本一一配对）。
+2. **执行数据库增量脚本**：从当前版本之后的下一个版本目录开始，按版本号升序执行到目标版本目录（含目标版本），进入 `docs/sql/<版本>/{mysql,postgresql}/` 后按文件名顺序执行。
+3. `docs/sql/init/` 只用于全新数据库。不要用它升级存量库：建表语句是 `CREATE TABLE IF NOT EXISTS`，不会给已有表补列，重放初始化数据还可能覆盖运维已改的配置。
+4. `docs/sql/unreleased/` 只存在于主仓，是尚未随版本发布的开发期脚本，模板仓不包含该目录，升级时也不要执行。
+
+只改版本号不执行增量 SQL，遇到包含落库变更的版本会出现缺列、缺表或运行期错误。各版本需要执行的脚本说明见 `docs/sql/README.md`。
 
 ## 常用能力开关
 

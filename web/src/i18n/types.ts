@@ -78,6 +78,7 @@ export interface NebulaHeaderUserMessages {
   anonymous: string;
   menuAriaLabel: string;
   profile: string;
+  enterpriseSettings: string;
   preferences: string;
   logout: string;
   preferencesTitle: string;
@@ -92,6 +93,12 @@ export interface NebulaHeaderUserMessages {
   profilePlaceholder: string;
 }
 
+export interface NebulaHeaderTenantMessages {
+  switchAriaLabel: string;
+  menuAriaLabel: string;
+  noDomain: string;
+}
+
 export interface NebulaLayoutMessages {
   sidebarCollapse: string;
   sidebarExpand: string;
@@ -99,6 +106,7 @@ export interface NebulaLayoutMessages {
   sidebarAriaLabel: string;
   tabContextMenu: NebulaTabContextMenuMessages;
   headerUser: NebulaHeaderUserMessages;
+  headerTenant: NebulaHeaderTenantMessages;
   notificationInbox: string;
   tabRenameAriaLabel: string;
   tabReorderHandleAriaLabel: string;
@@ -299,6 +307,7 @@ export interface NebulaUserManagementMessages {
   title: string;
   actions: {
     create: string;
+    invite: string;
     edit: string;
     delete: string;
     resetPassword: string;
@@ -329,6 +338,17 @@ export interface NebulaUserManagementMessages {
     createTitle: string;
     editTitle: string;
   };
+  invite: {
+    title: string;
+    description: string;
+    submit: string;
+    close: string;
+    tokenLabel: string;
+    linkLabel: string;
+    tokenHint: string;
+    emailInvalid: string;
+    emailOrPhoneRequired: string;
+  };
   placeholders: {
     username: string;
     password: string;
@@ -353,6 +373,8 @@ export interface NebulaUserManagementMessages {
     createSuccess: string;
     updateSuccess: string;
     resetPasswordSuccess: string;
+    inviteSuccess: string;
+    inviteFailed: string;
     createFailed: string;
     updateFailed: string;
     resetPasswordFailed: string;
@@ -1272,6 +1294,7 @@ export interface NebulaSchedulerMessages {
     timeout: string;
     success: string;
     failed: string;
+    skipped: string;
   };
   triggerSource: {
     scheduled: string;
@@ -1611,11 +1634,98 @@ export interface NebulaSiteMessageMessages {
   };
 }
 
+export interface NebulaTenantSettingsMessages {
+  title: string;
+  description: string;
+  readonlyHint: string;
+  tabs: {
+    basic: string;
+    branding: string;
+    security: string;
+    identity: string;
+  };
+  actions: {
+    save: string;
+    saving: string;
+    refresh: string;
+    upload: string;
+    remove: string;
+    openOAuth: string;
+  };
+  basic: {
+    title: string;
+    description: string;
+  };
+  branding: {
+    title: string;
+    description: string;
+  };
+  security: {
+    title: string;
+    description: string;
+  };
+  identity: {
+    title: string;
+    description: string;
+    code: string;
+    domains: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    primaryDomain: string;
+  };
+  fields: {
+    name: string;
+    shortName: string;
+    logo: string;
+    contactEmail: string;
+    contactPhone: string;
+    website: string;
+    address: string;
+    industry: string;
+    description: string;
+    locale: string;
+    timezone: string;
+    loginLogo: string;
+    loginTitle: string;
+    loginSubtitle: string;
+    themeColor: string;
+    favicon: string;
+    loginBackground: string;
+  };
+  placeholders: {
+    name: string;
+    shortName: string;
+    contactEmail: string;
+    contactPhone: string;
+    website: string;
+    address: string;
+    industry: string;
+    description: string;
+    locale: string;
+    timezone: string;
+    loginTitle: string;
+    loginSubtitle: string;
+    themeColor: string;
+  };
+  feedback: {
+    loadFailed: string;
+    saveSuccess: string;
+    saveFailed: string;
+    uploadFailed: string;
+    uploadSuccess: string;
+    nameRequired: string;
+    websiteInvalid: string;
+    imageOnly: string;
+  };
+}
+
 export interface NebulaMessages {
   common: NebulaCommonMessages;
   layout: NebulaLayoutMessages;
   auth: NebulaAuthMessages;
   system: NebulaSystemMessages;
+  tenantSettings: NebulaTenantSettingsMessages;
   scheduler: NebulaSchedulerMessages;
   audit: NebulaAuditMessages;
   onlineUser: NebulaOnlineUserMessages;

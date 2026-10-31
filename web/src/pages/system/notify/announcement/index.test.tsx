@@ -96,6 +96,7 @@ function createAuthService(): AuthManagementService {
   return {
     pageUsers: vi.fn().mockResolvedValue({ data: [], total: 0 }),
     createUser: vi.fn(),
+    createTenantInvitation: vi.fn(),
     updateUser: vi.fn(),
     deleteUser: vi.fn(),
     getUserDetail: vi.fn(),

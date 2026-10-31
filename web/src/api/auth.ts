@@ -30,8 +30,10 @@ import type {
 } from '@/types/auth';
 
 export interface AuthService {
+  getInit: () => Promise<FrontendInitResp>;
   getAuthConfig: () => Promise<AuthInitResp>;
   login: (data: LoginReq) => Promise<LoginResp>;
+  personLogin: (data: LoginReq) => Promise<LoginResp>;
   phoneLogin: (data: PhoneLoginReq) => Promise<LoginResp>;
   emailLogin: (data: EmailLoginReq) => Promise<LoginResp>;
   register: (data: RegisterReq) => Promise<void>;
@@ -53,13 +55,20 @@ export interface AuthService {
 }
 
 export const authService: AuthService = {
-  getAuthConfig: async () => {
+  getInit: async () => {
     const resp = await request<FrontendInitResp>({
       method: 'GET',
       url: '/api/frontend/init',
+      // 未指定企业时后端返回 19001/19002，登录页需要自行渲染企业码输入，不弹全局提示。
+      _nebulaSilent: true,
     });
     // init 响应同时携带上传策略，顺手写入缓存，后续上传无需再请求该端点
     cacheUploadPolicyFromInit(resp);
+    return resp;
+  },
+
+  getAuthConfig: async () => {
+    const resp = await authService.getInit();
     return resp.loginConfig ?? {};
   },
 
@@ -67,6 +76,13 @@ export const authService: AuthService = {
     request<LoginResp>({
       method: 'POST',
       url: '/api/auth/login',
+      data,
+    }),
+
+  personLogin: (data: LoginReq) =>
+    request<LoginResp>({
+      method: 'POST',
+      url: '/api/auth/person-login',
       data,
     }),
 

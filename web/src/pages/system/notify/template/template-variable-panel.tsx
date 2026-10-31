@@ -1,38 +1,170 @@
-import { Divider, Table, Typography } from 'antd';
+import { QuestionCircleOutlined } from '@ant-design/icons';
+import { Alert, Button, Descriptions, Divider, Modal, Table, Typography } from 'antd';
 import { createStyles } from 'antd-style';
 import type { ColumnsType } from 'antd/es/table';
-import { WECOM_WEBHOOK_HELP_LINK, FEISHU_WEBHOOK_HELP_LINK, DINGTALK_WEBHOOK_HELP_LINK } from './template-page-helpers';
-import type { TemplateVariable } from '@/types/notify';
+import { useState } from 'react';
+import {
+  DINGTALK_WEBHOOK_HELP_LINK,
+  FEISHU_WEBHOOK_HELP_LINK,
+  SYSTEM_TEMPLATE_VARIABLE_GROUPS,
+  WECOM_WEBHOOK_HELP_LINK,
+  htmlTemplateVariableUsage,
+  textTemplateVariableUsage,
+} from './template-page-helpers';
 import { HelpIcon } from '@/components/help-icon';
-import { SYSTEM_TEMPLATE_VARIABLES } from './template-page-helpers';
+import type { TemplateVariable } from '@/types/notify';
 
 const builtinVariableColumns: ColumnsType<TemplateVariable> = [
   {
     title: '变量名',
     dataIndex: 'name',
-    width: 280,
+    width: 230,
     render: (name: string) => <Typography.Text code copyable>{name}</Typography.Text>,
   },
   {
     title: '说明',
     dataIndex: 'description',
+    width: 220,
     render: (description: string | undefined) => description ?? '-',
+  },
+  {
+    title: '纯文本写法',
+    key: 'textUsage',
+    width: 280,
+    render: (_value, record) => (
+      <Typography.Text code copyable>{textTemplateVariableUsage(record.name)}</Typography.Text>
+    ),
+  },
+  {
+    title: 'HTML 写法',
+    key: 'htmlUsage',
+    width: 300,
+    render: (_value, record) => (
+      <Typography.Text code copyable style={{ wordBreak: 'break-all' }}>
+        {htmlTemplateVariableUsage(record.name)}
+      </Typography.Text>
+    ),
   },
 ];
 
-export function BuiltinVariableHelp() {
+interface BuiltinVariableGuideModalProps {
+  readonly open: boolean;
+  readonly onClose: () => void;
+}
+
+function BuiltinVariableGuideModal({ open, onClose }: BuiltinVariableGuideModalProps) {
   return (
-    <HelpIcon
-      ariaLabel="查看系统内置变量"
-      title={(
-        <Table<TemplateVariable>
-          columns={builtinVariableColumns}
-          dataSource={[...SYSTEM_TEMPLATE_VARIABLES]}
-          pagination={false}
-          rowKey="name"
+    <Modal
+      title="内置变量与模板语法"
+      open={open}
+      width={1000}
+      footer={null}
+      destroyOnHidden
+      onCancel={onClose}
+    >
+      <Typography.Paragraph type="secondary">
+        下列变量由系统在发送时自动注入，不需要在「参数定义」中声明，也不会出现在发送参数里；变量名区分大小写。
+      </Typography.Paragraph>
+      {SYSTEM_TEMPLATE_VARIABLE_GROUPS.map((group) => (
+        <div key={group.key} className="mb-4">
+          <Typography.Text strong>{group.title}</Typography.Text>
+          <Table<TemplateVariable>
+            className="mt-2"
+            columns={builtinVariableColumns}
+            dataSource={[...group.variables]}
+            pagination={false}
+            rowKey="name"
+            size="small"
+            scroll={{ x: 'max-content' }}
+          />
+        </div>
+      ))}
+      <Divider />
+      <Typography.Title level={5}>模板写法</Typography.Title>
+      <Descriptions bordered size="small" column={1}>
+        <Descriptions.Item label="引用自定义参数">
+          纯文本 <Typography.Text code>{'[(${orderNo})]'}</Typography.Text>；HTML{' '}
+          <Typography.Text code>{'th:text="${orderNo}"'}</Typography.Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="引用内置变量">
+          纯文本 <Typography.Text code>{'[(${notify.currentDate})]'}</Typography.Text>；HTML{' '}
+          <Typography.Text code>{'th:text="${notify.currentDate}"'}</Typography.Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="条件内容">
+          纯文本 <Typography.Text code>{'[# th:if="${orderNo}"]有订单号时显示[/]'}</Typography.Text>；HTML{' '}
+          <Typography.Text code>{'<p th:if="${orderNo}">有订单号时显示</p>'}</Typography.Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="HTML 转义">
+          HTML 模板使用 <Typography.Text code>th:text</Typography.Text> 时默认自动转义变量，避免注入；确需输出原始 HTML 时使用 <Typography.Text code>th:utext</Typography.Text>，并确保内容可信。
+        </Descriptions.Item>
+        <Descriptions.Item label="群机器人">
+          内容模板会作为完整 JSON 发送；变量应放在 JSON 字符串值中，双引号需要转义。
+        </Descriptions.Item>
+      </Descriptions>
+    </Modal>
+  );
+}
+
+interface BuiltinVariableHelpProps {
+  readonly link?: boolean;
+}
+
+export function BuiltinVariableHelp({ link = false }: BuiltinVariableHelpProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {link ? (
+        <Button type="link" size="small" className="h-auto p-0" onClick={() => setOpen(true)}>
+          查看内置变量
+        </Button>
+      ) : (
+        <Button
+          type="text"
           size="small"
-          className="min-w-[440px]"
+          icon={<QuestionCircleOutlined />}
+          aria-label="查看系统内置变量"
+          className="text-[var(--nebula-color-text-secondary)]"
+          onClick={() => setOpen(true)}
         />
+      )}
+      <BuiltinVariableGuideModal open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+export function TemplateUsageGuide() {
+  return (
+    <Alert
+      type="info"
+      showIcon
+      title="模板使用说明"
+      description={(
+        <div className="space-y-1 text-sm">
+          <div>
+            <Typography.Text strong>自定义参数：</Typography.Text>
+            先在「参数定义」中声明字段编码（如 orderNo），再在模板中引用：纯文本{' '}
+            <Typography.Text code>{'[(${orderNo})]'}</Typography.Text>，HTML{' '}
+            <Typography.Text code>{'th:text="${orderNo}"'}</Typography.Text>。
+          </div>
+          <div>
+            <Typography.Text strong>内置变量：</Typography.Text>
+            发送时自动注入，无需声明，如 <Typography.Text code>{'[(${notify.currentDate})]'}</Typography.Text>、
+            <Typography.Text code>{'[(${notify.receiverEmail})]'}</Typography.Text>。<BuiltinVariableHelp link />
+          </div>
+          <div>
+            <Typography.Text strong>条件内容：</Typography.Text>
+            纯文本 <Typography.Text code>{'[# th:if="${orderNo}"]...[/]'}</Typography.Text>，HTML{' '}
+            <Typography.Text code>{'<p th:if="${orderNo}">...</p>'}</Typography.Text>。
+          </div>
+          <div>
+            <Typography.Text strong>渠道差异：</Typography.Text>
+            站内信/推送使用纯文本；邮件可额外配置 HTML（留空只发纯文本）；群机器人内容必须是完整 JSON。
+          </div>
+          <div>
+            <Typography.Text strong>编码规则：</Typography.Text>
+            字段编码只能是字母、数字、下划线，且不能以数字开头；变量区分大小写。
+          </div>
+        </div>
       )}
     />
   );
@@ -91,7 +223,7 @@ export function WeComWebhookHelp() {
           </Typography.Paragraph>
           <Divider className={styles.divider} />
           <Typography.Text type="secondary">
-            支持在 JSON 值中使用 {'${variableName}'} 引用模板参数和系统变量。
+            支持在 JSON 值中使用 {'[(${variableName})]'} 引用模板参数和系统变量。
           </Typography.Text>
           <br />
           <Typography.Link className={styles.linkRow} href={WECOM_WEBHOOK_HELP_LINK} target="_blank" rel="noopener noreferrer">
@@ -131,7 +263,7 @@ export function FeishuWebhookHelp() {
           </Typography.Paragraph>
           <Divider className={styles.divider} />
           <Typography.Text type="secondary">
-            支持在 JSON 值中使用 {'${variableName}'} 引用模板参数和系统变量。
+            支持在 JSON 值中使用 {'[(${variableName})]'} 引用模板参数和系统变量。
           </Typography.Text>
           <br />
           <Typography.Link className={styles.linkRow} href={FEISHU_WEBHOOK_HELP_LINK} target="_blank" rel="noopener noreferrer">
@@ -171,7 +303,7 @@ export function DingTalkWebhookHelp() {
           </Typography.Paragraph>
           <Divider className={styles.divider} />
           <Typography.Text type="secondary">
-            支持在 JSON 值中使用 {'${variableName}'} 引用模板参数和系统变量。
+            支持在 JSON 值中使用 {'[(${variableName})]'} 引用模板参数和系统变量。
           </Typography.Text>
           <br />
           <Typography.Link className={styles.linkRow} href={DINGTALK_WEBHOOK_HELP_LINK} target="_blank" rel="noopener noreferrer">

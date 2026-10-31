@@ -48,6 +48,21 @@ test('TokenSessionTest.testPersistAndRestore', () => {
   assert.deepEqual(restored, original);
 });
 
+test('TokenSessionTest.persistsTenantMetadata', () => {
+  const original = session({ tenantId: 'tenant-a', tenantCode: 'acme' });
+  const restored = parseAuthTokenSession(serializeAuthTokenSession(original));
+  assert.equal(restored?.tenantId, 'tenant-a');
+  assert.equal(restored?.tenantCode, 'acme');
+  const fromLogin = toAuthTokenSession({
+    accessToken: 'a',
+    refreshToken: 'b',
+    accessTokenExpiresIn: NOW,
+    refreshTokenExpiresIn: NOW,
+    tenantCode: 'acme',
+  });
+  assert.equal(fromLogin?.tenantCode, 'acme');
+});
+
 test('TokenSessionTest.parseRejectsPartialOrInvalid', () => {
   assert.equal(parseAuthTokenSession(null), null);
   assert.equal(parseAuthTokenSession('not-json'), null);

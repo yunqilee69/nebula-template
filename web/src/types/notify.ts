@@ -127,6 +127,8 @@ export interface NotifyTemplateVariantDto {
   readonly channelType: ChannelType;
   readonly subjectTemplate?: string;
   readonly contentTemplate: string;
+  /** HTML 内容模板，仅邮件渠道使用；为空时只发纯文本 */
+  readonly htmlContentTemplate?: string;
   readonly enabled: boolean;
   readonly remark?: string;
   readonly createTime?: string;
@@ -158,6 +160,8 @@ export interface CreateNotifyTemplateVariantReq {
   readonly channelType: ChannelType;
   readonly subjectTemplate?: string;
   readonly contentTemplate: string;
+  /** HTML 内容模板，仅邮件渠道支持 */
+  readonly htmlContentTemplate?: string;
   readonly enabled?: boolean;
   readonly remark?: string;
 }

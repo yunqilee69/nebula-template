@@ -8,7 +8,8 @@ Nebula 中台的前后端完整模板。克隆下来就是一个可直接开发�
 | 目录 | 提供什么 |
 |---|---|
 | `backend/` | 后端工程：Spring Boot 4，一个 `cn.cloudomni:nebula-app-starter` 依赖即获得完整中台后端能力。`pom.xml` 的 `<nebula.version>` 锁定框架版本，与上游 tag 一一配对 |
-| `web/` | 前端管理端：React 18 + Ant Design 6 + Vite（fork 模板模式，应用层自由修改；分层约定见 `web/AGENTS.md`） |
+| `web/` | 前端管理端（数据平面）：React 18 + Ant Design 6 + Vite（fork 模板模式，应用层自由修改；分层约定见 `web/AGENTS.md`） |
+| `control/` | 多租户控制平面：独立 React + Vite SPA，超级管理员专用，负责企业生命周期与全局用户；只支持账号 + 密码登录 |
 | `mobile/` | 移动端基座：React Native 新架构 + RNOH，含 iOS / Android / 鸿蒙三端工程 |
 | `packages/` | 端无关共享包（`client-sdk`：纯 TS 类型、token 规则、端点常量） |
 | `docs/` | `spec/` 项目规范（分层 / 命名 / 数据库 / 接口 / 异常 / 日志 / 安全 / 配置 / 开发）；`sql/` 数据库脚本——`init/` 是全量初始化（MySQL、PostgreSQL 两套方言），`<版本号>/` 是逐版本升级脚本 |
@@ -16,7 +17,7 @@ Nebula 中台的前后端完整模板。克隆下来就是一个可直接开发�
 | `scripts/` | `rename-project.sh`：fork 后一键改名（groupId / artifactId / Java 包名 / 数据库名 / 容器名等）。主仓自用的发布与审计脚本不同步到模板仓 |
 
 环境要求与三步启动（MySQL + Redis → 后端 → 前端）见根 `README.md`；后端细节见 `backend/README.md`，
-前端细节见 `web/README.md`。
+数据平面细节见 `web/README.md`，控制平面细节见 `control/README.md`。
 
 > 本仓库内容由 [nebula 主仓](https://github.com/yunqilee69/nebula) 自动同步生成（同步目录清单见主仓
 > `.github/workflows/sync-template.yml` 的 `TEMPLATE_DIRS`）。要改进模板本身请改主仓，同步会带过来；

@@ -27,6 +27,9 @@ function buildHeaders(
 
   if (accessToken && !isAnonymousEndpoint(config.url)) {
     headers['Authorization'] = `Bearer ${accessToken}`;
+  } else {
+    const tenantCode = options.getTenantCode?.();
+    if (tenantCode) headers['X-Tenant-Code'] = tenantCode;
   }
   return headers;
 }

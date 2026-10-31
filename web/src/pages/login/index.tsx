@@ -1,4 +1,4 @@
-import { GithubOutlined, KeyOutlined, LoginOutlined, MailOutlined, MobileOutlined, WechatFilled } from '@ant-design/icons';
+import { GithubOutlined, KeyOutlined, LoginOutlined, MailOutlined, MobileOutlined, UserOutlined, WechatFilled } from '@ant-design/icons';
 import { Alert, Button, Flex, Form, Input, Tabs, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -24,9 +24,14 @@ import { WechatWebPanel } from './wechat-web-panel';
 import { AuthLoadingState } from './auth-loading-state';
 import { normalizeAuthReturnPath } from './auth-return-path';
 import { redirectToAuthorizeUrl } from './wechat-redirect-navigation';
+import { isBindingChallenge, saveBindingChallenge } from './binding-challenge';
+import { TenantCodeGate } from '@/components/tenant-code-gate';
+import { isTenantResolutionError } from '@/utils/tenant/tenant-error';
+import { resolveTenantHost, saveTenantCode } from '@/utils/tenant/tenant-host';
 
 const builtInLabels: Record<BuiltInLoginMethodKey, string> = {
   password: '账号密码登录',
+  person: '平台账号登录',
   phone: '手机号登录',
   email: '邮箱登录',
   github: 'GitHub',
@@ -35,7 +40,7 @@ const builtInLabels: Record<BuiltInLoginMethodKey, string> = {
 
 type LoginResult = LoginResp;
 type ExtraLoginResult = LoginResp | GitHubLoginStatusResp;
-type FormLoginMethodKey = Extract<BuiltInLoginMethodKey, 'password' | 'phone' | 'email'>;
+type FormLoginMethodKey = Extract<BuiltInLoginMethodKey, 'password' | 'person' | 'phone' | 'email'>;
 
 type LoginMethodDescriptor =
   | { key: BuiltInLoginMethodKey; label: string; kind: 'built-in'; method: BuiltInLoginMethodKey }
@@ -45,7 +50,7 @@ type LoginSuccessHandler = (result: LoginResult) => void | Promise<void>;
 type WechatWebSuccessHandler = (result: WechatWebStatusResp) => void | Promise<void>;
 type ExtraSuccessHandler = (result?: ExtraLoginResult) => void | Promise<void>;
 
-const formLoginMethodKeys = new Set<BuiltInLoginMethodKey>(['password', 'phone', 'email']);
+const formLoginMethodKeys = new Set<BuiltInLoginMethodKey>(['password', 'person', 'phone', 'email']);
 
 function isFormLoginMethod(method: BuiltInLoginMethodKey): method is FormLoginMethodKey {
   return formLoginMethodKeys.has(method);
@@ -101,6 +106,8 @@ function getLoginMethodIcon(method: LoginMethodDescriptor): ReactNode {
   switch (method.method) {
     case 'password':
       return <KeyOutlined aria-hidden />;
+    case 'person':
+      return <UserOutlined aria-hidden />;
     case 'phone':
       return <MobileOutlined aria-hidden />;
     case 'email':
@@ -122,6 +129,8 @@ export function LoginPage() {
   const [config, setConfig] = useState<AuthInitResp | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [configLoadFailed, setConfigLoadFailed] = useState(false);
+  const [tenantError, setTenantError] = useState<string | null>(null);
+  const [configReloadKey, setConfigReloadKey] = useState(0);
 
   useEffect(() => {
     if (!loginBadge.authService) {
@@ -130,6 +139,7 @@ export function LoginPage() {
     }
 
     let cancelled = false;
+    setTenantError(null);
     loginBadge.authService
       .getAuthConfig()
       .then((resp) => {
@@ -139,10 +149,15 @@ export function LoginPage() {
           setConfigLoading(false);
         }
       })
-      .catch(() => {
+      .catch((caught: unknown) => {
         if (!cancelled) {
           setConfig(null);
-          setConfigLoadFailed(true);
+          if (isTenantResolutionError(caught)) {
+            setTenantError(caught instanceof Error ? caught.message : '当前访问地址未绑定企业');
+            setConfigLoadFailed(false);
+          } else {
+            setConfigLoadFailed(true);
+          }
           setConfigLoading(false);
         }
       });
@@ -150,7 +165,7 @@ export function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [loginBadge.authService]);
+  }, [loginBadge.authService, configReloadKey]);
 
   const builtInMethods = useMemo(
     () => (config ? getBuiltInLoginMethods(config) : configLoadFailed ? loginBadge.defaultLoginMethods : []),
@@ -165,6 +180,11 @@ export function LoginPage() {
   const handleExtraSuccess = useCallback(
     async (result?: ExtraLoginResult) => {
       if (result) {
+        if (isBindingChallenge(result as LoginResult)) {
+          saveBindingChallenge(result as LoginResult);
+          navigate('/login/binding', { replace: true });
+          return;
+        }
         saveAuthTokens(result);
         if (loginBadge.onLoginSuccess) {
           await loginBadge.onLoginSuccess(result);
@@ -182,6 +202,11 @@ export function LoginPage() {
 
   const handleLoginSuccess = useCallback(
     async (result: LoginResult) => {
+      if (isBindingChallenge(result)) {
+        saveBindingChallenge(result);
+        navigate('/login/binding', { replace: true });
+        return;
+      }
       saveAuthTokens(result);
       if (loginBadge.onLoginSuccess) {
         await loginBadge.onLoginSuccess(result);
@@ -200,6 +225,31 @@ export function LoginPage() {
     return (
       <AuthShell>
         <AuthLoadingState />
+      </AuthShell>
+    );
+  }
+
+  if (tenantError) {
+    const hostTenantCode = resolveTenantHost().tenantCode;
+    return (
+      <AuthShell>
+        {hostTenantCode ? (
+          <Alert
+            type="error"
+            showIcon
+            title="当前企业不可用"
+            description={`访问地址绑定的企业「${hostTenantCode}」不存在或已停用，请检查访问地址或联系企业管理员。`}
+          />
+        ) : (
+          <TenantCodeGate
+            errorMessage={tenantError}
+            onSubmit={(tenantCode) => {
+              saveTenantCode(tenantCode);
+              setConfigLoading(true);
+              setConfigReloadKey((key) => key + 1);
+            }}
+          />
+        )}
       </AuthShell>
     );
   }
@@ -297,6 +347,8 @@ function LoginMethodSwitcher({
   }, [initialFormMethodKey, initialOAuthMethodKey]);
 
   const activeFormMethod = formMethods.find((method) => method.key === activeFormMethodKey) ?? formMethods[0];
+  // 注册与租户账号找回只适用于租户账号登录，平台账号登录不展示这两个入口。
+  const showsTenantAccountLinks = activeFormMethod?.method !== 'person';
   const activeOAuthMethod = activeOAuthMethodKey ? oauthMethods.find((method) => method.key === activeOAuthMethodKey) ?? null : null;
 
   const tabItems = useMemo(
@@ -391,7 +443,7 @@ function LoginMethodSwitcher({
 
       {renderActivePanel()}
 
-      {(activeFormMethod && registerPath) || (activeFormMethod && authService) ? (
+      {showsTenantAccountLinks && ((activeFormMethod && registerPath) || (activeFormMethod && authService)) ? (
         <Flex justify="space-between" align="center">
           {activeFormMethod && registerPath ? (
             <Typography.Text type="secondary">
@@ -452,7 +504,23 @@ interface LoginMethodPanelProps {
 function LoginMethodPanel({ method, authService, onSuccess, onWechatSuccess, config }: LoginMethodPanelProps) {
   switch (method) {
     case 'password':
-      return <PasswordPanel authService={authService} onSuccess={onSuccess} />;
+      return (
+        <CredentialsPanel
+          accountLabel="用户名"
+          accountRequiredMessage="请输入用户名"
+          login={authService.login}
+          onSuccess={onSuccess}
+        />
+      );
+    case 'person':
+      return (
+        <CredentialsPanel
+          accountLabel="平台账号"
+          accountRequiredMessage="请输入平台账号"
+          login={authService.personLogin}
+          onSuccess={onSuccess}
+        />
+      );
     case 'phone':
       return <PhonePanel authService={authService} onSuccess={onSuccess} sendInterval={config?.phoneSendIntervalSeconds ?? 60} />;
     case 'email':
@@ -464,19 +532,26 @@ function LoginMethodPanel({ method, authService, onSuccess, onWechatSuccess, con
   }
 }
 
-interface PasswordPanelProps {
-  authService: AuthService;
+interface CredentialsPanelProps {
+  accountLabel: string;
+  accountRequiredMessage: string;
+  login: (values: LoginReq) => Promise<LoginResp>;
   onSuccess: LoginSuccessHandler;
 }
 
-function PasswordPanel({ authService, onSuccess }: PasswordPanelProps) {
+function CredentialsPanel({
+  accountLabel,
+  accountRequiredMessage,
+  login,
+  onSuccess,
+}: CredentialsPanelProps) {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
   const handleSubmit = async (values: LoginReq) => {
     setLoading(true);
     try {
-      const result = await authService.login(values);
+      const result = await login(values);
       await onSuccess(result);
     } catch {
       // Request client already surfaces API failures through the global notice path.
@@ -487,7 +562,11 @@ function PasswordPanel({ authService, onSuccess }: PasswordPanelProps) {
 
   return (
     <Form form={form} onFinish={handleSubmit} layout="vertical">
-      <Form.Item label="用户名" name="username" rules={[{ required: true, message: '请输入用户名' }]}>
+      <Form.Item
+        label={accountLabel}
+        name="username"
+        rules={[{ required: true, message: accountRequiredMessage }]}
+      >
         <Input />
       </Form.Item>
       <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}>

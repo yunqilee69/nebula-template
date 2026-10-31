@@ -67,9 +67,9 @@ export function extractCustomTemplateVariables(
   const seen = new Set<string>();
   const source = `${subjectTemplate ?? ''}\n${contentTemplate}`;
 
-  for (const match of source.matchAll(/\$\{([^}]+)\}/g)) {
-    const name = match[1]?.trim();
-    if (!name || name.startsWith('notify.') || seen.has(name)) continue;
+  for (const match of source.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g)) {
+    const name = match[1];
+    if (!name || name.toLowerCase() === 'notify' || seen.has(name)) continue;
     seen.add(name);
     variables.push(name);
   }

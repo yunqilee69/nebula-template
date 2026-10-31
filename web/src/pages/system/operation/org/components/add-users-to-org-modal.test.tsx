@@ -17,6 +17,7 @@ function createService(): AuthManagementService {
       total: 1,
     } satisfies PageResp<UserResp>),
     createUser: vi.fn().mockResolvedValue(undefined),
+    createTenantInvitation: vi.fn(),
     updateUser: vi.fn().mockResolvedValue(undefined),
     deleteUser: vi.fn().mockResolvedValue(undefined),
     getUserDetail: vi.fn().mockResolvedValue({ id: 'user-1', username: 'yunqi', status: 1 }),

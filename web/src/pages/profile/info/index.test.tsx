@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NebulaProvider } from '@/providers/nebula-provider';
 import type { ProfileService } from '@/api/profile';
@@ -133,9 +134,11 @@ function setStoredUser(overrides: Partial<CurrentUser> = {}) {
 
 function renderPage(service = createService(), props: Partial<Parameters<typeof ProfileInfoPage>[0]> = {}) {
   render(
-    <NebulaProvider>
-      <ProfileInfoPage service={service} {...props} />
-    </NebulaProvider>,
+    <MemoryRouter initialEntries={['/profile/info']}>
+      <NebulaProvider>
+        <ProfileInfoPage service={service} {...props} />
+      </NebulaProvider>
+    </MemoryRouter>,
   );
   return service;
 }

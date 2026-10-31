@@ -8,12 +8,14 @@ import { onlineUser } from './online-user';
 import { scheduler } from './scheduler';
 import { siteMessage } from './site-message';
 import { system } from './system';
+import { tenantSettings } from './tenant-settings';
 
 export const zhCN: NebulaMessages = {
   common,
   layout,
   auth,
   system,
+  tenantSettings,
   scheduler,
   audit,
   onlineUser,

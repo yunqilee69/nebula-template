@@ -1,4 +1,4 @@
-import { ApartmentOutlined, DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, TeamOutlined, UserAddOutlined } from '@ant-design/icons';
 import { Button, Popconfirm, Tag } from 'antd';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Access } from '@/components/access';
@@ -27,6 +27,7 @@ export interface UserTableHandle {
 interface UserTableProps {
   service: AuthManagementService;
   onAddUser: () => void;
+  onInviteUser: () => void;
   onEditUser: (record: UserResp) => void;
   onResetPassword: (userIds: readonly string[]) => Promise<void>;
   onBatchAssign: (users: readonly UserResp[], mode: Exclude<BatchAssignmentMode, 'both'>) => void;
@@ -56,7 +57,7 @@ function buildUserPageReq(params: UserQuery & NebulaPageReq): UserPageReq {
 }
 
 export const UserTable = forwardRef<UserTableHandle, UserTableProps>(function UserTable(
-  { service, onAddUser, onEditUser, onResetPassword, onBatchAssign, resetPasswordLoading = false, batchAssignLoading = false, roles = [], orgs = [] },
+  { service, onAddUser, onInviteUser, onEditUser, onResetPassword, onBatchAssign, resetPasswordLoading = false, batchAssignLoading = false, roles = [], orgs = [] },
   ref,
 ) {
   const actionRef = useRef<NebulaProTableAction | undefined>(undefined);
@@ -185,6 +186,11 @@ export const UserTable = forwardRef<UserTableHandle, UserTableProps>(function Us
         <Access key="create" permission={AUTH_BUTTON_CODES.USER_CREATE} fallback={null}>
           <Button type="primary" icon={<PlusOutlined />} onClick={onAddUser}>
             {t('auth.userManagement.actions.create')}
+          </Button>
+        </Access>,
+        <Access key="invite" permission={AUTH_BUTTON_CODES.USER_CREATE} fallback={null}>
+          <Button icon={<UserAddOutlined />} onClick={onInviteUser}>
+            {t('auth.userManagement.actions.invite')}
           </Button>
         </Access>,
         <Access key="set-orgs" permission={AUTH_BUTTON_CODES.USER_ASSIGN} fallback={null}>

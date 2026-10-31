@@ -1,6 +1,7 @@
 import {
   AUTH_ENDPOINTS,
   type AuthTokenSession,
+  type BindingChallenge,
   type EmailLoginReq,
   type FrontendLoginConfigResp,
   type LoginReq,
@@ -212,8 +213,34 @@ export function getEnabledFormLoginMethods(
   return methods;
 }
 
+/** 租户登录通过但尚未关联平台账号；调用方应进入绑定页而不是保存会话。 */
+export class BindingRequiredError extends Error {
+  readonly challenge: BindingChallenge;
+
+  constructor(challenge: BindingChallenge) {
+    super('需要先关联平台账号');
+    this.name = 'BindingRequiredError';
+    this.challenge = challenge;
+  }
+}
+
+function toBindingChallenge(response: LoginResp): BindingChallenge | null {
+  if (!response.bindingRequired || !response.bindingReason) return null;
+  return {
+    bindingTicket: response.bindingTicket,
+    bindingReason: response.bindingReason,
+    ...(response.linkStatus ? { linkStatus: response.linkStatus } : {}),
+    ...(response.pendingApproval !== undefined ? { pendingApproval: response.pendingApproval } : {}),
+    ...(response.tenantCode ? { tenantCode: response.tenantCode } : {}),
+    ...(response.proposedUsername ? { proposedUsername: response.proposedUsername } : {}),
+    ...(response.proposedDisplayName ? { proposedDisplayName: response.proposedDisplayName } : {}),
+  };
+}
+
 export function createLoginService(deps: LoginServiceDeps): LoginService {
   async function persistLogin(response: LoginResp): Promise<AuthTokenSession> {
+    const challenge = toBindingChallenge(response);
+    if (challenge) throw new BindingRequiredError(challenge);
     const session = await deps.session.save(response);
     if (!session) throw new Error('登录响应缺少令牌，请稍后重试');
     return session;

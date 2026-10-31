@@ -22,6 +22,7 @@ function createAuthService(overrides: Partial<AuthService> = {}): AuthService {
   return {
     getAuthConfig: vi.fn(),
     login: vi.fn(),
+    personLogin: vi.fn(),
     phoneLogin: vi.fn(),
     emailLogin: vi.fn(),
     register: vi.fn(),

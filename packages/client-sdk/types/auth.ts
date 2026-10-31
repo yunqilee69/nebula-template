@@ -8,12 +8,83 @@
 
 /** 登录响应。 */
 export interface LoginResp {
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
   /** 访问令牌过期时间戳（<b>绝对毫秒</b>，不是剩余秒数）。 */
-  accessTokenExpiresIn: number;
+  accessTokenExpiresIn?: number;
   /** 刷新令牌过期时间戳（<b>绝对毫秒</b>，不是剩余秒数）。 */
-  refreshTokenExpiresIn: number;
+  refreshTokenExpiresIn?: number;
+  bindingRequired?: boolean;
+  bindingReason?: 'NO_LINK' | 'LINK_PENDING' | 'LINK_REVOKED';
+  linkStatus?: 'NONE' | 'PENDING' | 'REVOKED';
+  pendingApproval?: boolean;
+  bindingTicket?: string;
+  tenantCode?: string;
+  proposedUsername?: string;
+  proposedDisplayName?: string;
+}
+
+/** 登录后需要完成的平台账号绑定挑战。 */
+export interface BindingChallenge {
+  bindingTicket?: string;
+  bindingReason: 'NO_LINK' | 'LINK_PENDING' | 'LINK_REVOKED';
+  linkStatus?: 'NONE' | 'PENDING' | 'REVOKED';
+  pendingApproval?: boolean;
+  tenantCode?: string;
+  proposedUsername?: string;
+  proposedDisplayName?: string;
+}
+
+export interface CompleteBindingReq {
+  bindingTicket: string;
+  action: 'CREATE_NEW' | 'BIND_EXISTING';
+  username?: string;
+  displayName?: string;
+  password?: string;
+  account?: string;
+  credential?: string;
+}
+
+export interface PersonSummary {
+  id: string;
+  username: string;
+  displayName?: string;
+  status: string;
+  platformAdmin?: boolean;
+}
+
+export interface PersonTenant {
+  tenantId: string;
+  code: string;
+  name: string;
+  status: string;
+  logo?: string;
+  subdomain?: string;
+  linkedAt?: string;
+}
+
+export interface PersonLink {
+  id: string;
+  tenantId: string;
+  tenantCode: string;
+  tenantName: string;
+  userId: string;
+  linkStatus: string;
+  linkSource?: string;
+  verifiedAt?: string;
+  revokedAt?: string;
+}
+
+export interface TenantSummary {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  logo?: string;
+  contactEmail?: string;
+  settingsJson?: string;
+  subdomain?: string;
+  createTime?: string;
 }
 
 /** 密码登录请求（用户名或手机号）。 */
@@ -89,6 +160,11 @@ export interface MenuTreeResp {
 /** 当前登录用户，对应后端 `CurrentUserResp`。含权限码与菜单树。 */
 export interface CurrentUserResp {
   id: string;
+  tenantId?: string;
+  tenantCode?: string;
+  tenantName?: string;
+  personId?: string;
+  platformAdmin?: boolean;
   username: string;
   nickname?: string;
   avatar?: string;

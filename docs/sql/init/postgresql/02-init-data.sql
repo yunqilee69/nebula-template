@@ -24,6 +24,50 @@ SET search_path TO public;
 -- root org id        : 0194f3c8b6b77c0d91a7d9af9c7d0003
 -- user-role relation : 0194f3c8b6b77c0d91a7d9af9c7d0004
 -- user-org relation  : 0194f3c8b6b77c0d91a7d9af9c7d0005
+-- system template admin user : F194f3c8b6b77c0d91a7d9af9c7d0001
+-- system template admin role : F194f3c8b6b77c0d91a7d9af9c7d0002
+-- system template root org   : F194f3c8b6b77c0d91a7d9af9c7d0003
+
+
+-- ----------------------------------------------------------------------------
+-- auth-core / tenant & platform account seed data
+-- default tenant id : 0194f3c8b6b77c0d91a7d9af9c7d0100
+-- system tenant id  : __system__
+-- superadmin id     : 0194f3c8b6b77c0d91a7d9af9c7d0101
+-- 控制平面平台管理员：只存在于 auth_person，不绑定默认租户 auth_user，也不持有租户角色。
+-- ----------------------------------------------------------------------------
+INSERT INTO auth_tenant (
+    id, code, name, status, logo, contact_email, settings_json, create_time, update_time
+) VALUES
+    ('0194f3c8b6b77c0d91a7d9af9c7d0100', 'default', 'Default Tenant', 'ACTIVE', NULL, 'admin@nebula.local', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('__system__', 'system', 'System', 'ACTIVE', NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name,
+    status = EXCLUDED.status,
+    contact_email = EXCLUDED.contact_email,
+    update_time = EXCLUDED.update_time;
+
+INSERT INTO auth_person (
+    id, username, display_name, password_hash, status, platform_admin,
+    last_login_time, create_time, update_time
+) VALUES (
+    '0194f3c8b6b77c0d91a7d9af9c7d0101',
+    'superadmin',
+    'Super Administrator',
+    '$2a$10$uHC/qtYABWJ2QGDv3F0btOOtUXJeFMyw6S.Zs/QqfcRxmHmfLiIaS',
+    'ACTIVE',
+    TRUE,
+    NULL,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (username) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+    password_hash = EXCLUDED.password_hash,
+    status = EXCLUDED.status,
+    platform_admin = EXCLUDED.platform_admin,
+    update_time = EXCLUDED.update_time;
+
 
 -- ----------------------------------------------------------------------------
 -- auth-core / role seed data
@@ -39,7 +83,7 @@ INSERT INTO auth_role (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
-ON CONFLICT (code) DO NOTHING;
+ON CONFLICT (tenant_id, code) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
 -- auth-core / organization seed data
@@ -58,7 +102,7 @@ INSERT INTO auth_org (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
-ON CONFLICT (code) DO NOTHING;
+ON CONFLICT (tenant_id, code) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
 -- auth-core / user seed data
@@ -82,7 +126,7 @@ INSERT INTO auth_user (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
-ON CONFLICT (username) DO NOTHING;
+ON CONFLICT (tenant_id, username) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
 -- auth-core / relation seed data
@@ -96,7 +140,7 @@ INSERT INTO auth_user_role (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
-ON CONFLICT (user_id, role_id) DO NOTHING;
+ON CONFLICT (tenant_id, user_id, role_id) DO NOTHING;
 
 INSERT INTO auth_user_org (
     id, user_id, org_id, is_main_org, create_time, update_time
@@ -108,24 +152,33 @@ INSERT INTO auth_user_org (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
-ON CONFLICT (user_id, org_id) DO NOTHING;
+ON CONFLICT (tenant_id, user_id, org_id) DO NOTHING;
 
 DELETE FROM auth_permission
-WHERE resource_type = 'MENU'
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND resource_type = 'MENU'
   AND resource_id = '0196dbe0a6f17000a000000000000023';
 
 DELETE FROM auth_menu
-WHERE id = '0196dbe0a6f17000a000000000000023'
-   OR code = 'NOTIFY_SEND';
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND (id = '0196dbe0a6f17000a000000000000023'
+   OR code = 'NOTIFY_SEND');
 
 -- 「站内消息」管理菜单没有对应的前端页面（菜单组件注册表里没有 SiteMessagePage），
 -- 已从种子菜单中移除；存量库若还有这一行，在此显式清理，并释放菜单 id ...025
--- 给下面复用了该 id 的「接口管理」。按 code 删除，避免误伤 id 已改作他用的环境。
+-- 给下面复用了该 id 的「接口管理」。按 tenant_id + code 删除，避免误伤其他租户或 id 已改作他用的环境。
 DELETE FROM auth_permission
-WHERE resource_type = 'MENU'
-  AND resource_id IN (SELECT id FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE');
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND resource_type = 'MENU'
+  AND resource_id IN (
+    SELECT id FROM auth_menu
+    WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+      AND code = 'NOTIFY_SITE_MESSAGE'
+  );
 
-DELETE FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE';
+DELETE FROM auth_menu
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND code = 'NOTIFY_SITE_MESSAGE';
 
 INSERT INTO auth_menu (
     id, name, parent_id, path, sort, code, icon, component, type, status,
@@ -171,6 +224,27 @@ INSERT INTO auth_menu (
         FALSE,
         NULL,
         'Built-in system management catalog menu',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    ),
+    -- 企业设置
+    (
+        '0196dbe0a6f17000a000000000000032',
+        '企业设置',
+        '0196dbe0a6f17000a000000000000002',
+        '/system/settings/tenant',
+        5,
+        'TENANT_ENTERPRISE_SETTINGS',
+        'ShopOutlined',
+        'TenantEnterpriseSettingsPage',
+        'MENU',
+        1,
+        FALSE,
+        NULL,
+        TRUE,
+        TRUE,
+        NULL,
+        'Built-in tenant enterprise settings menu',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -838,8 +912,11 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000601', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_MANAGE', '管理定时任务', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000602', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     -- 前端模块按钮
-    ('0196dbe0a6f17000a000000000000701', '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+    ('0196dbe0a6f17000a000000000000701', '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    -- 企业设置按钮
+    ('0196dbe0a6f17000a000000000000801', '0196dbe0a6f17000a000000000000032', 'TENANT_PROFILE_QUERY', '查询企业资料', 'query', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000802', '0196dbe0a6f17000a000000000000032', 'TENANT_PROFILE_UPDATE', '编辑企业资料', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     menu_id = EXCLUDED.menu_id,
     name = EXCLUDED.name,
     type = EXCLUDED.type,
@@ -862,13 +939,175 @@ INSERT INTO auth_api (
     ('0196dbe0a6f17000a000000000000403', 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000404', 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000405', 'FRONTEND_CACHE_QUERY', '动态缓存查询', 'frontend', 5, '动态缓存列表查询；响应会回传缓存条目值，属管理端调试准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     name = EXCLUDED.name,
     module = EXCLUDED.module,
     sort = EXCLUDED.sort,
     remark = EXCLUDED.remark,
     status = EXCLUDED.status,
     update_time = EXCLUDED.update_time;
+
+-- ----------------------------------------------------------------------------
+-- auth-core / 系统租户完整模板
+-- 系统租户不是可登录租户，只保存新建租户的默认组织、角色、管理员账号、菜单和权限目录。
+-- 新建租户时由 TenantResourceProvisioner 从这里整体复制一份；复制出的账号默认 admin / 123456。
+-- 使用 F 前缀生成系统租户侧资源 ID；默认租户保留上面的固定 ID，二者互不覆盖。
+-- ----------------------------------------------------------------------------
+INSERT INTO auth_role (
+    id, tenant_id, code, name, description, status, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0002',
+    '__system__',
+    'ADMIN',
+    'Administrator',
+    'Built-in administrator role',
+    1,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    status = EXCLUDED.status,
+    update_time = EXCLUDED.update_time;
+
+INSERT INTO auth_org (
+    id, tenant_id, name, parent_id, path, sort, code, type, status, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0003',
+    '__system__',
+    'Nebula',
+    NULL,
+    '/',
+    1,
+    'ROOT',
+    'COMPANY',
+    1,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    path = EXCLUDED.path,
+    sort = EXCLUDED.sort,
+    type = EXCLUDED.type,
+    status = EXCLUDED.status,
+    update_time = EXCLUDED.update_time;
+
+INSERT INTO auth_user (
+    id, tenant_id, username, password, nickname, avatar, email, phone, status, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0001',
+    '__system__',
+    'admin',
+    '$2a$10$uHC/qtYABWJ2QGDv3F0btOOtUXJeFMyw6S.Zs/QqfcRxmHmfLiIaS',
+    'Administrator',
+    NULL,
+    NULL,
+    NULL,
+    1,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (id) DO UPDATE SET
+    password = EXCLUDED.password,
+    nickname = EXCLUDED.nickname,
+    status = EXCLUDED.status,
+    update_time = EXCLUDED.update_time;
+
+INSERT INTO auth_user_role (
+    id, tenant_id, user_id, role_id, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0004',
+    '__system__',
+    'F194f3c8b6b77c0d91a7d9af9c7d0001',
+    'F194f3c8b6b77c0d91a7d9af9c7d0002',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO auth_user_org (
+    id, tenant_id, user_id, org_id, is_main_org, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0005',
+    '__system__',
+    'F194f3c8b6b77c0d91a7d9af9c7d0001',
+    'F194f3c8b6b77c0d91a7d9af9c7d0003',
+    TRUE,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO auth_menu (
+    id, tenant_id, name, parent_id, path, sort, code, icon, component, type, status,
+    hidden, external_url, visible_in_breadcrumb, visible_in_tab,
+    active_menu_path, remark, create_time, update_time
+)
+SELECT
+    ('F' || SUBSTRING(id FROM 2))::CHAR(32),
+    '__system__',
+    name,
+    CASE WHEN parent_id IS NULL THEN NULL
+         ELSE ('F' || SUBSTRING(parent_id FROM 2))::CHAR(32) END,
+    path,
+    sort,
+    code,
+    icon,
+    component,
+    type,
+    status,
+    hidden,
+    external_url,
+    visible_in_breadcrumb,
+    visible_in_tab,
+    active_menu_path,
+    remark,
+    create_time,
+    update_time
+FROM auth_menu
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO auth_button (
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
+)
+SELECT
+    ('F' || SUBSTRING(id FROM 2))::CHAR(32),
+    '__system__',
+    ('F' || SUBSTRING(menu_id FROM 2))::CHAR(32),
+    code,
+    name,
+    type,
+    sort,
+    status,
+    create_time,
+    update_time
+FROM auth_button
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO auth_api (
+    id, tenant_id, code, name, module, sort, remark, status, create_time, update_time
+)
+SELECT
+    ('F' || SUBSTRING(id FROM 2))::CHAR(32),
+    '__system__',
+    code,
+    name,
+    module,
+    sort,
+    remark,
+    status,
+    create_time,
+    update_time
+FROM auth_api
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT DO NOTHING;
+
+
+
 
 -- ----------------------------------------------------------------------------
 -- auth-core / oauth2 seed data
@@ -886,7 +1125,7 @@ INSERT INTO sys_dict_type (
     ('019cf114a00070008000000000000001', 'param_module', '参数模块', '系统参数所属模块分类，用于按模块分组展示参数', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('019cf114a00070008000000000000002', 'common_enable_status', '启用状态', '通用启用/禁用状态，字典项值使用0/1编码', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('019cf114a00070008000000000000005', 'NOTIFY_CHANNEL_TYPE', '通知渠道', '通知发送支持的渠道类型', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     name = EXCLUDED.name,
     remark = EXCLUDED.remark,
     update_time = EXCLUDED.update_time;
@@ -934,7 +1173,7 @@ INSERT INTO sys_notify_category (
     ('019cf114a00070008000000000000048', 'BUSINESS', '业务提醒', '订单、库存等业务状态变化提醒', FALSE, TRUE, 30, 'SITE,PUSH', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('019cf114a00070008000000000000049', 'ANNOUNCEMENT', '公告通知', '系统公告与运营通知', FALSE, TRUE, 40, 'SITE', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('019cf114a0007000800000000000004a', 'DEFAULT', '其他通知', '未归类通知的兜底类别', FALSE, TRUE, 90, 'SITE,EMAIL,PUSH', TRUE, TRUE, '未指定类别的模板与临时消息归入此类', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     is_mandatory = EXCLUDED.is_mandatory,
@@ -956,7 +1195,7 @@ INSERT INTO sys_notify_template (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
-ON CONFLICT (template_code) DO UPDATE SET
+ON CONFLICT (tenant_id, template_code) DO UPDATE SET
     template_name = EXCLUDED.template_name,
     remark = EXCLUDED.remark,
     update_time = EXCLUDED.update_time;
@@ -967,7 +1206,7 @@ INSERT INTO sys_notify_template_field (
     ('019cf114a00090008000000000000004', '019cf114a00090008000000000000001', 'userId', '接收用户ID', TRUE, NULL, 'user-1', '被重置密码的用户ID', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('019cf114a00090008000000000000005', '019cf114a00090008000000000000001', 'username', '登录账号', TRUE, NULL, 'alice', '被重置密码的登录账号', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('019cf114a00090008000000000000006', '019cf114a00090008000000000000001', 'nickname', '用户昵称', FALSE, '', 'Alice', '被重置密码的用户昵称', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (template_id, field_code) DO UPDATE SET
+ON CONFLICT (tenant_id, template_id, field_code) DO UPDATE SET
     field_name = EXCLUDED.field_name,
     is_required = EXCLUDED.is_required,
     default_value = EXCLUDED.default_value,
@@ -976,14 +1215,16 @@ ON CONFLICT (template_id, field_code) DO UPDATE SET
     update_time = EXCLUDED.update_time;
 
 INSERT INTO sys_notify_template_variant (
-    id, template_id, channel_type, subject_template, content_template, is_enabled, remark, create_time, update_time
+    id, template_id, channel_type, subject_template, content_template, html_content_template,
+    is_enabled, remark, create_time, update_time
 ) VALUES
     (
         '019cf114a00090008000000000000002',
         '019cf114a00090008000000000000001',
         'SITE',
         '密码已重置',
-        '您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。新密码请向管理员索取，或通过忘记密码流程自助重置。请登录后及时修改密码。重置时间：${notify.currentDateTime}',
+        '您的 Nebula 账号密码已由管理员重置。接收用户：[(${nickname})]（账号：[(${username})]，用户ID：[(${userId})]）。新密码请向管理员索取，或通过忘记密码流程自助重置。请登录后及时修改密码。重置时间：[(${notify.currentDateTime})]',
+        NULL,
         TRUE,
         '密码重置站内信通知',
         CURRENT_TIMESTAMP,
@@ -994,15 +1235,17 @@ INSERT INTO sys_notify_template_variant (
         '019cf114a00090008000000000000001',
         'EMAIL',
         'Nebula 账号密码已重置',
-        '您好，您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。新密码请向管理员索取，或通过忘记密码流程自助重置。如非本人预期，请联系管理员。重置时间：${notify.currentDateTime}',
+        '您好，您的 Nebula 账号密码已由管理员重置。接收用户：[(${nickname})]（账号：[(${username})]，用户ID：[(${userId})]）。新密码请向管理员索取，或通过忘记密码流程自助重置。如非本人预期，请联系管理员。重置时间：[(${notify.currentDateTime})]',
+        '<!DOCTYPE html><html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><body style="margin:0;padding:24px;font-family:Arial,sans-serif;color:#333;line-height:1.6;"><p>您好，</p><p>您的 Nebula 账号密码已由管理员重置。</p><p>接收用户：<strong th:text="${nickname}">用户</strong>（账号：<span th:text="${username}">account</span>，用户ID：<span th:text="${userId}">id</span>）</p><p>新密码请向管理员索取，或通过忘记密码流程自助重置。如非本人预期，请联系管理员。</p><p>重置时间：<span th:text="${notify.currentDateTime}">2026-01-01 00:00:00</span></p></body></html>',
         TRUE,
         '密码重置邮件通知',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     )
-ON CONFLICT (template_id, channel_type) DO UPDATE SET
+ON CONFLICT (tenant_id, template_id, channel_type) DO UPDATE SET
     subject_template = EXCLUDED.subject_template,
     content_template = EXCLUDED.content_template,
+    html_content_template = EXCLUDED.html_content_template,
     is_enabled = EXCLUDED.is_enabled,
     remark = EXCLUDED.remark,
     update_time = EXCLUDED.update_time;
@@ -1054,12 +1297,73 @@ INSERT INTO sys_param (
     ('01959f0aa4d37c0d91a7d9af9c7d1035', 'storage.upload.chunk-size', '分片大小(MB)', '分片上传的单片大小，单位 MB；不变式 chunk-size <= chunk-threshold <= max-file-size，且不超过 2047（超过会溢出 Integer 字节数）', '5', 'INT', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1036', 'storage.upload.allowed-extensions', '允许的扩展名', '允许上传的文件扩展名，逗号分隔，可带或不带前导点（jpg,png 与 .jpg,.png 等价），大小写不敏感，留空表示不限制', '', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('01959f0aa4d37c0d91a7d9af9c7d1037', 'storage.upload.temp-retention-days', '临时任务保留天数', '临时上传任务及其临时文件的保留天数，超期由定时清理任务删除', '14', 'INT', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (param_key) DO UPDATE SET
+ON CONFLICT (tenant_id, param_key) DO UPDATE SET
     param_name = EXCLUDED.param_name,
     description = EXCLUDED.description,
     param_value = EXCLUDED.param_value,
     data_type = EXCLUDED.data_type,
     option_code = EXCLUDED.option_code,
+    module_code = EXCLUDED.module_code,
+    is_builtin = EXCLUDED.is_builtin,
+    update_time = EXCLUDED.update_time;
+
+-- ----------------------------------------------------------------------------
+-- param / 租户集成参数
+-- ----------------------------------------------------------------------------
+-- 验证码通道、邮箱、存储后端都属于每个租户自己的配置，运行时只读当前租户的行。
+-- 默认租户是超级管理员所在租户，平台级操作（创建租户、邀请成员）用默认租户的配置发送通知；
+-- 其他租户各自维护配置，不存在跨租户兜底。
+INSERT INTO sys_param (
+    id,
+    param_key,
+    param_name,
+    description,
+    param_value,
+    data_type,
+    option_code,
+    module_code,
+    is_builtin,
+    create_time,
+    update_time
+) VALUES
+    ('01959f0aa4d37c0d91a7d9af9c7d1101', 'auth.code.email.provider', '邮箱验证码提供商', '邮箱验证码下发通道。builtin-smtp 使用本租户配置的 SMTP 邮箱；none 表示关闭', 'builtin-smtp', 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1102', 'auth.code.sms.provider', '短信验证码提供商', '短信验证码下发通道。框架不内置短信实现，none 表示未接入', 'none', 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, param_key) DO UPDATE SET
+    param_name = EXCLUDED.param_name,
+    description = EXCLUDED.description,
+    data_type = EXCLUDED.data_type,
+    module_code = EXCLUDED.module_code,
+    is_builtin = EXCLUDED.is_builtin,
+    update_time = EXCLUDED.update_time;
+
+-- 存储后端参数：每个租户都可独立选择后端，未配置时由代码默认值/启动配置兜底。
+INSERT INTO sys_param (
+    id,
+    param_key,
+    param_name,
+    description,
+    param_value,
+    data_type,
+    option_code,
+    module_code,
+    is_builtin,
+    create_time,
+    update_time
+) VALUES
+    ('01959f0aa4d37c0d91a7d9af9c7d1103', 'storage.backend.type', '存储后端类型', '正式文件存储后端：filesystem / db / minio / aliyun-oss / tencent-cos', 'filesystem', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1104', 'storage.backend.filesystem.base-dir', '文件系统存储根目录', 'storage.backend.type=filesystem 时的文件根目录', 'build/nebula-storage/files', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1105', 'storage.backend.endpoint', '对象存储 Endpoint', 'MinIO / 阿里云 OSS 的服务地址', '', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1106', 'storage.backend.region', '对象存储 Region', '腾讯云 COS 的地域，如 ap-guangzhou', '', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1107', 'storage.backend.bucket', '对象存储 Bucket', '正式文件写入的桶名称', 'nebula-storage', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1108', 'storage.backend.access-key', '对象存储 Access Key', '对象存储访问凭据，加密存储，接口不回显', '', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1109', 'storage.backend.secret-key', '对象存储 Secret Key', '对象存储访问密钥，加密存储，接口不回显', '', 'STRING', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1110', 'storage.backend.create-bucket-if-missing', 'Bucket 不存在时自动创建', '多数云厂商的 AK 无建桶权限，生产建议关闭', 'true', 'BOOLEAN', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1111', 'storage.backend.direct-download-enabled', '启用对象存储直链下载', '开启后客户端可通过预签名地址直接访问对象存储', 'false', 'BOOLEAN', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1112', 'storage.backend.direct-download-expire-seconds', '直链有效期(秒)', '预签名下载地址有效期，上限 3600 秒', '300', 'INT', NULL, 'storage', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, param_key) DO UPDATE SET
+    param_name = EXCLUDED.param_name,
+    description = EXCLUDED.description,
+    data_type = EXCLUDED.data_type,
     module_code = EXCLUDED.module_code,
     is_builtin = EXCLUDED.is_builtin,
     update_time = EXCLUDED.update_time;
@@ -1074,7 +1378,9 @@ UPDATE sys_param
 SET is_encrypted = TRUE
 WHERE param_key IN (
     'notify.email.password',
-    'login.username.reset-default-password'
+    'login.username.reset-default-password',
+    'storage.backend.access-key',
+    'storage.backend.secret-key'
 );
 
 -- ----------------------------------------------------------------------------
@@ -1096,10 +1402,11 @@ WHERE param_key IN (
 -- 为 ADMIN 角色生成所有 MENU 类型权限
 -- 使用 gen_random_uuid() 生成 UUID（PostgreSQL 13+ 内置支持）
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
     REPLACE(gen_random_uuid()::text, '-', ''),
+    '0194f3c8b6b77c0d91a7d9af9c7d0100',
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'MENU',
@@ -1109,14 +1416,16 @@ SELECT
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM auth_menu m
-    ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+WHERE m.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+    ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;
 
 -- 步骤 3：为 ADMIN 角色生成所有 BUTTON 类型权限
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
     REPLACE(gen_random_uuid()::text, '-', ''),
+    '0194f3c8b6b77c0d91a7d9af9c7d0100',
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'BUTTON',
@@ -1126,15 +1435,17 @@ SELECT
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM auth_button b
-    ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+WHERE b.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+    ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;
 
 -- 步骤 4：为 ADMIN 角色生成所有 API 类型权限
 -- 接口权限是资源类型 API，与 MENU/BUTTON 并列，授权行同样落在 auth_permission
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
     REPLACE(gen_random_uuid()::text, '-', ''),
+    '0194f3c8b6b77c0d91a7d9af9c7d0100',
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'API',
@@ -1144,4 +1455,87 @@ SELECT
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM auth_api a
-    ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+WHERE a.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+    ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- auth-core / 系统租户 ADMIN 权限模板
+-- 系统租户的 ADMIN 角色持有全部模板资源的权限，新建租户复制时按新 ID 重新映射。
+-- 使用 UNION ALL 一次覆盖 MENU / BUTTON / API 三类资源。
+-- ----------------------------------------------------------------------------
+INSERT INTO auth_permission (
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+)
+SELECT
+    REPLACE(gen_random_uuid()::text, '-', ''),
+    '__system__',
+    'ROLE',
+    'F194f3c8b6b77c0d91a7d9af9c7d0002',
+    r.resource_type,
+    r.resource_id,
+    'Allow',
+    'ALL',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM (
+    SELECT 'MENU' AS resource_type, id AS resource_id FROM auth_menu WHERE tenant_id = '__system__'
+    UNION ALL
+    SELECT 'BUTTON', id FROM auth_button WHERE tenant_id = '__system__'
+    UNION ALL
+    SELECT 'API', id FROM auth_api WHERE tenant_id = '__system__'
+) r
+ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- 模板种子数据写入系统租户
+-- 系统租户只作为新建租户的模板源：建租户时由各模块把字典/通知模板复制到目标租户，
+-- 租户数据自包含，运行时不再回退系统租户。
+-- sys_param 不写模板行：建租户时按代码定义物化该租户的全部内建参数默认值。
+-- 主键与模板外键用 'S' + 原 ID 后 31 位重映射，保证与默认租户数据共存。
+-- 字典项 path 不在此重写：建租户复制时由 DictTenantDataProvisioner 按 parent_id 重新生成。
+-- ----------------------------------------------------------------------------
+INSERT INTO sys_dict_type (id, tenant_id, code, name, remark, create_time, update_time)
+SELECT 'S' || substr(id, 2), '__system__', code, name, remark, create_time, update_time
+FROM sys_dict_type WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT (tenant_id, code) DO NOTHING;
+
+INSERT INTO sys_dict_item (id, tenant_id, dict_code, name, parent_id, path, item_value,
+                           sort, is_enabled, tag_color, remark, create_time, update_time)
+SELECT 'S' || substr(id, 2), '__system__', dict_code, name,
+       CASE WHEN parent_id IS NULL THEN NULL ELSE 'S' || substr(parent_id, 2) END,
+       path, item_value, sort, is_enabled, tag_color, remark, create_time, update_time
+FROM sys_dict_item WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO sys_notify_category (id, tenant_id, code, name, description, is_mandatory,
+                                 is_default_enabled, sort, allowed_channels, is_builtin,
+                                 is_enabled, remark, create_time, update_time)
+SELECT 'S' || substr(id, 2), '__system__', code, name, description, is_mandatory,
+       is_default_enabled, sort, allowed_channels, is_builtin, is_enabled, remark, create_time, update_time
+FROM sys_notify_category WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT (tenant_id, code) DO NOTHING;
+
+INSERT INTO sys_notify_template (id, tenant_id, template_code, template_name, remark,
+                                 category_code, create_time, update_time)
+SELECT 'S' || substr(id, 2), '__system__', template_code, template_name, remark,
+       category_code, create_time, update_time
+FROM sys_notify_template WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT (tenant_id, template_code) DO NOTHING;
+
+INSERT INTO sys_notify_template_field (id, tenant_id, template_id, field_code, field_name,
+                                       is_required, default_value, example_value, remark,
+                                       create_time, update_time)
+SELECT 'S' || substr(id, 2), '__system__', 'S' || substr(template_id, 2),
+       field_code, field_name, is_required, default_value, example_value, remark, create_time, update_time
+FROM sys_notify_template_field WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT (tenant_id, template_id, field_code) DO NOTHING;
+
+INSERT INTO sys_notify_template_variant (id, tenant_id, template_id, channel_type,
+                                         subject_template, content_template,
+                                         html_content_template, is_enabled,
+                                         remark, create_time, update_time)
+SELECT 'S' || substr(id, 2), '__system__', 'S' || substr(template_id, 2),
+       channel_type, subject_template, content_template, html_content_template,
+       is_enabled, remark, create_time, update_time
+FROM sys_notify_template_variant WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+ON CONFLICT (tenant_id, template_id, channel_type) DO NOTHING;

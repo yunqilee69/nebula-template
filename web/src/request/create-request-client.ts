@@ -1,10 +1,14 @@
 import axios, { AxiosHeaders } from 'axios';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import type { RequestClientOptions } from './types';
+import { NebulaBusinessError } from './business-error';
+
+export { NebulaBusinessError, isNebulaBusinessError } from './business-error';
 
 interface RetriableRequestConfig extends InternalAxiosRequestConfig {
   _nebulaRetry?: boolean;
   _nebulaSkipAuthRefresh?: boolean;
+  _nebulaSilent?: boolean;
 }
 
 interface ApiResultPayload {
@@ -17,6 +21,7 @@ interface ApiResultPayload {
 const defaultBusinessErrorMessage = '接口请求出错，请联系管理员';
 
 const CLIENT_TYPE_HEADER = 'X-Client-Type';
+const TENANT_CODE_HEADER = 'X-Tenant-Code';
 const DEFAULT_CLIENT_TYPE = 'WEB';
 
 function isApiResult(value: unknown): value is ApiResultPayload {
@@ -64,6 +69,11 @@ export function createRequestClient(options: RequestClientOptions = {}) {
     const token = options.getToken?.();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      const tenantCode = options.getTenantCode?.();
+      if (tenantCode) {
+        headers.set(TENANT_CODE_HEADER, tenantCode);
+      }
     }
 
     if (!headers.has(CLIENT_TYPE_HEADER)) {
@@ -97,25 +107,32 @@ export function createRequestClient(options: RequestClientOptions = {}) {
         url: response.config.url,
       });
 
-      showBusinessError(message, options);
+      if (!(response.config as RetriableRequestConfig)._nebulaSilent) {
+        showBusinessError(message, options);
+      }
 
-      return Promise.reject(new Error(message));
+      return Promise.reject(new NebulaBusinessError(code, message));
     }) as (response: AxiosResponse) => AxiosResponse,
     async (error) => {
       if (!axios.isAxiosError(error)) {
         return Promise.reject(error);
       }
 
+      const originalConfig: RetriableRequestConfig | undefined = error.config;
+      const silent = Boolean(originalConfig?._nebulaSilent);
+
       if (error.response?.status !== 401) {
-        options.onError?.(error);
+        if (!silent) {
+          options.onError?.(error);
+        }
         return Promise.reject(error);
       }
 
-      const originalConfig: RetriableRequestConfig | undefined = error.config;
-
       if (!options.refreshToken || !originalConfig || originalConfig._nebulaRetry || originalConfig._nebulaSkipAuthRefresh) {
-        options.onUnauthorized?.();
-        options.onError?.(error);
+        if (!silent) {
+          options.onUnauthorized?.();
+          options.onError?.(error);
+        }
         return Promise.reject(error);
       }
 

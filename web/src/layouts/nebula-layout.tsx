@@ -12,6 +12,7 @@ import type { NebulaMenuItem } from '@/route/types';
 import { useAppStore } from '@/stores/app-store';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import { nebulaTokens } from '@/providers/tokens';
+import { HeaderTenantSwitcher } from './components/header-tenant-switcher';
 import { HeaderUserMenu } from './components/header-user-menu';
 import { NotificationBell } from './components/notification-bell';
 import { PopupAnnouncement } from './components/popup-announcement';
@@ -780,9 +781,12 @@ export function NebulaLayout({
           {rightContent ?? (
             <div className={cx(styles.headerActions, compactHeader && styles.compactHeaderActions)}>
               <NotificationBell onOpenInboxTab={(path) => addRouteTabWithLabel(path, t('layout.notificationInbox'))} />
+              <HeaderTenantSwitcher />
               <HeaderUserMenu
                 compact={compactHeader}
                 onOpenProfile={() => openRouteWithLabel('/profile/info', t('layout.headerUser.profile'))}
+                onOpenEnterpriseSettings={() =>
+                  openRouteWithLabel('/system/settings/tenant', t('layout.headerUser.enterpriseSettings'))}
               />
             </div>
           )}

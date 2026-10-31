@@ -84,7 +84,9 @@ function renderLayoutWithoutRightContent(initialPath = '/') {
 function createMockAuthService(partial?: Partial<AuthService>): AuthService {
   return {
     getAuthConfig: partial?.getAuthConfig ?? vi.fn(),
+    getInit: partial?.getInit ?? vi.fn(),
     login: partial?.login ?? vi.fn(),
+    personLogin: partial?.personLogin ?? vi.fn(),
     phoneLogin: partial?.phoneLogin ?? vi.fn(),
     emailLogin: partial?.emailLogin ?? vi.fn(),
     register: partial?.register ?? vi.fn(),
@@ -277,6 +279,8 @@ describe('NebulaLayout', () => {
       const menu = await screen.findByRole('menu', { name: '用户菜单' });
       expect(within(menu).getByRole('menuitem', { name: '个人信息' })).toBeInTheDocument();
       expect(within(menu).getByRole('menuitem', { name: '偏好设置' })).toBeInTheDocument();
+      expect(within(menu).queryByRole('menuitem', { name: '平台账号' })).not.toBeInTheDocument();
+      expect(within(menu).queryByRole('menuitem', { name: '切换企业' })).not.toBeInTheDocument();
       expect(within(menu).getByRole('separator')).toBeInTheDocument();
       expect(within(menu).getByRole('menuitem', { name: '退出登录' })).toBeInTheDocument();
     });

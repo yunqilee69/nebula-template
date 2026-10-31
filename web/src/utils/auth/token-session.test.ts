@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { clearAuthTokens, getStoredAccessToken, getStoredRefreshToken, saveAuthTokens } from './token-session';
+import { clearAuthTokens, getStoredAccessToken, getStoredRefreshToken, getStoredTenantCode, saveAuthTokens } from './token-session';
 import type { GitHubLoginStatusResp, LoginResp } from '@/types/auth';
 
 describe('token session storage', () => {
@@ -21,6 +21,18 @@ describe('token session storage', () => {
     expect(getStoredRefreshToken()).toBe('refresh-token');
   });
 
+  it('stores the tenant code returned by tenant login', () => {
+    saveAuthTokens({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      accessTokenExpiresIn: 7200,
+      refreshTokenExpiresIn: 604800,
+      tenantCode: 'acme',
+    });
+
+    expect(getStoredTenantCode()).toBe('acme');
+  });
+
   it('clears both stored tokens', () => {
     saveAuthTokens({
       accessToken: 'access-token',
@@ -33,6 +45,7 @@ describe('token session storage', () => {
 
     expect(getStoredAccessToken()).toBeNull();
     expect(getStoredRefreshToken()).toBeNull();
+    expect(getStoredTenantCode()).toBeNull();
   });
 
   it('supports optional tokens returned by OAuth login status', () => {

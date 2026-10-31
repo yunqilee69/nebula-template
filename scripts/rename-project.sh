@@ -19,6 +19,7 @@
 #   - Spring: application.name、数据源 URL 数据库名
 #   - Docker Compose: 容器名、卷名、默认数据库名
 #   - Web: package.json name 与 version
+#   - Control: control/package.json name 与 version
 #   - README: 项目名占位符替换
 #
 # 幂等性：检测 backend/pom.xml artifactId 是否已非 nebula-template-backend，
@@ -192,6 +193,19 @@ if [ -f "$PKG_JSON" ]; then
     -e "s|\"version\": \"0.1.0\"|\"version\": \"1.0.0\"|" \
     "$PKG_JSON"
   rm -f "$PKG_JSON.bak"
+fi
+
+# ============================================================
+# 6.1 控制平面改名（control/package.json）
+# ============================================================
+echo "==> 更新 control/package.json ..."
+CONTROL_PKG_JSON="$REPO_ROOT/control/package.json"
+if [ -f "$CONTROL_PKG_JSON" ]; then
+  sed -i.bak \
+    -e "s|\"name\": \"nebula-control\"|\"name\": \"${APP_NAME}-control\"|" \
+    -e "s|\"version\": \"0.1.0\"|\"version\": \"1.0.0\"|" \
+    "$CONTROL_PKG_JSON"
+  rm -f "$CONTROL_PKG_JSON.bak"
 fi
 
 # ============================================================

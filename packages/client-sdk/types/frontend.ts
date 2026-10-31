@@ -13,8 +13,39 @@ export interface FrontendInitResp {
   defaultPreference?: FrontendPreferenceResp;
   defaultTheme?: FrontendThemeResp;
   storage?: FrontendStorageInitResp;
+  /** 当前租户的只读资料与登录页品牌；平台入口或无法解析租户时缺失。 */
+  tenant?: FrontendTenantResp;
   /** 移动推送初始化配置；仅移动端请求时下发，缺失表示不初始化任何推送 SDK。 */
   push?: FrontendPushInitResp;
+}
+
+/** 当前租户的只读资料。 */
+export interface FrontendTenantResp {
+  tenantId?: string;
+  code?: string;
+  name?: string;
+  shortName?: string;
+  logo?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  website?: string;
+  address?: string;
+  industry?: string;
+  description?: string;
+  locale?: string;
+  timezone?: string;
+  branding?: FrontendTenantBrandingResp;
+  status?: string;
+}
+
+/** 租户登录页品牌配置。 */
+export interface FrontendTenantBrandingResp {
+  loginLogo?: string;
+  loginTitle?: string;
+  loginSubtitle?: string;
+  themeColor?: string;
+  favicon?: string;
+  loginBackground?: string;
 }
 
 /**

@@ -187,7 +187,7 @@ export const system: NebulaSystemMessages = {
       },
       placeholders: {
         templateCode: '请输入模板编码', templateName: '请输入模板名称', channel: '请选择通知渠道', status: '请选择状态',
-        subjectTemplate: '请输入主题模板，可使用 ${variableName} 变量', contentTemplate: '请输入内容模板，可使用 ${variableName} 变量',
+        subjectTemplate: '请输入主题模板，可使用 [(${variableName})] 变量', contentTemplate: '请输入内容模板，可使用 [(${variableName})] 变量',
         remark: '请输入备注', title: '请输入公告标题', content: '请输入公告内容', targetType: '请选择发送范围',
         targetUsers: '请选择用户', targetRoles: '请选择角色', targetOrgs: '请选择组织', channelMultiple: '选择一个或多个通知渠道',
         template: '选择启用的通知模板', receiver: '请选择用户、角色或组织', readStatus: '请选择阅读状态', templateParam: '请输入模板参数',

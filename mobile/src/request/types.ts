@@ -61,6 +61,8 @@ export interface RequestClientOptions {
   /** 端类型，移动端恒为 APP。 */
   clientType?: ClientType;
   getAccessToken?: () => string | null | undefined;
+  /** 匿名请求附带的租户编码；已认证请求只带 Authorization。 */
+  getTenantCode?: () => string | undefined;
   /** 单飞刷新：成功后返回新 accessToken，失败返回 null。 */
   refreshAccessToken?: () => Promise<string | null | undefined>;
   onUnauthorized?: (error: unknown) => void;

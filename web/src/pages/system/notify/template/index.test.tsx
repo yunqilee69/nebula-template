@@ -130,8 +130,9 @@ const customTemplateDetail: NotifyTemplateDetailResp = {
       id: 'variant-email',
       templateId: 'template-custom',
       channelType: 'EMAIL',
-      subjectTemplate: '${recipientName}，订单已审批',
-      contentTemplate: '${recipientName} 的订单 ${orderNo} 已于 ${notify.currentDateTime} 审批通过。',
+      subjectTemplate: '[(${recipientName})]，订单已审批',
+      contentTemplate: '[(${recipientName})] 的订单 [(${orderNo})] 已于 [(${notify.currentDateTime})] 审批通过。',
+      htmlContentTemplate: '<p th:text="${recipientName}">接收人</p><p th:text="${orderNo}">订单号</p>',
       enabled: true,
     },
   ],
@@ -243,6 +244,8 @@ describe('TemplateManagementPage', () => {
     }
     // 渠道标签由渠道集合直接取自，不应出现「变体 N」这类下标兜底文案
     expect(within(dialog).queryByText(/^变体 \d+$/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText('模板使用说明')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '查看内置变量' })).toBeInTheDocument();
 
     // 新建即可一并提交各渠道变体，不再要求先保存模板再回来配置
     await user.type(within(dialog).getByPlaceholderText('请输入模板编码'), 'ORDER_PAID');
@@ -275,13 +278,19 @@ describe('TemplateManagementPage', () => {
     if (!(dialog instanceof HTMLElement)) throw new Error('Unable to find template detail modal');
     expect(within(dialog).getAllByText('recipientName')).not.toHaveLength(0);
     expect(within(dialog).getAllByText('orderNo')).not.toHaveLength(0);
-    expect(within(dialog).getByRole('tab', { name: 'EMAIL' })).toBeInTheDocument();
+    const emailTab = within(dialog).getByRole('tab', { name: 'EMAIL' });
+    expect(emailTab).toBeInTheDocument();
+    await user.click(emailTab);
+    expect(within(dialog).getByText('HTML 内容模板')).toBeInTheDocument();
     expect(within(dialog).queryByText(/系统内置变量/)).not.toBeInTheDocument();
     const helpButtons = within(dialog).getAllByRole('button', { name: '查看系统内置变量' });
     const helpButton = helpButtons[0];
     if (!(helpButton instanceof HTMLElement)) throw new Error('Unable to find built-in variable help');
-    await user.hover(helpButton);
-    expect(await screen.findByText('当前日期时间')).toBeInTheDocument();
+    await user.click(helpButton);
+    expect(await screen.findByText('时间相关')).toBeInTheDocument();
+    expect(screen.getByText('发送上下文')).toBeInTheDocument();
+    expect(screen.getByText('当前日期时间（yyyy-MM-dd HH:mm:ss）')).toBeInTheDocument();
+    expect(screen.getAllByText('[(${notify.currentDate})]').length).toBeGreaterThan(0);
     expect(within(dialog).queryAllByRole('textbox')).toHaveLength(0);
   });
 

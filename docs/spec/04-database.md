@@ -310,8 +310,8 @@ PRIMARY KEY (id)
 CREATE UNIQUE INDEX uk_user_username ON auth_user (username);
 CREATE UNIQUE INDEX uk_role_code ON auth_role (code);
 CREATE UNIQUE INDEX uk_org_code ON auth_org (code);
-CREATE UNIQUE INDEX uk_menu_code ON auth_menu (code);
-CREATE UNIQUE INDEX uk_api_code ON auth_api (code);
+CREATE UNIQUE INDEX uk_menu_code ON auth_menu (tenant_id, code);
+CREATE UNIQUE INDEX uk_api_code ON auth_api (tenant_id, code);
 CREATE UNIQUE INDEX uk_dict_type_code ON sys_dict_type (code);
 CREATE UNIQUE INDEX uk_sys_param_key ON sys_param (param_key);
 CREATE UNIQUE INDEX uk_notify_template_code ON sys_notify_template (template_code);
@@ -325,14 +325,14 @@ CREATE UNIQUE INDEX uk_announcement_read_user ON sys_announcement_read_record (a
 CREATE INDEX idx_user_status ON auth_user (status);
 CREATE INDEX idx_role_status ON auth_role (status);
 CREATE INDEX idx_org_status ON auth_org (status);
-CREATE INDEX idx_menu_status ON auth_menu (status);
+CREATE INDEX idx_menu_status ON auth_menu (tenant_id, status);
 CREATE INDEX idx_dict_item_enabled ON sys_dict_item (is_enabled);
 
 -- ✅ 普通索引（外键） - idx_{表}_{外键字段}
 CREATE INDEX idx_org_parent_id ON auth_org (parent_id);
-CREATE INDEX idx_menu_parent_id ON auth_menu (parent_id);
-CREATE INDEX idx_button_menu_id ON auth_button (menu_id);
-CREATE INDEX idx_api_module ON auth_api (module);
+CREATE INDEX idx_menu_parent_id ON auth_menu (tenant_id, parent_id);
+CREATE INDEX idx_button_menu_id ON auth_button (tenant_id, menu_id);
+CREATE INDEX idx_api_module ON auth_api (tenant_id, module);
 CREATE INDEX idx_user_org_user_id ON auth_user_org (user_id);
 CREATE INDEX idx_user_org_org_id ON auth_user_org (org_id);
 CREATE INDEX idx_user_role_user_id ON auth_user_role (user_id);
@@ -645,9 +645,9 @@ LEFT JOIN auth_permission p ON ...
 | `auth_org` | 组织表 | `id`, `name`, `parent_id`, `code`, `type` |
 | `auth_user_org` | 用户-组织关联 | `id`, `user_id`, `org_id`, `is_main_org` |
 | `auth_user_role` | 用户-角色关联 | `id`, `user_id`, `role_id` |
-| `auth_menu` | 菜单表 | `id`, `name`, `parent_id`, `code`, `path` |
-| `auth_button` | 按钮表 | `id`, `menu_id`, `code`, `name`, `type` |
-| `auth_api` | 接口权限表 | `id`, `code`, `name`, `module`（无 `menu_id`：接口权限不挂界面） |
+| `auth_menu` | 菜单表 | `id`, `tenant_id`, `name`, `parent_id`, `code`, `path` |
+| `auth_button` | 按钮表 | `id`, `tenant_id`, `menu_id`, `code`, `name`, `type` |
+| `auth_api` | 接口权限表 | `id`, `tenant_id`, `code`, `name`, `module`（无 `menu_id`：接口权限不挂界面） |
 | `auth_permission` | 权限表 | `id`, `subject_type`, `subject_id`, `resource_type`, `resource_id` |
 | `auth_oauth2_account` | OAuth2 账号 | `id`, `user_id`, `provider_id`, `provider_user_id` |
 | `auth_oauth2_client` | OAuth2 客户端 | `id`, `client_id`, `client_name`, `grant_types` |

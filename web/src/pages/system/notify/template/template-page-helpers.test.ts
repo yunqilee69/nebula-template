@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  SYSTEM_TEMPLATE_VARIABLE_GROUPS,
   SYSTEM_TEMPLATE_VARIABLES,
   buildNotifyTemplatePageReq,
   createDefaultVariants,
   extractCustomTemplateVariables,
+  extractCustomTemplateVariablesFromVariants,
+  htmlTemplateVariableUsage,
+  isValidTemplateFieldCode,
   mergeVariantsWithDefaults,
+  textTemplateVariableUsage,
   toCreateNotifyTemplateReq,
   toNotifyTemplateFormValues,
   toUpdateNotifyTemplateReq,
@@ -13,26 +18,46 @@ import type { NotifyTemplateFormValues } from './template-page-helpers';
 
 describe('extractCustomTemplateVariables', () => {
   it('deduplicates custom variables in first-appearance order and excludes notify variables', () => {
-    const subject = '${recipientName} ${notify.currentDateTime} ${recipientName}';
-    const content = '${order.code} ${notify.receiverUserId} ${retry_count} ${order.code}';
+    const subject = '[(${recipientName})] [(${notify.currentDateTime})] [(${recipientName})]';
+    const content = '<p th:text="${orderNo}">订单</p> [(${notify.receiverUserId})] [(${retryCount})] [(${orderNo})]';
 
     const variables = extractCustomTemplateVariables(subject, content);
 
     expect(variables.map((variable) => variable.name)).toEqual([
       'recipientName',
-      'order.code',
-      'retry_count',
+      'orderNo',
+      'retryCount',
     ]);
     expect(variables.every((variable) => variable.kind === 'CUSTOM' && !variable.builtin)).toBe(true);
   });
 
   it('returns an empty list when templates contain only built-in or malformed variables', () => {
     const variables = extractCustomTemplateVariables(
-      '${notify.timestamp}',
-      '${invalid variable} ${notify.receiverEmail}',
+      '[(${notify.timestamp})]',
+      '[(${invalid variable})] [(${notify.receiverEmail})]',
     );
 
     expect(variables).toEqual([]);
+  });
+
+  it('scans the HTML content template as well', () => {
+    const variables = extractCustomTemplateVariablesFromVariants([
+      { contentTemplate: '[(${nickname})]', htmlContentTemplate: '<p th:text="${orderNo}">订单</p>' },
+    ]);
+
+    expect(variables.map((variable) => variable.name)).toEqual(['nickname', 'orderNo']);
+  });
+});
+
+describe('isValidTemplateFieldCode', () => {
+  it('accepts simple identifiers only', () => {
+    expect(isValidTemplateFieldCode('orderNo')).toBe(true);
+    expect(isValidTemplateFieldCode('_retry_count')).toBe(true);
+    expect(isValidTemplateFieldCode('1order')).toBe(false);
+    expect(isValidTemplateFieldCode('order.code')).toBe(false);
+    expect(isValidTemplateFieldCode('order-no')).toBe(false);
+    expect(isValidTemplateFieldCode('notify')).toBe(false);
+    expect(isValidTemplateFieldCode('  ')).toBe(false);
   });
 });
 
@@ -56,6 +81,17 @@ describe('SYSTEM_TEMPLATE_VARIABLES', () => {
       'notify.receiverEmail',
     ]);
     expect(SYSTEM_TEMPLATE_VARIABLES.every((variable) => variable.kind === 'BUILTIN' && variable.builtin)).toBe(true);
+  });
+
+  it('groups time and send-context variables without losing any entry', () => {
+    expect(SYSTEM_TEMPLATE_VARIABLE_GROUPS.map((group) => group.title)).toEqual(['时间相关', '发送上下文']);
+    expect(SYSTEM_TEMPLATE_VARIABLE_GROUPS.flatMap((group) => group.variables.map((variable) => variable.name)))
+      .toEqual(SYSTEM_TEMPLATE_VARIABLES.map((variable) => variable.name));
+  });
+
+  it('renders copyable usage examples for text and HTML templates', () => {
+    expect(textTemplateVariableUsage('notify.currentDate')).toBe('[(${notify.currentDate})]');
+    expect(htmlTemplateVariableUsage('orderNo')).toBe('th:text="${orderNo}"');
   });
 });
 
@@ -175,5 +211,19 @@ describe('notify template variants', () => {
     expect(request.variants).toEqual([
       { channelType: 'EMAIL', contentTemplate: '订单已支付', enabled: true },
     ]);
+  });
+
+  it('submits the HTML template for EMAIL and drops it for other channels', () => {
+    const request = toCreateNotifyTemplateReq({
+      templateCode: 'ORDER_PAID',
+      templateName: '订单支付成功',
+      variants: [
+        { channelType: 'EMAIL', contentTemplate: '订单已支付', htmlContentTemplate: ' <p>订单已支付</p> ', enabled: true },
+        { channelType: 'SITE', contentTemplate: '订单已支付', htmlContentTemplate: '<p>不应提交</p>', enabled: true },
+      ],
+    });
+
+    expect(request.variants?.[0]).toMatchObject({ htmlContentTemplate: '<p>订单已支付</p>' });
+    expect(request.variants?.[1]).not.toHaveProperty('htmlContentTemplate');
   });
 });

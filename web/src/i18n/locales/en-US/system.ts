@@ -187,7 +187,7 @@ export const system: NebulaSystemMessages = {
       },
       placeholders: {
         templateCode: 'Enter template code', templateName: 'Enter template name', channel: 'Select notification channel', status: 'Select status',
-        subjectTemplate: 'Enter subject template; ${variableName} variables are supported', contentTemplate: 'Enter content template; ${variableName} variables are supported',
+        subjectTemplate: 'Enter subject template; [(${variableName})] variables are supported', contentTemplate: 'Enter content template; [(${variableName})] variables are supported',
         remark: 'Enter remark', title: 'Enter announcement title', content: 'Enter announcement content', targetType: 'Select send scope',
         targetUsers: 'Select users', targetRoles: 'Select roles', targetOrgs: 'Select organizations', channelMultiple: 'Select one or more channels',
         template: 'Select an enabled template', receiver: 'Select users, roles, or organizations', readStatus: 'Select read status', templateParam: 'Enter template parameter',

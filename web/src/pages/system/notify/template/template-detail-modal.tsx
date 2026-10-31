@@ -96,6 +96,13 @@ export function TemplateDetailModal({
                       <Descriptions.Item label="内容模板">
                         <Typography.Paragraph className="m-0 whitespace-pre-wrap break-words" copyable>{variant.contentTemplate}</Typography.Paragraph>
                       </Descriptions.Item>
+                      {variant.channelType === 'EMAIL' && (
+                        <Descriptions.Item label="HTML 内容模板">
+                          {variant.htmlContentTemplate
+                            ? <Typography.Paragraph className="m-0 whitespace-pre-wrap break-words" copyable>{variant.htmlContentTemplate}</Typography.Paragraph>
+                            : '-'}
+                        </Descriptions.Item>
+                      )}
                       <Descriptions.Item label="变体备注">{textOrDash(variant.remark)}</Descriptions.Item>
                     </Descriptions>
                   ),

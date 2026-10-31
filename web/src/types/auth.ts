@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AuthService } from '@/api/auth';
 import type { BackendMenuItem } from '@/route/types';
+import type { TenantBranding } from '@/types/tenant-profile';
 
 export interface CurrentUser {
   id: string;
@@ -8,6 +9,11 @@ export interface CurrentUser {
   username?: string;
   avatar?: string;
   avatarPreview?: string;
+  tenantId?: string;
+  tenantCode?: string;
+  tenantName?: string;
+  personId?: string;
+  platformAdmin?: boolean;
   roles: string[];
   permissions: string[];
   organizations?: Organization[];
@@ -72,6 +78,8 @@ export interface ApiResult<T> {
 }
 
 export interface AuthInitResp {
+  /** 多租户模式：额外提供独立的平台账号登录方式 */
+  tenantEnabled?: boolean;
   usernameEnabled?: boolean;
   phoneEnabled?: boolean;
   emailEnabled?: boolean;
@@ -137,6 +145,7 @@ export interface FrontendStorageInit {
 export interface FrontendInitResp {
   frontendConfig?: FrontendConfigResp;
   loginConfig?: AuthInitResp;
+  tenant?: TenantBranding;
   defaultPreference?: FrontendPreferenceResp;
   defaultTheme?: FrontendThemeResp;
   storage?: FrontendStorageInit;
@@ -149,11 +158,115 @@ export interface LoginReq {
 }
 
 export interface LoginResp {
-  accessToken: string;
-  refreshToken: string;
-  accessTokenExpiresIn: number;
-  refreshTokenExpiresIn: number;
+  accessToken?: string;
+  refreshToken?: string;
+  accessTokenExpiresIn?: number;
+  refreshTokenExpiresIn?: number;
+  bindingRequired?: boolean;
+  bindingReason?: 'NO_LINK' | 'LINK_PENDING' | 'LINK_REVOKED';
+  linkStatus?: 'NONE' | 'PENDING' | 'REVOKED';
+  pendingApproval?: boolean;
+  bindingTicket?: string;
+  tenantCode?: string;
+  proposedUsername?: string;
+  proposedDisplayName?: string;
 }
+
+export interface CompleteBindingReq {
+  bindingTicket: string;
+  action: 'CREATE_NEW' | 'BIND_EXISTING';
+  username?: string;
+  displayName?: string;
+  password?: string;
+  account?: string;
+  credential?: string;
+}
+
+export interface PersonSummary {
+  id: string;
+  username: string;
+  displayName?: string;
+  status: string;
+  platformAdmin?: boolean;
+}
+
+export interface PersonTenant {
+  tenantId: string;
+  code: string;
+  name: string;
+  status: string;
+  logo?: string;
+  subdomain?: string;
+  linkedAt?: string;
+  linkStatus?: string;
+  userId?: string;
+  username?: string;
+  nickname?: string;
+  email?: string;
+  phone?: string;
+  userStatus?: number;
+  roleNames?: string[];
+  orgNames?: string[];
+}
+
+export interface PlatformPerson {
+  id: string;
+  username: string;
+  displayName?: string;
+  status: string;
+  platformAdmin?: boolean;
+  lastLoginTime?: string;
+  createTime?: string;
+  tenantCount?: number;
+  tenants?: PersonTenant[];
+}
+
+export interface PersonLink {
+  id: string;
+  tenantId: string;
+  tenantCode: string;
+  tenantName: string;
+  userId: string;
+  linkStatus: string;
+  linkSource?: string;
+  verifiedAt?: string;
+  revokedAt?: string;
+}
+
+export interface TenantInvitation {
+  id: string;
+  tenantId: string;
+  email?: string;
+  phone?: string;
+  roleId?: string;
+  orgId?: string;
+  status: string;
+  expiresAt?: string;
+  acceptedAt?: string;
+  token?: string;
+}
+
+export interface TenantDomainSummary {
+  id: string;
+  tenantId: string;
+  domain: string;
+  primaryDomain?: number;
+  status: string;
+  verifiedAt?: string;
+}
+
+export interface TenantSummary {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  logo?: string;
+  contactEmail?: string;
+  settingsJson?: string;
+  subdomain?: string;
+  createTime?: string;
+}
+
 
 export interface RegisterReq {
   username: string;
@@ -206,6 +319,11 @@ export interface RefreshTokenReq {
 
 export interface CurrentUserResp {
   id: string;
+  tenantId?: string;
+  tenantCode?: string;
+  tenantName?: string;
+  personId?: string;
+  platformAdmin?: boolean;
   username?: string;
   nickname?: string;
   avatar?: string;
@@ -257,7 +375,7 @@ export interface GitHubCallbackResp {
   errorCode?: GitHubCallbackErrorCode;
 }
 
-export type BuiltInLoginMethodKey = 'password' | 'phone' | 'email' | 'github' | 'wechat';
+export type BuiltInLoginMethodKey = 'password' | 'person' | 'phone' | 'email' | 'github' | 'wechat';
 
 export type WechatLoginStatus = GitHubLoginStatus;
 

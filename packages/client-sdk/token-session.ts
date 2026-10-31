@@ -22,6 +22,10 @@ export interface AuthTokenSession {
   accessTokenExpiresIn: number;
   /** 绝对毫秒时间戳。 */
   refreshTokenExpiresIn: number;
+  /** 会话所属租户；单租户模式下可缺省。 */
+  tenantId?: string;
+  /** 会话所属租户编码，便于展示与切换企业。 */
+  tenantCode?: string;
 }
 
 /** 默认时钟偏移：访问令牌在到期前 30s 即视为「需刷新」。 */
@@ -52,6 +56,7 @@ export function toAuthTokenSession(resp: Partial<LoginResp> | null | undefined):
     refreshToken,
     accessTokenExpiresIn: toFiniteNumber(resp.accessTokenExpiresIn),
     refreshTokenExpiresIn: toFiniteNumber(resp.refreshTokenExpiresIn),
+    ...(resp.tenantCode ? { tenantCode: resp.tenantCode } : {}),
   };
 }
 
@@ -112,6 +117,8 @@ export function serializeAuthTokenSession(session: AuthTokenSession): string {
     refreshToken: session.refreshToken,
     accessTokenExpiresIn: session.accessTokenExpiresIn,
     refreshTokenExpiresIn: session.refreshTokenExpiresIn,
+    ...(session.tenantId ? { tenantId: session.tenantId } : {}),
+    ...(session.tenantCode ? { tenantCode: session.tenantCode } : {}),
   });
 }
 
@@ -134,5 +141,7 @@ export function parseAuthTokenSession(raw: string | null | undefined): AuthToken
     refreshToken,
     accessTokenExpiresIn: toFiniteNumber(record.accessTokenExpiresIn),
     refreshTokenExpiresIn: toFiniteNumber(record.refreshTokenExpiresIn),
+    ...(typeof record.tenantId === 'string' && record.tenantId ? { tenantId: record.tenantId } : {}),
+    ...(typeof record.tenantCode === 'string' && record.tenantCode ? { tenantCode: record.tenantCode } : {}),
   };
 }

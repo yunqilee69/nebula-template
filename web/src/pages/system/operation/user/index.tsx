@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import { useNotice } from '@/hooks/use-notice';
 import { authManagementService as defaultAuthManagementService } from '@/api/auth-management';
-import type { AuthManagementService } from '@/api/auth-management';
+import type { AuthManagementService, CreateTenantInvitationReq } from '@/api/auth-management';
 import type { BatchUpdateUserAssignmentsReq, CreateUserReq, OrgOptionResp, RoleOptionResp, UpdateUserReq, UserResp } from '@/types/auth-management';
+import type { TenantInvitation } from '@/types/auth';
 import { BatchAssignmentModal, type BatchAssignmentMode } from '../components/batch-assignment-modal';
 import { UserFormDrawer } from './components/user-form-drawer';
+import { InviteMemberModal } from './components/invite-member-modal';
 import { UserTable, type UserTableHandle } from './components/user-table';
 import type { UserDrawerFormValues } from './components/user-page-shared';
 
@@ -35,6 +37,9 @@ export function UserManagementPage({ service: serviceProp }: UserManagementPageP
   const [batchAssignmentUserIds, setBatchAssignmentUserIds] = useState<readonly string[]>([]);
   const [batchAssignmentUserNames, setBatchAssignmentUserNames] = useState<readonly string[]>([]);
   const [batchAssignmentMode, setBatchAssignmentMode] = useState<BatchAssignmentMode>('both');
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [invitation, setInvitation] = useState<TenantInvitation | null>(null);
 
   const [roles, setRoles] = useState<RoleOptionResp[]>([]);
   const [orgs, setOrgs] = useState<OrgOptionResp[]>([]);
@@ -203,6 +208,33 @@ export function UserManagementPage({ service: serviceProp }: UserManagementPageP
     [closeBatchAssignment, notice, service, t],
   );
 
+  const openInvite = useCallback(() => {
+    setInvitation(null);
+    setInviteOpen(true);
+  }, []);
+
+  const closeInvite = useCallback(() => {
+    setInviteOpen(false);
+    setInvitation(null);
+  }, []);
+
+  const submitInvite = useCallback(
+    async (values: CreateTenantInvitationReq) => {
+      setInviteSubmitting(true);
+      try {
+        const created = await service.createTenantInvitation(values);
+        setInvitation(created);
+      } catch (error: unknown) {
+        notice.error(t('auth.userManagement.feedback.inviteFailed'));
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('Create tenant invitation failed', message);
+      } finally {
+        setInviteSubmitting(false);
+      }
+    },
+    [notice, service, t],
+  );
+
   return (
     <>
       <UserTable
@@ -211,6 +243,7 @@ export function UserManagementPage({ service: serviceProp }: UserManagementPageP
         roles={roles}
         orgs={orgs}
         onAddUser={openCreateDrawer}
+        onInviteUser={openInvite}
         onEditUser={(record) => void openUpdateDrawer(record)}
         onResetPassword={resetUserPasswords}
         onBatchAssign={openBatchAssignment}
@@ -238,6 +271,15 @@ export function UserManagementPage({ service: serviceProp }: UserManagementPageP
         mode={batchAssignmentMode}
         onCancel={closeBatchAssignment}
         onSubmit={submitBatchAssignment}
+      />
+      <InviteMemberModal
+        open={inviteOpen}
+        roles={roles}
+        orgs={orgs}
+        submitting={inviteSubmitting}
+        invitation={invitation}
+        onCancel={closeInvite}
+        onSubmit={(values) => void submitInvite(values)}
       />
     </>
   );

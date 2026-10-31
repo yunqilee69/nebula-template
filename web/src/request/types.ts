@@ -11,6 +11,8 @@ export interface NebulaRequestConfig {
   /** 上传进度回调，直接透传给 axios（分片/整文件上传的真实进度） */
   onUploadProgress?: ((progressEvent: AxiosProgressEvent) => void) | undefined;
   _nebulaSkipAuthRefresh?: boolean;
+  /** 内部标记：响应失败时不弹全局错误提示，用于登录态探测等预期失败请求 */
+  _nebulaSilent?: boolean;
 }
 
 export interface NebulaRequestFn {
@@ -26,6 +28,8 @@ export interface RequestClientOptions {
    */
   clientType?: ClientType;
   getToken?: () => string | null | undefined;
+  /** 匿名请求使用的租户编码；已认证请求只带 Authorization，不再发送租户头。 */
+  getTenantCode?: () => string | undefined;
   refreshToken?: () => Promise<string | null | undefined>;
   onRefreshFailed?: (error: unknown) => void;
   onUnauthorized?: () => void;

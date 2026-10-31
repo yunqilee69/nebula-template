@@ -1,4 +1,5 @@
 import { request } from '@/request/request';
+import type { TenantInvitation } from '@/types/auth';
 import type {
   BatchUpdateUserAssignmentsReq,
   ChangePasswordReq,
@@ -18,9 +19,17 @@ import type {
   UserResp,
 } from '@/types/auth-management';
 
+export interface CreateTenantInvitationReq {
+  email?: string;
+  phone?: string;
+  roleId?: string;
+  orgId?: string;
+}
+
 export interface AuthManagementService {
   pageUsers: (data: UserPageReq) => Promise<PageResp<UserResp>>;
   createUser: (data: CreateUserReq) => Promise<void>;
+  createTenantInvitation: (data: CreateTenantInvitationReq) => Promise<TenantInvitation>;
   updateUser: (data: UpdateUserReq) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   getUserDetail: (id: string) => Promise<UserDetailResp>;
@@ -40,6 +49,8 @@ export interface AuthManagementService {
 export const authManagementService: AuthManagementService = {
   pageUsers: (data) => request<PageResp<UserResp>>({ method: 'POST', url: '/api/auth/users/page', data }),
   createUser: (data) => request<void>({ method: 'POST', url: '/api/auth/users', data }),
+  createTenantInvitation: (data) =>
+    request<TenantInvitation>({ method: 'POST', url: '/api/auth/tenant/invitations', data }),
   updateUser: (data) => request<void>({ method: 'PUT', url: `/api/auth/users/${data.id}`, data }),
   deleteUser: (id) => request<void>({ method: 'DELETE', url: `/api/auth/users/${id}` }),
   getUserDetail: (id) => request<UserDetailResp>({ method: 'GET', url: `/api/auth/users/${id}` }),

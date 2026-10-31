@@ -18,11 +18,138 @@ SET search_path TO public;
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
+-- auth-core / tenant & platform account
+-- Tables: auth_tenant, auth_tenant_domain, auth_person, auth_person_user,
+--         auth_oauth2_provider, auth_tenant_oauth2_provider, auth_tenant_invitation
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS auth_tenant (
+    id CHAR(32) PRIMARY KEY,
+    code VARCHAR(64) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    logo VARCHAR(500),
+    contact_email VARCHAR(100),
+    short_name VARCHAR(64),
+    contact_phone VARCHAR(32),
+    website VARCHAR(200),
+    address VARCHAR(255),
+    industry VARCHAR(100),
+    description VARCHAR(1000),
+    locale VARCHAR(16),
+    timezone VARCHAR(64),
+    branding_json TEXT,
+    settings_json TEXT,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tenant_code ON auth_tenant (code);
+CREATE INDEX IF NOT EXISTS idx_tenant_status ON auth_tenant (status);
+
+CREATE TABLE IF NOT EXISTS auth_tenant_domain (
+    id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    primary_domain BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    verified_at TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tenant_domain ON auth_tenant_domain (domain);
+CREATE INDEX IF NOT EXISTS idx_tenant_domain_tenant ON auth_tenant_domain (tenant_id);
+
+CREATE TABLE IF NOT EXISTS auth_person (
+    id CHAR(32) PRIMARY KEY,
+    username VARCHAR(64) NOT NULL,
+    display_name VARCHAR(100),
+    password_hash VARCHAR(100),
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    platform_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    last_login_time TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_person_username ON auth_person (username);
+
+CREATE TABLE IF NOT EXISTS auth_person_user (
+    id CHAR(32) PRIMARY KEY,
+    person_id CHAR(32) NOT NULL,
+    tenant_id CHAR(32) NOT NULL,
+    user_id CHAR(32) NOT NULL,
+    link_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    link_source VARCHAR(20) NOT NULL,
+    verified_at TIMESTAMP,
+    revoked_at TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_person_user_tenant_user ON auth_person_user (tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_person_user_person ON auth_person_user (person_id);
+CREATE INDEX IF NOT EXISTS idx_person_user_tenant_status ON auth_person_user (tenant_id, link_status);
+
+CREATE TABLE IF NOT EXISTS auth_oauth2_provider (
+    id CHAR(32) PRIMARY KEY,
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    protocol VARCHAR(20) NOT NULL,
+    supports_channels VARCHAR(100),
+    tenant_configurable BOOLEAN NOT NULL DEFAULT FALSE,
+    allowed_endpoints TEXT,
+    icon_url VARCHAR(500),
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_oauth2_provider_code ON auth_oauth2_provider (code);
+
+CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
+    id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    provider_id CHAR(32) NOT NULL,
+    channel VARCHAR(20) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    client_id VARCHAR(200),
+    client_secret_cipher TEXT,
+    redirect_uri VARCHAR(500),
+    frontend_callback_uri VARCHAR(500),
+    frontend_callback_allowlist TEXT,
+    authorize_url VARCHAR(500),
+    token_url VARCHAR(500),
+    userinfo_url VARCHAR(500),
+    scope VARCHAR(500),
+    config_json TEXT,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tenant_oauth2_provider ON auth_tenant_oauth2_provider (tenant_id, provider_id, channel);
+CREATE INDEX IF NOT EXISTS idx_tenant_oauth2_tenant ON auth_tenant_oauth2_provider (tenant_id);
+
+CREATE TABLE IF NOT EXISTS auth_tenant_invitation (
+    id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    email VARCHAR(100),
+    phone VARCHAR(32),
+    role_id CHAR(32),
+    org_id CHAR(32),
+    token_hash VARCHAR(128) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    expires_at TIMESTAMP NOT NULL,
+    accepted_at TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_tenant_invitation_token ON auth_tenant_invitation (token_hash);
+CREATE INDEX IF NOT EXISTS idx_tenant_invitation_tenant ON auth_tenant_invitation (tenant_id, status);
+
+
+-- ----------------------------------------------------------------------------
 -- auth-core / user
 -- Tables: auth_user
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    employee_no VARCHAR(50),
     username VARCHAR(50) NOT NULL,
     password VARCHAR(100) NOT NULL,
     nickname VARCHAR(50),
@@ -35,11 +162,15 @@ CREATE TABLE IF NOT EXISTS auth_user (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_user_username ON auth_user (username);
-CREATE INDEX IF NOT EXISTS idx_user_status ON auth_user (status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_username ON auth_user (tenant_id, username);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_phone ON auth_user (tenant_id, phone);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_email ON auth_user (tenant_id, email);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_employee_no ON auth_user (tenant_id, employee_no);
+CREATE INDEX IF NOT EXISTS idx_user_status ON auth_user (tenant_id, status);
 
 COMMENT ON TABLE auth_user IS '用户表';
 COMMENT ON COLUMN auth_user.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_user.employee_no IS '工号，租户内唯一';
 COMMENT ON COLUMN auth_user.username IS '用户名，唯一';
 COMMENT ON COLUMN auth_user.password IS '密码';
 COMMENT ON COLUMN auth_user.nickname IS '昵称';
@@ -57,6 +188,7 @@ COMMENT ON COLUMN auth_user.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_role (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     code VARCHAR(50) NOT NULL,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(200),
@@ -65,8 +197,8 @@ CREATE TABLE IF NOT EXISTS auth_role (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_role_code ON auth_role (code);
-CREATE INDEX IF NOT EXISTS idx_role_status ON auth_role (status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_role_code ON auth_role (tenant_id, code);
+CREATE INDEX IF NOT EXISTS idx_role_status ON auth_role (tenant_id, status);
 
 COMMENT ON TABLE auth_role IS '角色表';
 COMMENT ON COLUMN auth_role.id IS '主键，UUID v7';
@@ -83,6 +215,7 @@ COMMENT ON COLUMN auth_role.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_org (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     name VARCHAR(100) NOT NULL,
     parent_id CHAR(32),
     path VARCHAR(500),
@@ -94,9 +227,9 @@ CREATE TABLE IF NOT EXISTS auth_org (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_org_code ON auth_org (code);
-CREATE INDEX IF NOT EXISTS idx_org_status ON auth_org (status);
-CREATE INDEX IF NOT EXISTS idx_org_parent_id ON auth_org (parent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_org_code ON auth_org (tenant_id, code);
+CREATE INDEX IF NOT EXISTS idx_org_status ON auth_org (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_org_parent_id ON auth_org (tenant_id, parent_id);
 
 COMMENT ON TABLE auth_org IS '组织表';
 COMMENT ON COLUMN auth_org.id IS '主键，UUID v7';
@@ -112,6 +245,7 @@ COMMENT ON COLUMN auth_org.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_user_org (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     user_id CHAR(32) NOT NULL,
     org_id CHAR(32) NOT NULL,
     is_main_org BOOLEAN NOT NULL DEFAULT FALSE,
@@ -119,9 +253,9 @@ CREATE TABLE IF NOT EXISTS auth_user_org (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_user_org ON auth_user_org (user_id, org_id);
-CREATE INDEX IF NOT EXISTS idx_user_org_user_id ON auth_user_org (user_id);
-CREATE INDEX IF NOT EXISTS idx_user_org_org_id ON auth_user_org (org_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_org ON auth_user_org (tenant_id, user_id, org_id);
+CREATE INDEX IF NOT EXISTS idx_user_org_user_id ON auth_user_org (tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_org_org_id ON auth_user_org (tenant_id, org_id);
 
 COMMENT ON TABLE auth_user_org IS '用户-组织关联表';
 COMMENT ON COLUMN auth_user_org.id IS '主键，UUID v7';
@@ -137,15 +271,16 @@ COMMENT ON COLUMN auth_user_org.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user_role (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     user_id CHAR(32) NOT NULL,
     role_id CHAR(32) NOT NULL,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_user_role ON auth_user_role (user_id, role_id);
-CREATE INDEX IF NOT EXISTS idx_user_role_user_id ON auth_user_role (user_id);
-CREATE INDEX IF NOT EXISTS idx_user_role_role_id ON auth_user_role (role_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_user_role ON auth_user_role (tenant_id, user_id, role_id);
+CREATE INDEX IF NOT EXISTS idx_user_role_user_id ON auth_user_role (tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_role_role_id ON auth_user_role (tenant_id, role_id);
 
 COMMENT ON TABLE auth_user_role IS '用户-角色关联表';
 COMMENT ON COLUMN auth_user_role.id IS '主键，UUID v7';
@@ -160,6 +295,7 @@ COMMENT ON COLUMN auth_user_role.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_menu (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     name VARCHAR(100) NOT NULL,
     parent_id CHAR(32),
     path VARCHAR(200),
@@ -179,17 +315,18 @@ CREATE TABLE IF NOT EXISTS auth_menu (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_menu_code ON auth_menu (code);
-CREATE INDEX IF NOT EXISTS idx_menu_status ON auth_menu (status);
-CREATE INDEX IF NOT EXISTS idx_menu_parent_id ON auth_menu (parent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_menu_code ON auth_menu (tenant_id, code);
+CREATE INDEX IF NOT EXISTS idx_menu_status ON auth_menu (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_menu_parent_id ON auth_menu (tenant_id, parent_id);
 
 COMMENT ON TABLE auth_menu IS '菜单表';
 COMMENT ON COLUMN auth_menu.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_menu.tenant_id IS '租户ID';
 COMMENT ON COLUMN auth_menu.name IS '菜单名称';
 COMMENT ON COLUMN auth_menu.parent_id IS '父菜单ID，NULL为根节点';
 COMMENT ON COLUMN auth_menu.path IS '路由路径';
 COMMENT ON COLUMN auth_menu.sort IS '排序号';
-COMMENT ON COLUMN auth_menu.code IS '菜单编码，唯一';
+COMMENT ON COLUMN auth_menu.code IS '菜单编码，租户内唯一';
 COMMENT ON COLUMN auth_menu.icon IS '图标';
 COMMENT ON COLUMN auth_menu.component IS '前端组件路径';
 COMMENT ON COLUMN auth_menu.type IS '类型：目录、菜单、内嵌、外链';
@@ -205,6 +342,7 @@ COMMENT ON COLUMN auth_menu.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_button (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     menu_id CHAR(32) NOT NULL,
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -215,14 +353,15 @@ CREATE TABLE IF NOT EXISTS auth_button (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_button_code ON auth_button (code);
-CREATE INDEX IF NOT EXISTS idx_button_status ON auth_button (status);
-CREATE INDEX IF NOT EXISTS idx_button_menu_id ON auth_button (menu_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_button_code ON auth_button (tenant_id, code);
+CREATE INDEX IF NOT EXISTS idx_button_status ON auth_button (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_button_menu_id ON auth_button (tenant_id, menu_id);
 
 COMMENT ON TABLE auth_button IS '按钮表';
 COMMENT ON COLUMN auth_button.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_button.tenant_id IS '租户ID';
 COMMENT ON COLUMN auth_button.menu_id IS '所属菜单ID';
-COMMENT ON COLUMN auth_button.code IS '按钮编码，唯一';
+COMMENT ON COLUMN auth_button.code IS '按钮编码，租户内唯一';
 COMMENT ON COLUMN auth_button.name IS '按钮名称';
 COMMENT ON COLUMN auth_button.type IS '按钮类型：add/edit/delete/export等';
 COMMENT ON COLUMN auth_button.sort IS '排序号';
@@ -232,6 +371,7 @@ COMMENT ON COLUMN auth_button.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_api (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     module VARCHAR(50),
@@ -242,13 +382,14 @@ CREATE TABLE IF NOT EXISTS auth_api (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_api_code ON auth_api (code);
-CREATE INDEX IF NOT EXISTS idx_api_module ON auth_api (module);
-CREATE INDEX IF NOT EXISTS idx_api_status ON auth_api (status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_api_code ON auth_api (tenant_id, code);
+CREATE INDEX IF NOT EXISTS idx_api_module ON auth_api (tenant_id, module);
+CREATE INDEX IF NOT EXISTS idx_api_status ON auth_api (tenant_id, status);
 
 COMMENT ON TABLE auth_api IS '接口权限表';
 COMMENT ON COLUMN auth_api.id IS '主键，UUID v7';
-COMMENT ON COLUMN auth_api.code IS '接口权限编码，唯一';
+COMMENT ON COLUMN auth_api.tenant_id IS '租户ID';
+COMMENT ON COLUMN auth_api.code IS '接口权限编码，租户内唯一';
 COMMENT ON COLUMN auth_api.name IS '接口权限名称';
 COMMENT ON COLUMN auth_api.module IS '所属模块编码，取值来自字典 param_module';
 COMMENT ON COLUMN auth_api.sort IS '排序号';
@@ -263,6 +404,7 @@ COMMENT ON COLUMN auth_api.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_permission (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     subject_type VARCHAR(20) NOT NULL,
     subject_id CHAR(32) NOT NULL,
     resource_type VARCHAR(20) NOT NULL,
@@ -273,10 +415,10 @@ CREATE TABLE IF NOT EXISTS auth_permission (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_permission ON auth_permission (subject_type, subject_id, resource_type, resource_id);
-CREATE INDEX IF NOT EXISTS idx_permission_subject ON auth_permission (subject_type, subject_id);
-CREATE INDEX IF NOT EXISTS idx_permission_resource ON auth_permission (resource_type, resource_id);
-CREATE INDEX IF NOT EXISTS idx_permission_effect ON auth_permission (effect);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_permission ON auth_permission (tenant_id, subject_type, subject_id, resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_permission_subject ON auth_permission (tenant_id, subject_type, subject_id);
+CREATE INDEX IF NOT EXISTS idx_permission_resource ON auth_permission (tenant_id, resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_permission_effect ON auth_permission (tenant_id, effect);
 
 COMMENT ON TABLE auth_permission IS '权限表';
 COMMENT ON COLUMN auth_permission.id IS '主键，UUID v7';
@@ -291,6 +433,7 @@ COMMENT ON COLUMN auth_permission.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_data_scope (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     subject_type VARCHAR(20) NOT NULL,
     subject_id CHAR(32) NOT NULL,
     resource_type VARCHAR(50) NOT NULL,
@@ -300,10 +443,10 @@ CREATE TABLE IF NOT EXISTS auth_data_scope (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_data_scope_subject_resource ON auth_data_scope (subject_type, subject_id, resource_type);
-CREATE INDEX IF NOT EXISTS idx_data_scope_subject ON auth_data_scope (subject_type, subject_id);
-CREATE INDEX IF NOT EXISTS idx_data_scope_resource ON auth_data_scope (resource_type);
-CREATE INDEX IF NOT EXISTS idx_data_scope_value ON auth_data_scope (data_scope);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_data_scope_subject_resource ON auth_data_scope (tenant_id, subject_type, subject_id, resource_type);
+CREATE INDEX IF NOT EXISTS idx_data_scope_subject ON auth_data_scope (tenant_id, subject_type, subject_id);
+CREATE INDEX IF NOT EXISTS idx_data_scope_resource ON auth_data_scope (tenant_id, resource_type);
+CREATE INDEX IF NOT EXISTS idx_data_scope_value ON auth_data_scope (tenant_id, data_scope);
 
 COMMENT ON TABLE auth_data_scope IS '数据范围表';
 COMMENT ON COLUMN auth_data_scope.id IS '主键，UUID v7';
@@ -321,6 +464,8 @@ COMMENT ON COLUMN auth_data_scope.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_oauth2_account (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    provider_config_id CHAR(32),
     user_id CHAR(32) NOT NULL,
     provider_id VARCHAR(50) NOT NULL,
     provider_user_id VARCHAR(100) NOT NULL,
@@ -330,10 +475,12 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_account (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_provider_user ON auth_oauth2_account (provider_id, provider_user_id);
-CREATE INDEX IF NOT EXISTS idx_oauth2_account_user_id ON auth_oauth2_account (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_provider_user ON auth_oauth2_account (tenant_id, provider_id, provider_user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth2_account_user_id ON auth_oauth2_account (tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth2_account_provider_config ON auth_oauth2_account (provider_config_id);
 
 COMMENT ON TABLE auth_oauth2_account IS 'OAuth2账户表';
+COMMENT ON COLUMN auth_oauth2_account.provider_config_id IS '租户 OAuth2 配置 ID';
 COMMENT ON COLUMN auth_oauth2_account.id IS '主键，UUID v7';
 COMMENT ON COLUMN auth_oauth2_account.user_id IS '用户ID';
 COMMENT ON COLUMN auth_oauth2_account.provider_id IS '提供商ID';
@@ -349,7 +496,9 @@ COMMENT ON COLUMN auth_oauth2_account.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_login_record (
     id CHAR(32) PRIMARY KEY,
-    user_id CHAR(32) NOT NULL,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    person_id CHAR(32) DEFAULT NULL,
+    user_id CHAR(32) DEFAULT NULL,
     login_account VARCHAR(100) NOT NULL,
     login_type VARCHAR(20) NOT NULL,
     login_result VARCHAR(20) NOT NULL,
@@ -366,9 +515,9 @@ CREATE TABLE IF NOT EXISTS auth_login_record (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_login_record_user_id ON auth_login_record (user_id);
-CREATE INDEX IF NOT EXISTS idx_login_record_login_time ON auth_login_record (login_time);
-CREATE INDEX IF NOT EXISTS idx_login_record_client_type ON auth_login_record (client_type);
+CREATE INDEX IF NOT EXISTS idx_login_record_user_id ON auth_login_record (tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_login_record_login_time ON auth_login_record (tenant_id, login_time);
+CREATE INDEX IF NOT EXISTS idx_login_record_client_type ON auth_login_record (tenant_id, client_type);
 
 COMMENT ON TABLE auth_login_record IS '用户登录记录表';
 COMMENT ON COLUMN auth_login_record.id IS '主键，UUID v7';
@@ -394,6 +543,7 @@ COMMENT ON COLUMN auth_login_record.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_dict_type (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     remark VARCHAR(255),
@@ -401,7 +551,7 @@ CREATE TABLE IF NOT EXISTS sys_dict_type (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_dict_type_code ON sys_dict_type (code);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_dict_type_code ON sys_dict_type (tenant_id, code);
 
 COMMENT ON TABLE sys_dict_type IS '字典类型表';
 COMMENT ON COLUMN sys_dict_type.id IS '主键，UUID v7';
@@ -413,6 +563,7 @@ COMMENT ON COLUMN sys_dict_type.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_dict_item (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     dict_code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     parent_id CHAR(32),
@@ -426,10 +577,10 @@ CREATE TABLE IF NOT EXISTS sys_dict_item (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_dict_item_dict_code ON sys_dict_item (dict_code);
-CREATE INDEX IF NOT EXISTS idx_dict_item_is_enabled ON sys_dict_item (is_enabled);
-CREATE INDEX IF NOT EXISTS idx_dict_item_sort ON sys_dict_item (dict_code, sort);
-CREATE INDEX IF NOT EXISTS idx_dict_item_parent_id ON sys_dict_item (parent_id);
+CREATE INDEX IF NOT EXISTS idx_dict_item_dict_code ON sys_dict_item (tenant_id, dict_code);
+CREATE INDEX IF NOT EXISTS idx_dict_item_is_enabled ON sys_dict_item (tenant_id, is_enabled);
+CREATE INDEX IF NOT EXISTS idx_dict_item_sort ON sys_dict_item (tenant_id, dict_code, sort);
+CREATE INDEX IF NOT EXISTS idx_dict_item_parent_id ON sys_dict_item (tenant_id, parent_id);
 
 COMMENT ON TABLE sys_dict_item IS '字典项表';
 COMMENT ON COLUMN sys_dict_item.id IS '主键，UUID v7';
@@ -451,6 +602,7 @@ COMMENT ON COLUMN sys_dict_item.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS frontend_user_preference (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     user_id CHAR(32) NOT NULL,
     locale_tag VARCHAR(32),
     theme_code VARCHAR(64),
@@ -460,7 +612,7 @@ CREATE TABLE IF NOT EXISTS frontend_user_preference (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_frontend_preference_user ON frontend_user_preference (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_frontend_preference_user ON frontend_user_preference (tenant_id, user_id);
 
 COMMENT ON TABLE frontend_user_preference IS '前端用户偏好表';
 COMMENT ON COLUMN frontend_user_preference.id IS '主键，UUID';
@@ -510,6 +662,7 @@ COMMENT ON COLUMN frontend_app_release.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_notify_template (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     template_code VARCHAR(100) NOT NULL,
     template_name VARCHAR(100) NOT NULL,
     remark VARCHAR(500),
@@ -518,8 +671,8 @@ CREATE TABLE IF NOT EXISTS sys_notify_template (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_template_code ON sys_notify_template (template_code);
-CREATE INDEX IF NOT EXISTS idx_notify_template_category ON sys_notify_template (category_code);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_template_code ON sys_notify_template (tenant_id, template_code);
+CREATE INDEX IF NOT EXISTS idx_notify_template_category ON sys_notify_template (tenant_id, category_code);
 
 COMMENT ON TABLE sys_notify_template IS '通知模板表';
 COMMENT ON COLUMN sys_notify_template.id IS '主键';
@@ -532,6 +685,7 @@ COMMENT ON COLUMN sys_notify_template.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_field (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     template_id VARCHAR(64) NOT NULL,
     field_code VARCHAR(100) NOT NULL,
     field_name VARCHAR(100) NOT NULL,
@@ -543,8 +697,8 @@ CREATE TABLE IF NOT EXISTS sys_notify_template_field (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_template_field_code ON sys_notify_template_field (template_id, field_code);
-CREATE INDEX IF NOT EXISTS idx_notify_template_field_template ON sys_notify_template_field (template_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_template_field_code ON sys_notify_template_field (tenant_id, template_id, field_code);
+CREATE INDEX IF NOT EXISTS idx_notify_template_field_template ON sys_notify_template_field (tenant_id, template_id);
 
 COMMENT ON TABLE sys_notify_template_field IS '通知模板自定义字段表';
 COMMENT ON COLUMN sys_notify_template_field.id IS '主键';
@@ -560,19 +714,21 @@ COMMENT ON COLUMN sys_notify_template_field.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_variant (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     template_id VARCHAR(64) NOT NULL,
     channel_type VARCHAR(32) NOT NULL,
     subject_template VARCHAR(255),
     content_template TEXT NOT NULL,
+    html_content_template TEXT,
     is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     remark VARCHAR(500),
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_template_variant_channel ON sys_notify_template_variant (template_id, channel_type);
-CREATE INDEX IF NOT EXISTS idx_notify_template_variant_template ON sys_notify_template_variant (template_id);
-CREATE INDEX IF NOT EXISTS idx_notify_template_variant_channel ON sys_notify_template_variant (channel_type);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_template_variant_channel ON sys_notify_template_variant (tenant_id, template_id, channel_type);
+CREATE INDEX IF NOT EXISTS idx_notify_template_variant_template ON sys_notify_template_variant (tenant_id, template_id);
+CREATE INDEX IF NOT EXISTS idx_notify_template_variant_channel ON sys_notify_template_variant (tenant_id, channel_type);
 
 COMMENT ON TABLE sys_notify_template_variant IS '通知模板渠道变体表';
 COMMENT ON COLUMN sys_notify_template_variant.id IS '主键';
@@ -580,6 +736,7 @@ COMMENT ON COLUMN sys_notify_template_variant.template_id IS '通知模板ID';
 COMMENT ON COLUMN sys_notify_template_variant.channel_type IS '渠道类型';
 COMMENT ON COLUMN sys_notify_template_variant.subject_template IS '标题模板';
 COMMENT ON COLUMN sys_notify_template_variant.content_template IS '内容模板';
+COMMENT ON COLUMN sys_notify_template_variant.html_content_template IS 'HTML 内容模板（仅邮件渠道）';
 COMMENT ON COLUMN sys_notify_template_variant.is_enabled IS '是否启用';
 COMMENT ON COLUMN sys_notify_template_variant.remark IS '备注';
 COMMENT ON COLUMN sys_notify_template_variant.create_time IS '创建时间';
@@ -587,6 +744,7 @@ COMMENT ON COLUMN sys_notify_template_variant.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     target_name VARCHAR(100) NOT NULL,
     channel_type VARCHAR(32) NOT NULL,
     endpoint_url VARCHAR(1000) NOT NULL,
@@ -596,7 +754,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_notify_channel_target_channel ON sys_notify_channel_target (channel_type);
+CREATE INDEX IF NOT EXISTS idx_notify_channel_target_channel ON sys_notify_channel_target (tenant_id, channel_type);
 
 COMMENT ON TABLE sys_notify_channel_target IS '通知渠道目标表';
 COMMENT ON COLUMN sys_notify_channel_target.id IS '主键';
@@ -610,6 +768,7 @@ COMMENT ON COLUMN sys_notify_channel_target.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_record (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     channel_type VARCHAR(20) NOT NULL,
     template_code VARCHAR(100),
     template_variant_id VARCHAR(64),
@@ -627,14 +786,14 @@ CREATE TABLE IF NOT EXISTS sys_notify_record (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_notify_record_channel ON sys_notify_record (channel_type);
-CREATE INDEX IF NOT EXISTS idx_notify_record_template ON sys_notify_record (template_code);
-CREATE INDEX IF NOT EXISTS idx_notify_record_variant ON sys_notify_record (template_variant_id);
-CREATE INDEX IF NOT EXISTS idx_notify_record_target ON sys_notify_record (target_id);
-CREATE INDEX IF NOT EXISTS idx_notify_record_receiver_user ON sys_notify_record (receiver_user_id);
-CREATE INDEX IF NOT EXISTS idx_notify_record_status ON sys_notify_record (send_status);
-CREATE INDEX IF NOT EXISTS idx_notify_record_receiver ON sys_notify_record (receiver);
-CREATE INDEX IF NOT EXISTS idx_notify_record_create_time ON sys_notify_record (create_time);
+CREATE INDEX IF NOT EXISTS idx_notify_record_channel ON sys_notify_record (tenant_id, channel_type);
+CREATE INDEX IF NOT EXISTS idx_notify_record_template ON sys_notify_record (tenant_id, template_code);
+CREATE INDEX IF NOT EXISTS idx_notify_record_variant ON sys_notify_record (tenant_id, template_variant_id);
+CREATE INDEX IF NOT EXISTS idx_notify_record_target ON sys_notify_record (tenant_id, target_id);
+CREATE INDEX IF NOT EXISTS idx_notify_record_receiver_user ON sys_notify_record (tenant_id, receiver_user_id);
+CREATE INDEX IF NOT EXISTS idx_notify_record_status ON sys_notify_record (tenant_id, send_status);
+CREATE INDEX IF NOT EXISTS idx_notify_record_receiver ON sys_notify_record (tenant_id, receiver);
+CREATE INDEX IF NOT EXISTS idx_notify_record_create_time ON sys_notify_record (tenant_id, create_time);
 
 COMMENT ON TABLE sys_notify_record IS '通知发送记录表';
 COMMENT ON COLUMN sys_notify_record.id IS '主键';
@@ -658,6 +817,7 @@ COMMENT ON COLUMN sys_notify_record.update_time IS '更新时间';
 -- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=TRUE 的内置类别不可删除。
 CREATE TABLE IF NOT EXISTS sys_notify_category (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     code VARCHAR(32) NOT NULL,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(200),
@@ -672,7 +832,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_category (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_category_code ON sys_notify_category (code);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_category_code ON sys_notify_category (tenant_id, code);
 
 COMMENT ON TABLE sys_notify_category IS '通知类别表';
 COMMENT ON COLUMN sys_notify_category.id IS '主键';
@@ -691,6 +851,7 @@ COMMENT ON COLUMN sys_notify_category.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     record_id VARCHAR(64) NOT NULL,
     category_code VARCHAR(32) NOT NULL DEFAULT 'DEFAULT',
     receiver_user_id VARCHAR(64) NOT NULL,
@@ -702,11 +863,11 @@ CREATE TABLE IF NOT EXISTS sys_site_message (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_site_message_receiver ON sys_site_message (receiver_user_id);
-CREATE INDEX IF NOT EXISTS idx_site_message_read ON sys_site_message (read_status);
-CREATE INDEX IF NOT EXISTS idx_site_message_record ON sys_site_message (record_id);
-CREATE INDEX IF NOT EXISTS idx_site_message_receiver_read_time ON sys_site_message (receiver_user_id, read_status, create_time);
-CREATE INDEX IF NOT EXISTS idx_site_message_receiver_category ON sys_site_message (receiver_user_id, category_code);
+CREATE INDEX IF NOT EXISTS idx_site_message_receiver ON sys_site_message (tenant_id, receiver_user_id);
+CREATE INDEX IF NOT EXISTS idx_site_message_read ON sys_site_message (tenant_id, read_status);
+CREATE INDEX IF NOT EXISTS idx_site_message_record ON sys_site_message (tenant_id, record_id);
+CREATE INDEX IF NOT EXISTS idx_site_message_receiver_read_time ON sys_site_message (tenant_id, receiver_user_id, read_status, create_time);
+CREATE INDEX IF NOT EXISTS idx_site_message_receiver_category ON sys_site_message (tenant_id, receiver_user_id, category_code);
 
 COMMENT ON TABLE sys_site_message IS '站内信表';
 COMMENT ON COLUMN sys_site_message.id IS '主键';
@@ -722,6 +883,7 @@ COMMENT ON COLUMN sys_site_message.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_announcement (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
@@ -735,11 +897,11 @@ CREATE TABLE IF NOT EXISTS sys_announcement (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_announcement_status ON sys_announcement (status);
-CREATE INDEX IF NOT EXISTS idx_announcement_publish_time ON sys_announcement (publish_time);
-CREATE INDEX IF NOT EXISTS idx_announcement_target_type ON sys_announcement (target_type);
-CREATE INDEX IF NOT EXISTS idx_announcement_is_popup ON sys_announcement (is_popup);
-CREATE INDEX IF NOT EXISTS idx_announcement_is_pinned ON sys_announcement (is_pinned);
+CREATE INDEX IF NOT EXISTS idx_announcement_status ON sys_announcement (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_announcement_publish_time ON sys_announcement (tenant_id, publish_time);
+CREATE INDEX IF NOT EXISTS idx_announcement_target_type ON sys_announcement (tenant_id, target_type);
+CREATE INDEX IF NOT EXISTS idx_announcement_is_popup ON sys_announcement (tenant_id, is_popup);
+CREATE INDEX IF NOT EXISTS idx_announcement_is_pinned ON sys_announcement (tenant_id, is_pinned);
 
 COMMENT ON TABLE sys_announcement IS '公告主表';
 COMMENT ON COLUMN sys_announcement.id IS '主键';
@@ -757,6 +919,7 @@ COMMENT ON COLUMN sys_announcement.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_announcement_target (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     announcement_id VARCHAR(64) NOT NULL,
     target_type VARCHAR(20) NOT NULL,
     target_value VARCHAR(64) NOT NULL,
@@ -764,8 +927,8 @@ CREATE TABLE IF NOT EXISTS sys_announcement_target (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_announcement_target_announcement ON sys_announcement_target (announcement_id);
-CREATE INDEX IF NOT EXISTS idx_announcement_target_lookup ON sys_announcement_target (target_type, target_value);
+CREATE INDEX IF NOT EXISTS idx_announcement_target_announcement ON sys_announcement_target (tenant_id, announcement_id);
+CREATE INDEX IF NOT EXISTS idx_announcement_target_lookup ON sys_announcement_target (tenant_id, target_type, target_value);
 
 COMMENT ON TABLE sys_announcement_target IS '公告定向配置表';
 COMMENT ON COLUMN sys_announcement_target.id IS '主键';
@@ -777,6 +940,7 @@ COMMENT ON COLUMN sys_announcement_target.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     announcement_id VARCHAR(64) NOT NULL,
     user_id VARCHAR(64) NOT NULL,
     read_time TIMESTAMP NOT NULL,
@@ -784,9 +948,9 @@ CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_announcement_read_user ON sys_announcement_read_record (announcement_id, user_id);
-CREATE INDEX IF NOT EXISTS idx_announcement_read_user ON sys_announcement_read_record (user_id);
-CREATE INDEX IF NOT EXISTS idx_announcement_read_time ON sys_announcement_read_record (read_time);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_announcement_read_user ON sys_announcement_read_record (tenant_id, announcement_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_announcement_read_user ON sys_announcement_read_record (tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_announcement_read_time ON sys_announcement_read_record (tenant_id, read_time);
 
 COMMENT ON TABLE sys_announcement_read_record IS '公告已读记录表';
 COMMENT ON COLUMN sys_announcement_read_record.id IS '主键';
@@ -798,6 +962,7 @@ COMMENT ON COLUMN sys_announcement_read_record.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     user_id VARCHAR(64) NOT NULL,
     category_code VARCHAR(32) NOT NULL,
     channel VARCHAR(32) NOT NULL,
@@ -806,8 +971,8 @@ CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_user_preference ON sys_notify_user_preference (user_id, category_code, channel);
-CREATE INDEX IF NOT EXISTS idx_notify_user_preference_user ON sys_notify_user_preference (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_user_preference ON sys_notify_user_preference (tenant_id, user_id, category_code, channel);
+CREATE INDEX IF NOT EXISTS idx_notify_user_preference_user ON sys_notify_user_preference (tenant_id, user_id);
 
 COMMENT ON TABLE sys_notify_user_preference IS '用户通知订阅偏好表';
 COMMENT ON COLUMN sys_notify_user_preference.id IS '主键';
@@ -824,6 +989,7 @@ COMMENT ON COLUMN sys_notify_user_preference.update_time IS '更新时间';
 -- push_token 是可定位到设备的个人数据：注销时清空，日志中不得完整打印。
 CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     user_id VARCHAR(64) NOT NULL,
     device_id VARCHAR(128) NOT NULL,
     platform VARCHAR(16) NOT NULL,
@@ -841,9 +1007,9 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_push_device ON sys_notify_push_device (device_id);
-CREATE INDEX IF NOT EXISTS idx_notify_push_device_user_status ON sys_notify_push_device (user_id, device_status);
-CREATE INDEX IF NOT EXISTS idx_notify_push_device_token ON sys_notify_push_device (push_token);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_push_device ON sys_notify_push_device (tenant_id, device_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_device_user_status ON sys_notify_push_device (tenant_id, user_id, device_status);
+CREATE INDEX IF NOT EXISTS idx_notify_push_device_token ON sys_notify_push_device (tenant_id, push_token);
 
 COMMENT ON TABLE sys_notify_push_device IS '移动推送设备注册表';
 COMMENT ON COLUMN sys_notify_push_device.user_id IS '所属用户ID，来自登录态，不接受客户端传入';
@@ -860,6 +1026,7 @@ COMMENT ON COLUMN sys_notify_push_device.invalid_reason IS '失效原因，由�
 -- 排障要能回答"是哪台设备、哪个厂商、什么原因失败的"。刻意不落 push_token。
 CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     record_id VARCHAR(64) NOT NULL,
     device_id VARCHAR(128) NOT NULL,
     user_id VARCHAR(64),
@@ -872,8 +1039,8 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_notify_push_detail_record ON sys_notify_push_record_detail (record_id);
-CREATE INDEX IF NOT EXISTS idx_notify_push_detail_device ON sys_notify_push_record_detail (device_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_detail_record ON sys_notify_push_record_detail (tenant_id, record_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_detail_device ON sys_notify_push_record_detail (tenant_id, device_id);
 
 COMMENT ON TABLE sys_notify_push_record_detail IS '逐设备推送投递明细表';
 COMMENT ON COLUMN sys_notify_push_record_detail.record_id IS '关联 sys_notify_record.id（channel_type=PUSH）';
@@ -889,6 +1056,7 @@ COMMENT ON COLUMN sys_notify_push_record_detail.send_time IS '投递时间；未
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_param (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     param_key VARCHAR(150) NOT NULL,
     param_name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
@@ -903,9 +1071,9 @@ CREATE TABLE IF NOT EXISTS sys_param (
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_sys_param_key ON sys_param (param_key);
-CREATE INDEX IF NOT EXISTS idx_sys_param_module_code ON sys_param (module_code);
-CREATE INDEX IF NOT EXISTS idx_sys_param_data_type ON sys_param (data_type);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sys_param_key ON sys_param (tenant_id, param_key);
+CREATE INDEX IF NOT EXISTS idx_sys_param_module_code ON sys_param (tenant_id, module_code);
+CREATE INDEX IF NOT EXISTS idx_sys_param_data_type ON sys_param (tenant_id, data_type);
 
 COMMENT ON TABLE sys_param IS '系统参数表';
 COMMENT ON COLUMN sys_param.id IS '主键，UUID v7';
@@ -928,6 +1096,7 @@ COMMENT ON COLUMN sys_param.is_deleted IS '软删除标记：0-正常，1-已删
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS scheduler_job (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     job_code VARCHAR(128) NOT NULL,
     job_name VARCHAR(128) NOT NULL,
     description VARCHAR(512),
@@ -945,7 +1114,7 @@ CREATE TABLE IF NOT EXISTS scheduler_job (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_scheduler_job_code ON scheduler_job (job_code);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_scheduler_job_code ON scheduler_job (tenant_id, job_code);
 
 COMMENT ON TABLE scheduler_job IS '调度任务定义表';
 COMMENT ON COLUMN scheduler_job.id IS '主键，UUID v7';
@@ -967,6 +1136,7 @@ COMMENT ON COLUMN scheduler_job.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS scheduler_job_run (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     request_id VARCHAR(64) NOT NULL,
     job_code VARCHAR(128) NOT NULL,
     trigger_source VARCHAR(32),
@@ -991,10 +1161,10 @@ CREATE TABLE IF NOT EXISTS scheduler_job_run (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_scheduler_job_run_request_id ON scheduler_job_run (request_id);
-CREATE INDEX IF NOT EXISTS idx_scheduler_job_run_job_code ON scheduler_job_run (job_code);
-CREATE INDEX IF NOT EXISTS idx_scheduler_job_run_run_status ON scheduler_job_run (run_status);
-CREATE INDEX IF NOT EXISTS idx_scheduler_job_run_create_time ON scheduler_job_run (create_time);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_scheduler_job_run_request_id ON scheduler_job_run (tenant_id, request_id);
+CREATE INDEX IF NOT EXISTS idx_scheduler_job_run_job_code ON scheduler_job_run (tenant_id, job_code);
+CREATE INDEX IF NOT EXISTS idx_scheduler_job_run_run_status ON scheduler_job_run (tenant_id, run_status);
+CREATE INDEX IF NOT EXISTS idx_scheduler_job_run_create_time ON scheduler_job_run (tenant_id, create_time);
 
 COMMENT ON TABLE scheduler_job_run IS '调度任务运行记录表';
 COMMENT ON COLUMN scheduler_job_run.id IS '主键，UUID v7';
@@ -1027,8 +1197,12 @@ COMMENT ON COLUMN scheduler_job_run.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS audit_record (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     operator_id VARCHAR(64),
     operator_name VARCHAR(128),
+    person_id CHAR(32),
+    operator_tenant_id CHAR(32),
+    target_tenant_id CHAR(32),
     module VARCHAR(64),
     action VARCHAR(128),
     resource_type VARCHAR(128),
@@ -1043,10 +1217,10 @@ CREATE TABLE IF NOT EXISTS audit_record (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_record_create_time ON audit_record (create_time);
-CREATE INDEX IF NOT EXISTS idx_audit_record_operator_create_time ON audit_record (operator_id, create_time);
-CREATE INDEX IF NOT EXISTS idx_audit_record_module_action_create_time ON audit_record (module, action, create_time);
-CREATE INDEX IF NOT EXISTS idx_audit_record_resource_create_time ON audit_record (resource_type, resource_id, create_time);
+CREATE INDEX IF NOT EXISTS idx_audit_record_create_time ON audit_record (tenant_id, create_time);
+CREATE INDEX IF NOT EXISTS idx_audit_record_operator_create_time ON audit_record (tenant_id, operator_id, create_time);
+CREATE INDEX IF NOT EXISTS idx_audit_record_module_action_create_time ON audit_record (tenant_id, module, action, create_time);
+CREATE INDEX IF NOT EXISTS idx_audit_record_resource_create_time ON audit_record (tenant_id, resource_type, resource_id, create_time);
 
 COMMENT ON TABLE audit_record IS '审计记录表';
 COMMENT ON COLUMN audit_record.id IS '主键';
@@ -1071,6 +1245,7 @@ COMMENT ON COLUMN audit_record.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS event_outbox (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     event_id VARCHAR(64) NOT NULL,
     event_type VARCHAR(128) NOT NULL,
     module VARCHAR(64) NOT NULL,
@@ -1093,12 +1268,12 @@ CREATE TABLE IF NOT EXISTS event_outbox (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_event_outbox_event_id ON event_outbox (event_id);
-CREATE INDEX IF NOT EXISTS idx_event_outbox_status_next_retry ON event_outbox (status, next_retry_time);
-CREATE INDEX IF NOT EXISTS idx_event_outbox_lease_expire_time ON event_outbox (lease_expire_time);
-CREATE INDEX IF NOT EXISTS idx_event_outbox_event_type ON event_outbox (event_type);
-CREATE INDEX IF NOT EXISTS idx_event_outbox_aggregate_id ON event_outbox (aggregate_id);
-CREATE INDEX IF NOT EXISTS idx_event_outbox_create_time ON event_outbox (create_time);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_event_outbox_event_id ON event_outbox (tenant_id, event_id);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_status_next_retry ON event_outbox (tenant_id, status, next_retry_time);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_lease_expire_time ON event_outbox (tenant_id, lease_expire_time);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_event_type ON event_outbox (tenant_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_aggregate_id ON event_outbox (tenant_id, aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_create_time ON event_outbox (tenant_id, create_time);
 
 COMMENT ON TABLE event_outbox IS '事件Outbox表';
 COMMENT ON COLUMN event_outbox.id IS 'Outbox行主键，UUID v7';
@@ -1125,6 +1300,7 @@ COMMENT ON COLUMN event_outbox.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS event_consume_record (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     consumer_name VARCHAR(128) NOT NULL,
     event_id VARCHAR(64) NOT NULL,
     idempotency_key VARCHAR(128) NOT NULL,
@@ -1135,10 +1311,10 @@ CREATE TABLE IF NOT EXISTS event_consume_record (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_event_consume_record_idempotency ON event_consume_record (consumer_name, idempotency_key);
-CREATE INDEX IF NOT EXISTS idx_event_consume_record_event_id ON event_consume_record (event_id);
-CREATE INDEX IF NOT EXISTS idx_event_consume_record_status ON event_consume_record (status);
-CREATE INDEX IF NOT EXISTS idx_event_consume_record_create_time ON event_consume_record (create_time);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_event_consume_record_idempotency ON event_consume_record (tenant_id, consumer_name, idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_event_consume_record_event_id ON event_consume_record (tenant_id, event_id);
+CREATE INDEX IF NOT EXISTS idx_event_consume_record_status ON event_consume_record (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_event_consume_record_create_time ON event_consume_record (tenant_id, create_time);
 
 COMMENT ON TABLE event_consume_record IS '事件消费幂等记录表';
 COMMENT ON COLUMN event_consume_record.id IS '消费记录主键，UUID v7';
@@ -1157,6 +1333,7 @@ COMMENT ON COLUMN event_consume_record.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS storage_upload_task (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     task_mode VARCHAR(20) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     file_extension VARCHAR(50),
@@ -1174,9 +1351,9 @@ CREATE TABLE IF NOT EXISTS storage_upload_task (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_storage_upload_task_status ON storage_upload_task (status);
-CREATE INDEX IF NOT EXISTS idx_storage_upload_task_user ON storage_upload_task (upload_user_id);
-CREATE INDEX IF NOT EXISTS idx_storage_upload_task_create_time ON storage_upload_task (create_time);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_task_status ON storage_upload_task (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_task_user ON storage_upload_task (tenant_id, upload_user_id);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_task_create_time ON storage_upload_task (tenant_id, create_time);
 
 COMMENT ON TABLE storage_upload_task IS '存储上传任务表';
 COMMENT ON COLUMN storage_upload_task.id IS '主键，UUID v7';
@@ -1198,6 +1375,7 @@ COMMENT ON COLUMN storage_upload_task.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_upload_part (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     task_id CHAR(32) NOT NULL,
     part_number INTEGER NOT NULL,
     part_hash VARCHAR(64),
@@ -1208,9 +1386,9 @@ CREATE TABLE IF NOT EXISTS storage_upload_part (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_storage_upload_part_task_no ON storage_upload_part (task_id, part_number);
-CREATE INDEX IF NOT EXISTS idx_storage_upload_part_task ON storage_upload_part (task_id);
-CREATE INDEX IF NOT EXISTS idx_storage_upload_part_status ON storage_upload_part (status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_storage_upload_part_task_no ON storage_upload_part (tenant_id, task_id, part_number);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_part_task ON storage_upload_part (tenant_id, task_id);
+CREATE INDEX IF NOT EXISTS idx_storage_upload_part_status ON storage_upload_part (tenant_id, status);
 
 COMMENT ON TABLE storage_upload_part IS '存储上传分片表';
 COMMENT ON COLUMN storage_upload_part.id IS '主键，UUID v7';
@@ -1225,6 +1403,7 @@ COMMENT ON COLUMN storage_upload_part.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_file (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     file_name VARCHAR(255) NOT NULL,
     file_extension VARCHAR(50),
     file_mime_type VARCHAR(100),
@@ -1242,11 +1421,11 @@ CREATE TABLE IF NOT EXISTS storage_file (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_storage_file_source ON storage_file (source_entity, source_id, source_type);
-CREATE INDEX IF NOT EXISTS idx_storage_file_upload_task ON storage_file (upload_task_id);
-CREATE INDEX IF NOT EXISTS idx_storage_file_hash ON storage_file (file_hash);
-CREATE INDEX IF NOT EXISTS idx_storage_file_storage_key ON storage_file (storage_key);
-CREATE INDEX IF NOT EXISTS idx_storage_file_create_time ON storage_file (create_time);
+CREATE INDEX IF NOT EXISTS idx_storage_file_source ON storage_file (tenant_id, source_entity, source_id, source_type);
+CREATE INDEX IF NOT EXISTS idx_storage_file_upload_task ON storage_file (tenant_id, upload_task_id);
+CREATE INDEX IF NOT EXISTS idx_storage_file_hash ON storage_file (tenant_id, file_hash);
+CREATE INDEX IF NOT EXISTS idx_storage_file_storage_key ON storage_file (tenant_id, storage_key);
+CREATE INDEX IF NOT EXISTS idx_storage_file_create_time ON storage_file (tenant_id, create_time);
 
 COMMENT ON TABLE storage_file IS '正式文件表';
 COMMENT ON COLUMN storage_file.id IS '主键，UUID v7';
@@ -1267,10 +1446,12 @@ COMMENT ON COLUMN storage_file.create_time IS '创建时间';
 COMMENT ON COLUMN storage_file.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_content (
-    storage_key VARCHAR(500) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    storage_key VARCHAR(500) NOT NULL,
     content BYTEA NOT NULL,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id, storage_key)
 );
 
 COMMENT ON TABLE storage_content IS '数据库文件内容表';
@@ -1281,6 +1462,7 @@ COMMENT ON COLUMN storage_content.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_file_variant (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
     file_id CHAR(32) NOT NULL,
     variant VARCHAR(50) NOT NULL,
     content_key VARCHAR(500) NOT NULL,
@@ -1292,8 +1474,8 @@ CREATE TABLE IF NOT EXISTS storage_file_variant (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_file_variant ON storage_file_variant (file_id, variant);
-CREATE INDEX IF NOT EXISTS idx_file_variant_hash ON storage_file_variant (file_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_file_variant ON storage_file_variant (tenant_id, file_id, variant);
+CREATE INDEX IF NOT EXISTS idx_file_variant_hash ON storage_file_variant (tenant_id, file_hash);
 
 COMMENT ON TABLE storage_file_variant IS '文件派生版本表';
 COMMENT ON COLUMN storage_file_variant.id IS '主键，UUID';

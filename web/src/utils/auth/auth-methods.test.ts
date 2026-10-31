@@ -56,6 +56,17 @@ describe('getBuiltInLoginMethods', () => {
     expect(result).not.toContain('github');
   });
 
+  it('includes platform account login only in tenant mode', () => {
+    const config: Partial<AuthInitResp> = {
+      usernameEnabled: true,
+      emailEnabled: true,
+      tenantEnabled: true,
+    };
+
+    expect(getBuiltInLoginMethods(config)).toEqual(['password', 'email', 'person']);
+    expect(getBuiltInLoginMethods({ ...config, tenantEnabled: false })).toEqual(['password', 'email']);
+  });
+
   it('handles empty partial config with all flags undefined (treated as false)', () => {
     expect(getBuiltInLoginMethods({})).toEqual([]);
   });

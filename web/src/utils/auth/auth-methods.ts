@@ -12,6 +12,10 @@ export function getBuiltInLoginMethods(config: Partial<AuthInitResp>): BuiltInLo
   if (config.emailEnabled) {
     methods.push('email');
   }
+  // 平台账号登录是独立登录方式，仅多租户模式提供。
+  if (config.tenantEnabled) {
+    methods.push('person');
+  }
   if (config.githubEnabled) {
     methods.push('github');
   }

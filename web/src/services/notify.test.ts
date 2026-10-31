@@ -90,11 +90,11 @@ describe('notifyService', () => {
       name: 'updates a notification template by path ID',
       execute: () => notifyService.updateNotifyTemplate('template-1', {
         templateName: 'Order paid update',
-        variants: [{ channelType: 'EMAIL', contentTemplate: 'Updated ${orderNo}' }],
+        variants: [{ channelType: 'EMAIL', contentTemplate: 'Updated [(${orderNo})]' }],
       }),
       expected: { method: 'PUT', url: '/api/notify/templates/template-1', data: {
         templateName: 'Order paid update',
-        variants: [{ channelType: 'EMAIL', contentTemplate: 'Updated ${orderNo}' }],
+        variants: [{ channelType: 'EMAIL', contentTemplate: 'Updated [(${orderNo})]' }],
       } },
     },
     {

@@ -14,7 +14,7 @@ import { useNotice } from '@/hooks/use-notice';
 import type { SchedulerService } from '@/services/scheduler';
 import type { SchedulerJobRunPageReq, SchedulerJobRunResp } from '@/types/scheduler';
 
-const RUN_STATUSES = ['PENDING', 'RUNNING', 'TERMINATING', 'TERMINATED', 'TIMEOUT', 'SUCCESS', 'FAILED'] as const satisfies readonly SchedulerJobRunStatus[];
+const RUN_STATUSES = ['PENDING', 'RUNNING', 'TERMINATING', 'TERMINATED', 'TIMEOUT', 'SUCCESS', 'FAILED', 'SKIPPED'] as const satisfies readonly SchedulerJobRunStatus[];
 
 const TRIGGER_SOURCES = ['SCHEDULED', 'MANUAL', 'RETRY'] as const satisfies readonly SchedulerTriggerSource[];
 

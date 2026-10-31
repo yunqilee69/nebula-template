@@ -14,7 +14,9 @@ vi.mock('@/utils/auth/token-session', () => ({
 function createMockAuthService(partial?: Partial<AuthService>): AuthService {
   return {
     getAuthConfig: partial?.getAuthConfig ?? vi.fn(),
+    getInit: partial?.getInit ?? vi.fn(),
     login: partial?.login ?? vi.fn(),
+    personLogin: partial?.personLogin ?? vi.fn(),
     phoneLogin: partial?.phoneLogin ?? vi.fn(),
     emailLogin: partial?.emailLogin ?? vi.fn(),
     register: partial?.register ?? vi.fn(),

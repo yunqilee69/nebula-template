@@ -12,7 +12,7 @@
  * （见基座交付边界）；被它组装的纯逻辑模块均有单测覆盖。</p>
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Button, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, Button, Linking, Platform, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -20,6 +20,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   AUTH_ENDPOINTS,
   FRONTEND_ENDPOINTS,
+  type BindingChallenge,
+  type CompleteBindingReq,
   type CurrentUserResp,
   type FrontendInitResp,
   type FrontendLoginConfigResp,
@@ -27,15 +29,21 @@ import {
 } from '../packages/client-sdk/index.ts';
 import { runBootstrap, type BootstrapResult } from './src/bootstrap/index.ts';
 import { createAppRuntimeConfig } from './src/config/app-config.ts';
-import { createLoginService, isUsernameRegisterAllowed } from './src/auth/login-service.ts';
+import { BindingRequiredError, createLoginService, isUsernameRegisterAllowed } from './src/auth/login-service.ts';
+import { extractTenantCode } from './src/auth/tenant-code.ts';
 import { createProfileService } from './src/auth/profile-service.ts';
+import { createPushService } from './src/push/push-service.ts';
+import { createNativePushTokenProvider } from './src/push/native-push-token.ts';
+import { createTenantPushCoordinator } from './src/push/tenant-push-coordinator.ts';
 import { PermissionProvider } from './src/auth/usePermission.tsx';
 import { mapMenuToNavigation } from './src/navigation/menu-to-nav.ts';
 import { AccountSecurityScreen } from './src/screens/AccountSecurityScreen.tsx';
+import { BindingScreen } from './src/screens/BindingScreen.tsx';
 import { LoginScreen } from './src/screens/LoginScreen.tsx';
 import { ProfileScreen } from './src/screens/ProfileScreen.tsx';
 import { RegisterScreen } from './src/screens/RegisterScreen.tsx';
 import { TabRoutesScreen } from './src/screens/TabRoutesScreen.tsx';
+import { TenantSwitchScreen } from './src/screens/TenantSwitchScreen.tsx';
 import { createRequestClient } from './src/request/client.ts';
 import { createFetchTransport } from './src/request/transport.ts';
 import { createNativeSecureTokenStorage } from './src/session/secure-storage-rn.ts';
@@ -49,10 +57,14 @@ const appConfig = createAppRuntimeConfig({ os: Platform.OS });
 
 const sessionManager = createSessionManager(createNativeSecureTokenStorage());
 
+/** 手工输入的企业代码；未通过子域名/深链解析租户时，匿名请求用它定位租户。 */
+let activeTenantCode: string | undefined;
+
 const request = createRequestClient({
   transport: createFetchTransport({ baseURL: appConfig.baseURL }),
   clientType: appConfig.clientType,
   getAccessToken: () => sessionManager.getAccessToken(),
+  getTenantCode: () => activeTenantCode,
   onUnauthorized: () => {
     void sessionManager.clear();
   },
@@ -76,10 +88,16 @@ const request = createRequestClient({
 
 const loginService = createLoginService({ request: request.request, session: sessionManager });
 const profileService = createProfileService({ request: request.request });
+const pushService = createPushService({ request: request.request });
+const pushCoordinator = createTenantPushCoordinator({
+  pushService,
+  tokenProvider: createNativePushTokenProvider(),
+});
 
 type BootState =
   | { status: 'loading' }
   | { status: 'anonymous'; loginConfig: FrontendLoginConfigResp | null }
+  | { status: 'binding'; challenge: BindingChallenge }
   | { status: 'ready'; bootstrap: BootstrapResult }
   | { status: 'error'; message: string };
 
@@ -87,29 +105,50 @@ const Tab = createBottomTabNavigator();
 const ProfileStack = createNativeStackNavigator();
 
 /** 「我的」Tab 内部栈：个人中心 → 账号安全。 */
-function ProfileTab({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout: () => Promise<void> }) {
+interface ProfileTabProps {
+  bootstrap: BootstrapResult;
+  onLogout: () => Promise<void>;
+  onSwitchTenant: (tenantCode: string) => Promise<void>;
+}
+
+/** 「我的」Tab 内部栈：个人中心 → 账号安全 / 平台账号 / 切换企业。 */
+function ProfileTab({ bootstrap, onLogout, onSwitchTenant }: ProfileTabProps) {
+  const tenantCode = sessionManager.get()?.tenantCode;
   return (
     <ProfileStack.Navigator>
       <ProfileStack.Screen name="ProfileOverview" options={{ title: '我的' }}>
         {({ navigation }) => (
           <ProfileScreen
             user={bootstrap.currentUser}
+            tenant={bootstrap.init.tenant}
             permissionCodes={bootstrap.permissionCodes}
             roleCodes={bootstrap.roleCodes}
+            request={request.request}
             onLogout={onLogout}
+            onSwitchTenant={onSwitchTenant}
             onOpenAccountSecurity={() => navigation.navigate('AccountSecurity')}
+            onOpenTenantSwitch={() => navigation.navigate('TenantSwitch')}
           />
         )}
       </ProfileStack.Screen>
       <ProfileStack.Screen name="AccountSecurity" options={{ title: '账号安全' }}>
         {() => <AccountSecurityScreen profileService={profileService} />}
       </ProfileStack.Screen>
+      <ProfileStack.Screen name="TenantSwitch" options={{ title: '切换企业' }}>
+        {() => (
+          <TenantSwitchScreen currentTenantCode={tenantCode} onSwitch={onSwitchTenant} />
+        )}
+      </ProfileStack.Screen>
     </ProfileStack.Navigator>
   );
 }
 
 /** 主界面：权限上下文 + 菜单驱动的底部 Tab + 「我的」。 */
-function MainApp({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout: () => Promise<void> }) {
+function MainApp({ bootstrap, onLogout, onSwitchTenant }: {
+  bootstrap: BootstrapResult;
+  onLogout: () => Promise<void>;
+  onSwitchTenant: (tenantCode: string) => Promise<void>;
+}) {
   const mapping = useMemo(() => mapMenuToNavigation(bootstrap.menuTree), [bootstrap.menuTree]);
   const permissionProps = useMemo(
     () => ({ permissions: bootstrap.permissionCodes, roles: bootstrap.roleCodes }),
@@ -126,7 +165,7 @@ function MainApp({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout
             </Tab.Screen>
           ))}
           <Tab.Screen name="__profile" options={{ title: '我的', headerShown: false }}>
-            {() => <ProfileTab bootstrap={bootstrap} onLogout={onLogout} />}
+            {() => <ProfileTab bootstrap={bootstrap} onLogout={onLogout} onSwitchTenant={onSwitchTenant} />}
           </Tab.Screen>
         </Tab.Navigator>
       </NavigationContainer>
@@ -137,6 +176,7 @@ function MainApp({ bootstrap, onLogout }: { bootstrap: BootstrapResult; onLogout
 export default function App() {
   const [state, setState] = useState<BootState>({ status: 'loading' });
   const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login');
+  const [tenantCode, setTenantCode] = useState('');
 
   /** 拉取匿名 init，用于登录页拿到权威登录开关。失败则回落 init 兜底默认值。 */
   const fetchLoginConfig = useCallback(async (): Promise<FrontendLoginConfigResp | null> => {
@@ -153,6 +193,11 @@ export default function App() {
     } catch {
       return null;
     }
+  }, []);
+
+  const updateTenantCode = useCallback((value: string) => {
+    setTenantCode(value);
+    activeTenantCode = value.trim() || undefined;
   }, []);
 
   /** 启动引导：恢复会话 → 有可用会话则拉 init + current-user，否则进入登录页。 */
@@ -182,6 +227,8 @@ export default function App() {
           request.request<CurrentUserResp>({ method: 'GET', url: AUTH_ENDPOINTS.currentUser }),
       });
       setState({ status: 'ready', bootstrap: result });
+      // 租户会话建立后再注册：服务端按当前令牌的 tenant_id 落设备记录。
+      void pushCoordinator.registerForCurrentTenant(sessionManager.get()?.tenantCode);
     } catch (error) {
       // current-user 失败但 token 未过期：视为网络问题，允许重试而不是直接登出。
       setState({ status: 'error', message: (error as Error).message });
@@ -189,30 +236,70 @@ export default function App() {
   }, [fetchLoginConfig]);
 
   useEffect(() => {
-    void boot();
-  }, [boot]);
+    let cancelled = false;
+    void (async () => {
+      const initialUrl = await Linking.getInitialURL().catch(() => null);
+      const initialCode = extractTenantCode(initialUrl);
+      if (initialCode) updateTenantCode(initialCode);
+      if (!cancelled) await boot();
+    })();
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      const code = extractTenantCode(url);
+      if (!code) return;
+      updateTenantCode(code);
+      void boot();
+    });
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [boot, updateTenantCode]);
 
   const handleLogin = useCallback(
     async (username: string, password: string) => {
       // 登录失败（账号密码错/网络异常）向 LoginScreen 抛出，页面展示服务端文案。
-      await loginService.login({ username, password });
-      await boot();
+      try {
+        await loginService.login({ username, password });
+        await boot();
+      } catch (error) {
+        if (error instanceof BindingRequiredError) {
+          setState({ status: 'binding', challenge: error.challenge });
+          return;
+        }
+        throw error;
+      }
     },
     [boot],
   );
 
   const handlePhoneLogin = useCallback(
     async (phone: string, code: string) => {
-      await loginService.phoneLogin({ phone, code });
-      await boot();
+      try {
+        await loginService.phoneLogin({ phone, code });
+        await boot();
+      } catch (error) {
+        if (error instanceof BindingRequiredError) {
+          setState({ status: 'binding', challenge: error.challenge });
+          return;
+        }
+        throw error;
+      }
     },
     [boot],
   );
 
   const handleEmailLogin = useCallback(
     async (email: string, code: string) => {
-      await loginService.emailLogin({ email, code });
-      await boot();
+      try {
+        await loginService.emailLogin({ email, code });
+        await boot();
+      } catch (error) {
+        if (error instanceof BindingRequiredError) {
+          setState({ status: 'binding', challenge: error.challenge });
+          return;
+        }
+        throw error;
+      }
     },
     [boot],
   );
@@ -230,9 +317,30 @@ export default function App() {
   }, []);
 
   const handleLogout = useCallback(async () => {
+    // 必须先注销旧租户推送，再清会话：注销接口按令牌所属租户校验设备归属。
+    await pushCoordinator.unregisterCurrentTenant();
     await loginService.logout();
     await boot();
   }, [boot]);
+
+  const handleCompleteBinding = useCallback(async (payload: CompleteBindingReq) => {
+    const response = await request.request<LoginResp>({
+      method: 'POST',
+      url: AUTH_ENDPOINTS.tenantBindingComplete,
+      data: payload,
+    });
+    const session = await sessionManager.save(response);
+    if (!session) throw new Error('关联仍待管理员审批，请审批通过后重新登录');
+    await boot();
+  }, [boot]);
+
+  const handleSwitchTenant = useCallback(async (code: string) => {
+    await pushCoordinator.unregisterCurrentTenant();
+    await sessionManager.clear();
+    updateTenantCode(code);
+    setAuthScreen('login');
+    await boot();
+  }, [boot, updateTenantCode]);
 
   return (
     <SafeAreaProvider>
@@ -240,6 +348,13 @@ export default function App() {
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <ActivityIndicator />
         </View>
+      )}
+      {state.status === 'binding' && (
+        <BindingScreen
+          challenge={state.challenge}
+          onComplete={handleCompleteBinding}
+          onCancel={() => { setState({ status: 'anonymous', loginConfig: null }); void boot(); }}
+        />
       )}
       {state.status === 'anonymous' &&
         (authScreen === 'register' ? (
@@ -256,6 +371,8 @@ export default function App() {
             onEmailLogin={handleEmailLogin}
             onSendPhoneCode={handleSendPhoneCode}
             onSendEmailCode={handleSendEmailCode}
+            tenantCode={tenantCode}
+            onTenantCodeChange={updateTenantCode}
             onRegister={
               isUsernameRegisterAllowed(state.loginConfig)
                 ? () => setAuthScreen('register')
@@ -269,7 +386,13 @@ export default function App() {
           <Button title="重试" onPress={() => void boot()} />
         </View>
       )}
-      {state.status === 'ready' && <MainApp bootstrap={state.bootstrap} onLogout={handleLogout} />}
+      {state.status === 'ready' && (
+        <MainApp
+          bootstrap={state.bootstrap}
+          onLogout={handleLogout}
+          onSwitchTenant={handleSwitchTenant}
+        />
+      )}
     </SafeAreaProvider>
   );
 }

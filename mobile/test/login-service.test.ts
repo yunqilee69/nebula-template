@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  BindingRequiredError,
   createLoginService,
   getEnabledFormLoginMethods,
   isEmailLoginEnabled,
@@ -75,6 +76,29 @@ test('LoginServiceTest.testLoginWithoutTokenFailsClosed', async () => {
 
   await assert.rejects(() => service.login({ username: 'admin', password: '123456' }), /缺少令牌/);
   assert.equal(session.get(), null);
+});
+
+test('LoginServiceTest.testBindingChallengeDoesNotPersistPartialSession', async () => {
+  const session = createSessionManager(createInMemoryTokenStorage());
+  const { request } = fakeRequest(() => ({
+    bindingRequired: true,
+    bindingReason: 'NO_LINK',
+    bindingTicket: 'ticket-1',
+    tenantCode: 'acme',
+    proposedUsername: 'alice',
+  }) as LoginResp);
+  const service = createLoginService({ request, session });
+
+  await assert.rejects(
+    () => service.login({ username: 'alice', password: '123456' }),
+    (error: unknown) => {
+      assert.ok(error instanceof BindingRequiredError);
+      assert.equal(error.challenge.bindingTicket, 'ticket-1');
+      assert.equal(error.challenge.tenantCode, 'acme');
+      return true;
+    },
+  );
+  assert.equal(session.get(), null, '绑定挑战不得落租户会话');
 });
 
 test('LoginServiceTest.testLogoutClearsSessionEvenWhenServerFails', async () => {

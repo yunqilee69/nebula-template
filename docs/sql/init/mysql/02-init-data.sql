@@ -24,6 +24,49 @@ SET NAMES utf8mb4;
 -- root org id        : 0194f3c8b6b77c0d91a7d9af9c7d0003
 -- user-role relation : 0194f3c8b6b77c0d91a7d9af9c7d0004
 -- user-org relation  : 0194f3c8b6b77c0d91a7d9af9c7d0005
+-- system template admin user : F194f3c8b6b77c0d91a7d9af9c7d0001
+-- system template admin role : F194f3c8b6b77c0d91a7d9af9c7d0002
+-- system template root org   : F194f3c8b6b77c0d91a7d9af9c7d0003
+
+
+-- ----------------------------------------------------------------------------
+-- auth-core / tenant & platform account seed data
+-- default tenant id : 0194f3c8b6b77c0d91a7d9af9c7d0100
+-- system tenant id  : __system__
+-- superadmin id     : 0194f3c8b6b77c0d91a7d9af9c7d0101
+-- 控制平面平台管理员：只存在于 auth_person，不绑定默认租户 auth_user，也不持有租户角色。
+-- ----------------------------------------------------------------------------
+INSERT INTO auth_tenant (
+    id, code, name, status, logo, contact_email, settings_json, create_time, update_time
+) VALUES
+    ('0194f3c8b6b77c0d91a7d9af9c7d0100', 'default', 'Default Tenant', 'ACTIVE', NULL, 'admin@nebula.local', NULL, NOW(), NOW()),
+    ('__system__', 'system', 'System', 'ACTIVE', NULL, NULL, NULL, NOW(), NOW())
+AS new_values ON DUPLICATE KEY UPDATE
+    name = new_values.name,
+    status = new_values.status,
+    contact_email = new_values.contact_email,
+    update_time = new_values.update_time;
+
+INSERT INTO auth_person (
+    id, username, display_name, password_hash, status, platform_admin,
+    last_login_time, create_time, update_time
+) VALUES (
+    '0194f3c8b6b77c0d91a7d9af9c7d0101',
+    'superadmin',
+    'Super Administrator',
+    '$2a$10$uHC/qtYABWJ2QGDv3F0btOOtUXJeFMyw6S.Zs/QqfcRxmHmfLiIaS',
+    'ACTIVE',
+    1,
+    NULL,
+    NOW(),
+    NOW()
+) AS new_values ON DUPLICATE KEY UPDATE
+    display_name = new_values.display_name,
+    password_hash = new_values.password_hash,
+    status = new_values.status,
+    platform_admin = new_values.platform_admin,
+    update_time = new_values.update_time;
+
 
 -- ----------------------------------------------------------------------------
 -- auth-core / role seed data
@@ -128,21 +171,30 @@ INSERT INTO auth_user_org (
 -- Using INSERT ... ON DUPLICATE KEY UPDATE for MySQL
 -- ----------------------------------------------------------------------------
 DELETE FROM auth_permission
-WHERE resource_type = 'MENU'
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND resource_type = 'MENU'
   AND resource_id = '0196dbe0a6f17000a000000000000023';
 
 DELETE FROM auth_menu
-WHERE id = '0196dbe0a6f17000a000000000000023'
-   OR code = 'NOTIFY_SEND';
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND (id = '0196dbe0a6f17000a000000000000023'
+   OR code = 'NOTIFY_SEND');
 
 -- 「站内消息」管理菜单没有对应的前端页面（菜单组件注册表里没有 SiteMessagePage），
 -- 已从种子菜单中移除；MySQL 侧本就没有这一行，保留这段是为了与 postgresql 方言脚本对齐，
--- 并清理任何历史环境里残留的同名行。按 code 删除，避免误伤 id 已改作他用的环境。
+-- 并清理任何历史环境里残留的同名行。按 tenant_id + code 删除，避免误伤其他租户或 id 已改作他用的环境。
 DELETE FROM auth_permission
-WHERE resource_type = 'MENU'
-  AND resource_id IN (SELECT id FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE');
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND resource_type = 'MENU'
+  AND resource_id IN (
+    SELECT id FROM auth_menu
+    WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+      AND code = 'NOTIFY_SITE_MESSAGE'
+  );
 
-DELETE FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE';
+DELETE FROM auth_menu
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND code = 'NOTIFY_SITE_MESSAGE';
 
 INSERT INTO auth_menu (
     id, name, parent_id, path, sort, code, icon, component, type, status,
@@ -188,6 +240,27 @@ INSERT INTO auth_menu (
         0,
         NULL,
         'Built-in system management catalog menu',
+        NOW(),
+        NOW()
+    ),
+    -- 企业设置
+    (
+        '0196dbe0a6f17000a000000000000032',
+        '企业设置',
+        '0196dbe0a6f17000a000000000000002',
+        '/system/settings/tenant',
+        5,
+        'TENANT_ENTERPRISE_SETTINGS',
+        'ShopOutlined',
+        'TenantEnterpriseSettingsPage',
+        'MENU',
+        1,
+        0,
+        NULL,
+        1,
+        1,
+        NULL,
+        'Built-in tenant enterprise settings menu',
         NOW(),
         NOW()
     ),
@@ -855,7 +928,10 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000601', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_MANAGE', '管理定时任务', 'edit', 1, 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000602', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, NOW(), NOW()),
     -- 前端模块按钮
-    ('0196dbe0a6f17000a000000000000701', '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, NOW(), NOW())
+    ('0196dbe0a6f17000a000000000000701', '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, NOW(), NOW()),
+    -- 企业设置按钮
+    ('0196dbe0a6f17000a000000000000801', '0196dbe0a6f17000a000000000000032', 'TENANT_PROFILE_QUERY', '查询企业资料', 'query', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000802', '0196dbe0a6f17000a000000000000032', 'TENANT_PROFILE_UPDATE', '编辑企业资料', 'edit', 2, 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     menu_id = new_values.menu_id,
     name = new_values.name,
@@ -886,6 +962,162 @@ AS new_values ON DUPLICATE KEY UPDATE
     remark = new_values.remark,
     status = new_values.status,
     update_time = new_values.update_time;
+
+-- ----------------------------------------------------------------------------
+-- auth-core / 系统租户完整模板
+-- 系统租户不是可登录租户，只保存新建租户的默认组织、角色、管理员账号、菜单和权限目录。
+-- 新建租户时由 TenantResourceProvisioner 从这里整体复制一份；复制出的账号默认 admin / 123456。
+-- 使用 F 前缀生成系统租户侧资源 ID；默认租户保留上面的固定 ID，二者互不覆盖。
+-- ----------------------------------------------------------------------------
+INSERT INTO auth_role (
+    id, tenant_id, code, name, description, status, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0002',
+    '__system__',
+    'ADMIN',
+    'Administrator',
+    'Built-in administrator role',
+    1,
+    NOW(),
+    NOW()
+) AS new_values ON DUPLICATE KEY UPDATE
+    name = new_values.name,
+    description = new_values.description,
+    status = new_values.status,
+    update_time = new_values.update_time;
+
+INSERT INTO auth_org (
+    id, tenant_id, name, parent_id, path, sort, code, type, status, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0003',
+    '__system__',
+    'Nebula',
+    NULL,
+    '/',
+    1,
+    'ROOT',
+    'COMPANY',
+    1,
+    NOW(),
+    NOW()
+) AS new_values ON DUPLICATE KEY UPDATE
+    name = new_values.name,
+    path = new_values.path,
+    sort = new_values.sort,
+    type = new_values.type,
+    status = new_values.status,
+    update_time = new_values.update_time;
+
+INSERT INTO auth_user (
+    id, tenant_id, username, password, nickname, avatar, email, phone, status, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0001',
+    '__system__',
+    'admin',
+    '$2a$10$uHC/qtYABWJ2QGDv3F0btOOtUXJeFMyw6S.Zs/QqfcRxmHmfLiIaS',
+    'Administrator',
+    NULL,
+    NULL,
+    NULL,
+    1,
+    NOW(),
+    NOW()
+) AS new_values ON DUPLICATE KEY UPDATE
+    password = new_values.password,
+    nickname = new_values.nickname,
+    status = new_values.status,
+    update_time = new_values.update_time;
+
+INSERT INTO auth_user_role (
+    id, tenant_id, user_id, role_id, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0004',
+    '__system__',
+    'F194f3c8b6b77c0d91a7d9af9c7d0001',
+    'F194f3c8b6b77c0d91a7d9af9c7d0002',
+    NOW(),
+    NOW()
+) AS new_values ON DUPLICATE KEY UPDATE
+    update_time = new_values.update_time;
+
+INSERT INTO auth_user_org (
+    id, tenant_id, user_id, org_id, is_main_org, create_time, update_time
+) VALUES (
+    'F194f3c8b6b77c0d91a7d9af9c7d0005',
+    '__system__',
+    'F194f3c8b6b77c0d91a7d9af9c7d0001',
+    'F194f3c8b6b77c0d91a7d9af9c7d0003',
+    1,
+    NOW(),
+    NOW()
+) AS new_values ON DUPLICATE KEY UPDATE
+    is_main_org = new_values.is_main_org,
+    update_time = new_values.update_time;
+
+INSERT IGNORE INTO auth_menu (
+    id, tenant_id, name, parent_id, path, sort, code, icon, component, type, status,
+    hidden, external_url, visible_in_breadcrumb, visible_in_tab,
+    active_menu_path, remark, create_time, update_time
+)
+SELECT
+    CONCAT('F', SUBSTRING(id, 2)),
+    '__system__',
+    name,
+    CASE WHEN parent_id IS NULL THEN NULL ELSE CONCAT('F', SUBSTRING(parent_id, 2)) END,
+    path,
+    sort,
+    code,
+    icon,
+    component,
+    type,
+    status,
+    hidden,
+    external_url,
+    visible_in_breadcrumb,
+    visible_in_tab,
+    active_menu_path,
+    remark,
+    create_time,
+    update_time
+FROM auth_menu
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+INSERT IGNORE INTO auth_button (
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
+)
+SELECT
+    CONCAT('F', SUBSTRING(id, 2)),
+    '__system__',
+    CONCAT('F', SUBSTRING(menu_id, 2)),
+    code,
+    name,
+    type,
+    sort,
+    status,
+    create_time,
+    update_time
+FROM auth_button
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+INSERT IGNORE INTO auth_api (
+    id, tenant_id, code, name, module, sort, remark, status, create_time, update_time
+)
+SELECT
+    CONCAT('F', SUBSTRING(id, 2)),
+    '__system__',
+    code,
+    name,
+    module,
+    sort,
+    remark,
+    status,
+    create_time,
+    update_time
+FROM auth_api
+WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+
+
 
 -- ----------------------------------------------------------------------------
 -- auth-core / oauth2 seed data
@@ -994,14 +1226,16 @@ AS new_values ON DUPLICATE KEY UPDATE
     update_time = new_values.update_time;
 
 INSERT INTO sys_notify_template_variant (
-    id, template_id, channel_type, subject_template, content_template, is_enabled, remark, create_time, update_time
+    id, template_id, channel_type, subject_template, content_template, html_content_template,
+    is_enabled, remark, create_time, update_time
 ) VALUES
     (
         '019cf114a00090008000000000000002',
         '019cf114a00090008000000000000001',
         'SITE',
         '密码已重置',
-        '您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。新密码请向管理员索取，或通过忘记密码流程自助重置。请登录后及时修改密码。重置时间：${notify.currentDateTime}',
+        '您的 Nebula 账号密码已由管理员重置。接收用户：[(${nickname})]（账号：[(${username})]，用户ID：[(${userId})]）。新密码请向管理员索取，或通过忘记密码流程自助重置。请登录后及时修改密码。重置时间：[(${notify.currentDateTime})]',
+        NULL,
         1,
         '密码重置站内信通知',
         NOW(),
@@ -1012,7 +1246,8 @@ INSERT INTO sys_notify_template_variant (
         '019cf114a00090008000000000000001',
         'EMAIL',
         'Nebula 账号密码已重置',
-        '您好，您的 Nebula 账号密码已由管理员重置。接收用户：${nickname}（账号：${username}，用户ID：${userId}）。新密码请向管理员索取，或通过忘记密码流程自助重置。如非本人预期，请联系管理员。重置时间：${notify.currentDateTime}',
+        '您好，您的 Nebula 账号密码已由管理员重置。接收用户：[(${nickname})]（账号：[(${username})]，用户ID：[(${userId})]）。新密码请向管理员索取，或通过忘记密码流程自助重置。如非本人预期，请联系管理员。重置时间：[(${notify.currentDateTime})]',
+        '<!DOCTYPE html><html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><body style="margin:0;padding:24px;font-family:Arial,sans-serif;color:#333;line-height:1.6;"><p>您好，</p><p>您的 Nebula 账号密码已由管理员重置。</p><p>接收用户：<strong th:text="${nickname}">用户</strong>（账号：<span th:text="${username}">account</span>，用户ID：<span th:text="${userId}">id</span>）</p><p>新密码请向管理员索取，或通过忘记密码流程自助重置。如非本人预期，请联系管理员。</p><p>重置时间：<span th:text="${notify.currentDateTime}">2026-01-01 00:00:00</span></p></body></html>',
         1,
         '密码重置邮件通知',
         NOW(),
@@ -1021,6 +1256,7 @@ INSERT INTO sys_notify_template_variant (
 AS new_values ON DUPLICATE KEY UPDATE
     subject_template = new_values.subject_template,
     content_template = new_values.content_template,
+    html_content_template = new_values.html_content_template,
     is_enabled = new_values.is_enabled,
     remark = new_values.remark,
     update_time = new_values.update_time;
@@ -1086,6 +1322,67 @@ AS new_values ON DUPLICATE KEY UPDATE
     update_time = new_values.update_time;
 
 -- ----------------------------------------------------------------------------
+-- param / 租户集成参数
+-- ----------------------------------------------------------------------------
+-- 验证码通道、邮箱、存储后端都属于每个租户自己的配置，运行时只读当前租户的行。
+-- 默认租户是超级管理员所在租户，平台级操作（创建租户、邀请成员）用默认租户的配置发送通知；
+-- 其他租户各自维护配置，不存在跨租户兜底。
+INSERT INTO sys_param (
+    id,
+    param_key,
+    param_name,
+    description,
+    param_value,
+    data_type,
+    option_code,
+    module_code,
+    is_builtin,
+    create_time,
+    update_time
+) VALUES
+    ('01959f0aa4d37c0d91a7d9af9c7d1101', 'auth.code.email.provider', '邮箱验证码提供商', '邮箱验证码下发通道。builtin-smtp 使用本租户配置的 SMTP 邮箱；none 表示关闭', 'builtin-smtp', 'STRING', NULL, 'auth', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1102', 'auth.code.sms.provider', '短信验证码提供商', '短信验证码下发通道。框架不内置短信实现，none 表示未接入', 'none', 'STRING', NULL, 'auth', 1, NOW(), NOW())
+AS new_values ON DUPLICATE KEY UPDATE
+    param_name = new_values.param_name,
+    description = new_values.description,
+    data_type = new_values.data_type,
+    module_code = new_values.module_code,
+    is_builtin = new_values.is_builtin,
+    update_time = new_values.update_time;
+
+-- 存储后端参数：每个租户都可独立选择后端，未配置时由代码默认值/启动配置兜底。
+INSERT INTO sys_param (
+    id,
+    param_key,
+    param_name,
+    description,
+    param_value,
+    data_type,
+    option_code,
+    module_code,
+    is_builtin,
+    create_time,
+    update_time
+) VALUES
+    ('01959f0aa4d37c0d91a7d9af9c7d1103', 'storage.backend.type', '存储后端类型', '正式文件存储后端：filesystem / db / minio / aliyun-oss / tencent-cos', 'filesystem', 'STRING', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1104', 'storage.backend.filesystem.base-dir', '文件系统存储根目录', 'storage.backend.type=filesystem 时的文件根目录', 'build/nebula-storage/files', 'STRING', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1105', 'storage.backend.endpoint', '对象存储 Endpoint', 'MinIO / 阿里云 OSS 的服务地址', '', 'STRING', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1106', 'storage.backend.region', '对象存储 Region', '腾讯云 COS 的地域，如 ap-guangzhou', '', 'STRING', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1107', 'storage.backend.bucket', '对象存储 Bucket', '正式文件写入的桶名称', 'nebula-storage', 'STRING', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1108', 'storage.backend.access-key', '对象存储 Access Key', '对象存储访问凭据，加密存储，接口不回显', '', 'STRING', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1109', 'storage.backend.secret-key', '对象存储 Secret Key', '对象存储访问密钥，加密存储，接口不回显', '', 'STRING', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1110', 'storage.backend.create-bucket-if-missing', 'Bucket 不存在时自动创建', '多数云厂商的 AK 无建桶权限，生产建议关闭', 'true', 'BOOLEAN', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1111', 'storage.backend.direct-download-enabled', '启用对象存储直链下载', '开启后客户端可通过预签名地址直接访问对象存储', 'false', 'BOOLEAN', NULL, 'storage', 1, NOW(), NOW()),
+    ('01959f0aa4d37c0d91a7d9af9c7d1112', 'storage.backend.direct-download-expire-seconds', '直链有效期(秒)', '预签名下载地址有效期，上限 3600 秒', '300', 'INT', NULL, 'storage', 1, NOW(), NOW())
+AS new_values ON DUPLICATE KEY UPDATE
+    param_name = new_values.param_name,
+    description = new_values.description,
+    data_type = new_values.data_type,
+    module_code = new_values.module_code,
+    is_builtin = new_values.is_builtin,
+    update_time = new_values.update_time;
+
+-- ----------------------------------------------------------------------------
 -- param / 加密标记
 -- ----------------------------------------------------------------------------
 -- 密钥不在库中（只来自环境变量 NEBULA_CRYPTO_KEY_*），这里只声明「哪些参数的值必须加密
@@ -1095,7 +1392,9 @@ UPDATE sys_param
 SET is_encrypted = 1
 WHERE param_key IN (
     'notify.email.password',
-    'login.username.reset-default-password'
+    'login.username.reset-default-password',
+    'storage.backend.access-key',
+    'storage.backend.secret-key'
 );
 
 -- ----------------------------------------------------------------------------
@@ -1118,10 +1417,11 @@ WHERE param_key IN (
 -- 为 ADMIN 角色生成所有 MENU 类型权限
 -- 使用 REPLACE(UUID(), '-', '') 生成32位无横线UUID
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
     REPLACE(UUID(), '-', ''),
+    '0194f3c8b6b77c0d91a7d9af9c7d0100',
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'MENU',
@@ -1131,9 +1431,11 @@ SELECT
     NOW(),
     NOW()
 FROM auth_menu m
-WHERE NOT EXISTS (
+WHERE m.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+      AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'MENU'
       AND p.resource_id = m.id
@@ -1141,10 +1443,11 @@ WHERE NOT EXISTS (
 
 -- 为 ADMIN 角色生成所有 BUTTON 类型权限
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
     REPLACE(UUID(), '-', ''),
+    '0194f3c8b6b77c0d91a7d9af9c7d0100',
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'BUTTON',
@@ -1154,9 +1457,11 @@ SELECT
     NOW(),
     NOW()
 FROM auth_button b
-WHERE NOT EXISTS (
+WHERE b.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+      AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'BUTTON'
       AND p.resource_id = b.id
@@ -1165,10 +1470,11 @@ WHERE NOT EXISTS (
 -- 为 ADMIN 角色生成所有 API 类型权限
 -- 接口权限是资源类型 API，与 MENU/BUTTON 并列，授权行同样落在 auth_permission
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
     REPLACE(UUID(), '-', ''),
+    '0194f3c8b6b77c0d91a7d9af9c7d0100',
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'API',
@@ -1178,10 +1484,95 @@ SELECT
     NOW(),
     NOW()
 FROM auth_api a
-WHERE NOT EXISTS (
+WHERE a.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+  AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100'
+      AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'API'
       AND p.resource_id = a.id
 );
+
+-- ----------------------------------------------------------------------------
+-- auth-core / 系统租户 ADMIN 权限模板
+-- 系统租户的 ADMIN 角色持有全部模板资源的权限，新建租户复制时按新 ID 重新映射。
+-- 使用 UNION ALL 一次覆盖 MENU / BUTTON / API 三类资源。
+-- ----------------------------------------------------------------------------
+INSERT INTO auth_permission (
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+)
+SELECT
+    REPLACE(UUID(), '-', ''),
+    '__system__',
+    'ROLE',
+    'F194f3c8b6b77c0d91a7d9af9c7d0002',
+    r.resource_type,
+    r.resource_id,
+    'Allow',
+    'ALL',
+    NOW(),
+    NOW()
+FROM (
+    SELECT 'MENU' AS resource_type, id AS resource_id FROM auth_menu WHERE tenant_id = '__system__'
+    UNION ALL
+    SELECT 'BUTTON', id FROM auth_button WHERE tenant_id = '__system__'
+    UNION ALL
+    SELECT 'API', id FROM auth_api WHERE tenant_id = '__system__'
+) r
+WHERE NOT EXISTS (
+    SELECT 1 FROM auth_permission p
+    WHERE p.tenant_id = '__system__'
+      AND p.subject_type = 'ROLE'
+      AND p.subject_id = 'F194f3c8b6b77c0d91a7d9af9c7d0002'
+      AND p.resource_type = r.resource_type
+      AND p.resource_id = r.resource_id
+);
+
+-- ----------------------------------------------------------------------------
+-- 模板种子数据写入系统租户
+-- 系统租户只作为新建租户的模板源：建租户时由各模块把字典/通知模板复制到目标租户，
+-- 租户数据自包含，运行时不再回退系统租户。
+-- sys_param 不写模板行：建租户时按代码定义物化该租户的全部内建参数默认值。
+-- 主键与模板外键用 'S' + 原 ID 后 31 位重映射，保证与默认租户数据共存。
+-- 字典项 path 不在此重写：建租户复制时由 DictTenantDataProvisioner 按 parent_id 重新生成。
+-- ----------------------------------------------------------------------------
+INSERT IGNORE INTO sys_dict_type (id, tenant_id, code, name, remark, create_time, update_time)
+SELECT CONCAT('S', SUBSTRING(id, 2)), '__system__', code, name, remark, create_time, update_time
+FROM sys_dict_type WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+INSERT IGNORE INTO sys_dict_item (id, tenant_id, dict_code, name, parent_id, path, item_value,
+                                  sort, is_enabled, tag_color, remark, create_time, update_time)
+SELECT CONCAT('S', SUBSTRING(id, 2)), '__system__', dict_code, name,
+       CASE WHEN parent_id IS NULL THEN NULL ELSE CONCAT('S', SUBSTRING(parent_id, 2)) END,
+       path, item_value, sort, is_enabled, tag_color, remark, create_time, update_time
+FROM sys_dict_item WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+INSERT IGNORE INTO sys_notify_category (id, tenant_id, code, name, description, is_mandatory,
+                                        is_default_enabled, sort, allowed_channels, is_builtin,
+                                        is_enabled, remark, create_time, update_time)
+SELECT CONCAT('S', SUBSTRING(id, 2)), '__system__', code, name, description, is_mandatory,
+       is_default_enabled, sort, allowed_channels, is_builtin, is_enabled, remark, create_time, update_time
+FROM sys_notify_category WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+INSERT IGNORE INTO sys_notify_template (id, tenant_id, template_code, template_name, remark,
+                                        category_code, create_time, update_time)
+SELECT CONCAT('S', SUBSTRING(id, 2)), '__system__', template_code, template_name, remark,
+       category_code, create_time, update_time
+FROM sys_notify_template WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+INSERT IGNORE INTO sys_notify_template_field (id, tenant_id, template_id, field_code, field_name,
+                                              is_required, default_value, example_value, remark,
+                                              create_time, update_time)
+SELECT CONCAT('S', SUBSTRING(id, 2)), '__system__', CONCAT('S', SUBSTRING(template_id, 2)),
+       field_code, field_name, is_required, default_value, example_value, remark, create_time, update_time
+FROM sys_notify_template_field WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';
+
+INSERT IGNORE INTO sys_notify_template_variant (id, tenant_id, template_id, channel_type,
+                                                subject_template, content_template,
+                                                html_content_template, is_enabled,
+                                                remark, create_time, update_time)
+SELECT CONCAT('S', SUBSTRING(id, 2)), '__system__', CONCAT('S', SUBSTRING(template_id, 2)),
+       channel_type, subject_template, content_template, html_content_template,
+       is_enabled, remark, create_time, update_time
+FROM sys_notify_template_variant WHERE tenant_id = '0194f3c8b6b77c0d91a7d9af9c7d0100';

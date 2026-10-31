@@ -158,6 +158,7 @@ export const scheduler: NebulaSchedulerMessages = {
     timeout: 'Timed Out',
     success: 'Success',
     failed: 'Failed',
+    skipped: 'Skipped',
   },
   triggerSource: {
     scheduled: 'Scheduled',

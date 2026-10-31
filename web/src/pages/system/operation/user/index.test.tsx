@@ -17,6 +17,7 @@ function createService(overrides: Partial<AuthManagementService> = {}): AuthMana
       total: 1,
     } satisfies PageResp<UserResp>),
     createUser: vi.fn().mockResolvedValue(undefined),
+    createTenantInvitation: vi.fn().mockResolvedValue({ id: 'inv-1', tenantId: 'tenant-1', status: 'PENDING', token: 'invite-token' }),
     updateUser: vi.fn().mockResolvedValue(undefined),
     deleteUser: vi.fn().mockResolvedValue(undefined),
     getUserDetail: vi.fn().mockResolvedValue({ id: 'user-1', username: 'yunqi', nickname: '云起', status: 1 }),
@@ -61,8 +62,8 @@ describe('UserManagementPage', () => {
     const toolbarActionLabels = screen
       .getAllByRole('button')
       .map((button) => button.textContent?.trim())
-      .filter((text): text is string => ['新增', '追加组织', '追加角色', '重置密码'].includes(text ?? ''));
-    expect(toolbarActionLabels).toEqual(['新增', '追加组织', '追加角色', '重置密码']);
+      .filter((text): text is string => ['新增', '邀请成员', '追加组织', '追加角色', '重置密码'].includes(text ?? ''));
+    expect(toolbarActionLabels).toEqual(['新增', '邀请成员', '追加组织', '追加角色', '重置密码']);
     expect(await screen.findByText('yunqi')).toBeInTheDocument();
     expect(service.pageUsers).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 });
   });
@@ -88,6 +89,24 @@ describe('UserManagementPage', () => {
     const dialog = screen.getByRole('dialog', { name: '新增用户' });
     expect(within(dialog).getByLabelText('用户名')).toBeInTheDocument();
     expect(within(dialog).getByLabelText('密码')).toBeInTheDocument();
+  });
+
+  it('creates a tenant invitation and shows the one-time token', async () => {
+    const user = userEvent.setup();
+    const service = renderPage();
+
+    await user.click(screen.getByRole('button', { name: /邀请成员/ }));
+
+    const dialog = await screen.findByRole('dialog', { name: '邀请成员' });
+    await user.type(within(dialog).getByLabelText('邮箱'), 'invitee@example.com');
+    await user.click(within(dialog).getByRole('button', { name: '生成邀请' }));
+
+    await waitFor(() => {
+      expect(service.createTenantInvitation).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'invitee@example.com' }),
+      );
+    });
+    expect(await within(dialog).findByText('invite-token')).toBeInTheDocument();
   });
 
   it('resets the selected user password from the ProTable toolbar', async () => {

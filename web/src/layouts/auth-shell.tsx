@@ -61,9 +61,19 @@ const useStyles = createStyles(({ token }) => ({
   header: {
     marginBottom: token.marginLG,
   },
+  logo: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: token.marginSM,
+  },
   title: {
     margin: 0,
     color: token.colorTextHeading,
+    textAlign: 'center' as const,
+  },
+  subtitle: {
+    display: 'block',
+    marginTop: token.marginXS,
     textAlign: 'center' as const,
   },
 }));
@@ -71,14 +81,28 @@ const useStyles = createStyles(({ token }) => ({
 export function AuthShell({ children }: AuthShellProps) {
   const brand = useNebulaBrand();
   const { styles, cx } = useStyles();
+  const loginLogo = brand.loginLogo ?? brand.logo;
+  const backgroundStyle = brand.loginBackground
+    ? {
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)), url(${JSON.stringify(encodeURI(brand.loginBackground))})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : undefined;
 
   return (
-    <div className={cx('flex min-h-dvh items-center justify-center', styles.root)}>
+    <div className={cx('flex min-h-dvh items-center justify-center', styles.root)} style={backgroundStyle}>
       <Card className={styles.card}>
-        <div className={cx('flex items-center justify-center', styles.header)}>
+        <div className={styles.header}>
+          {loginLogo ? <div className={styles.logo}>{loginLogo}</div> : null}
           <Typography.Title level={3} className={styles.title}>
-            {brand.name}
+            {brand.loginTitle}
           </Typography.Title>
+          {brand.loginSubtitle ? (
+            <Typography.Text type="secondary" className={styles.subtitle}>
+              {brand.loginSubtitle}
+            </Typography.Text>
+          ) : null}
         </div>
         {children}
       </Card>

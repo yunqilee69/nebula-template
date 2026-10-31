@@ -4,6 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useNebulaLoginBadge } from '@/providers/login-badge-provider';
 import type { AuthInitResp, RegisterReq } from '@/types/auth';
 import { AuthShell } from '@/layouts/auth-shell';
+import { TenantCodeGate } from '@/components/tenant-code-gate';
+import { isTenantResolutionError } from '@/utils/tenant/tenant-error';
+import { resolveTenantHost, saveTenantCode } from '@/utils/tenant/tenant-host';
 
 interface RegisterFormValues extends RegisterReq {
   confirmPassword: string;
@@ -17,6 +20,8 @@ export function RegisterPage() {
   const [config, setConfig] = useState<AuthInitResp | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [tenantError, setTenantError] = useState<string | null>(null);
+  const [configReloadKey, setConfigReloadKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -26,6 +31,7 @@ export function RegisterPage() {
     }
 
     let cancelled = false;
+    setTenantError(null);
     loginBadge.authService
       .getAuthConfig()
       .then((resp) => {
@@ -34,9 +40,13 @@ export function RegisterPage() {
           setConfigLoading(false);
         }
       })
-      .catch(() => {
+      .catch((caught: unknown) => {
         if (!cancelled) {
-          setConfigError(authConfigErrorDescription);
+          if (isTenantResolutionError(caught)) {
+            setTenantError(caught instanceof Error ? caught.message : '当前访问地址未绑定企业');
+          } else {
+            setConfigError(authConfigErrorDescription);
+          }
           setConfigLoading(false);
         }
       });
@@ -44,7 +54,7 @@ export function RegisterPage() {
     return () => {
       cancelled = true;
     };
-  }, [loginBadge.authService]);
+  }, [loginBadge.authService, configReloadKey]);
 
   if (configLoading) {
     return (
@@ -62,6 +72,31 @@ export function RegisterPage() {
     return (
       <AuthShell>
         <Alert type="info" title="注册功能未启用" description="请使用项目提供的注册入口，或在 NebulaProvider 的 loginBadge 中配置认证服务。" showIcon />
+      </AuthShell>
+    );
+  }
+
+  if (tenantError) {
+    const hostTenantCode = resolveTenantHost().tenantCode;
+    return (
+      <AuthShell>
+        {hostTenantCode ? (
+          <Alert
+            type="error"
+            showIcon
+            title="当前企业不可用"
+            description={`访问地址绑定的企业「${hostTenantCode}」不存在或已停用，请检查访问地址或联系企业管理员。`}
+          />
+        ) : (
+          <TenantCodeGate
+            errorMessage={tenantError}
+            onSubmit={(tenantCode) => {
+              saveTenantCode(tenantCode);
+              setConfigLoading(true);
+              setConfigReloadKey((key) => key + 1);
+            }}
+          />
+        )}
       </AuthShell>
     );
   }

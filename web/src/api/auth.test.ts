@@ -52,6 +52,7 @@ describe('authService', () => {
     expect(mockedRequest).toHaveBeenCalledWith({
       method: 'GET',
       url: '/api/frontend/init',
+      _nebulaSilent: true,
     });
   });
 
@@ -75,6 +76,26 @@ describe('authService', () => {
     expect(mockedRequest).toHaveBeenCalledWith({
       method: 'POST',
       url: '/api/auth/login',
+      data,
+    });
+  });
+
+  it('personLogin calls POST /api/auth/person-login and returns LoginResp', async () => {
+    const mockResp: LoginResp = {
+      accessToken: 'person-access',
+      refreshToken: 'person-refresh',
+      accessTokenExpiresIn: 7200,
+      refreshTokenExpiresIn: 604800,
+    };
+    mockedRequest.mockResolvedValueOnce(mockResp);
+
+    const data: LoginReq = { username: 'platform_admin', password: '123456' };
+    const result = await authService.personLogin(data);
+
+    expect(result).toBe(mockResp);
+    expect(mockedRequest).toHaveBeenCalledWith({
+      method: 'POST',
+      url: '/api/auth/person-login',
       data,
     });
   });

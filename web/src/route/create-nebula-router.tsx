@@ -4,8 +4,11 @@ import { EmptyModule } from '@/layouts/empty-module';
 import { ExceptionResult } from '@/layouts/exception-result';
 import { NebulaLayout } from '@/layouts/nebula-layout';
 import { ForgotPasswordPage } from '@/pages/forgot-password';
+import { TenantOAuthProvidersPage } from '@/pages/tenant/settings/oauth-providers';
+import { BindingPage } from '@/pages/login/binding';
 import { GitHubCallbackPage } from '@/pages/login/github-callback';
 import { LoginPage } from '@/pages/login';
+import { AcceptInvitationPage } from '@/pages/invitations/accept';
 import { ProfileBindCallbackPage } from '@/pages/profile/bind-callback';
 import { RegisterPage } from '@/pages/register';
 import { buildMenuRoutes } from './build-menu-routes';
@@ -21,7 +24,15 @@ const LazyNotificationInboxPage = lazy(() =>
   import('@/pages/notify/inbox').then((module) => ({ default: module.NotificationInboxPage })),
 );
 
-const authPagePaths = new Set(['/login', '/login/github-callback', '/profile/bind-callback', '/register', '/forgot-password']);
+const authPagePaths = new Set([
+  '/login',
+  '/login/binding',
+  '/login/github-callback',
+  '/invitations/accept',
+  '/profile/bind-callback',
+  '/register',
+  '/forgot-password',
+]);
 const redirectPathPrefix = '/redirect';
 
 function RedirectRoute() {
@@ -91,6 +102,12 @@ export function createNebulaRouter(options: CreateNebulaRouterOptions) {
   if (!sourceRoutePaths.has('/login')) {
     builtInAuthRoutes.push({ path: '/login', element: <LoginPage /> });
   }
+  if (!sourceRoutePaths.has('/login/binding')) {
+    builtInAuthRoutes.push({ path: '/login/binding', element: <BindingPage /> });
+  }
+  if (!sourceRoutePaths.has('/invitations/accept')) {
+    builtInAuthRoutes.push({ path: '/invitations/accept', element: <AcceptInvitationPage /> });
+  }
   if (!sourceRoutePaths.has('/login/github-callback')) {
     builtInAuthRoutes.push({ path: '/login/github-callback', element: <GitHubCallbackPage /> });
   }
@@ -113,6 +130,12 @@ export function createNebulaRouter(options: CreateNebulaRouterOptions) {
       ),
     });
   }
+  if (!sourceRoutePaths.has('/tenant/settings/oauth-providers')) {
+    builtInLayoutRoutes.push({
+      path: '/tenant/settings/oauth-providers',
+      element: <TenantOAuthProvidersPage />,
+    });
+  }
   if (!sourceRoutePaths.has('/notify/inbox')) {
     builtInLayoutRoutes.push({
       path: '/notify/inbox',
@@ -122,6 +145,22 @@ export function createNebulaRouter(options: CreateNebulaRouterOptions) {
         </Suspense>
       ),
     });
+  }
+  // 个人中心与平台管理入口曾使用 /account、/platform 前缀，保留旧链接跳转。
+  const legacyRedirects: Array<{ path: string; to: string }> = [
+    { path: '/account', to: '/profile/info?tab=platform' },
+    { path: '/account/profile', to: '/profile/info?tab=platform' },
+    { path: '/account/security', to: '/profile/info?tab=platform' },
+    { path: '/account/tenants', to: '/profile/info?tab=platform' },
+    { path: '/account/tenant-management', to: '/tenant-config/tenant' },
+    { path: '/platform', to: '/tenant-config/tenant' },
+    { path: '/platform/settings', to: '/tenant-config/tenant' },
+    { path: '/platform/users', to: '/tenant-config/person' },
+  ];
+  for (const redirect of legacyRedirects) {
+    if (!sourceRoutePaths.has(redirect.path)) {
+      builtInLayoutRoutes.push({ path: redirect.path, element: <Navigate to={redirect.to} replace /> });
+    }
   }
   const fullPageRoutes = sourceRoutes.filter((route) => typeof route.path === 'string' && authPagePaths.has(route.path));
   const layoutSourceRoutes = sourceRoutes.filter((route) => typeof route.path !== 'string' || !authPagePaths.has(route.path));

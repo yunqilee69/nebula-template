@@ -30,8 +30,13 @@ export const ALL_CHANNEL_TYPES: readonly ChannelType[] = [
 export const DEFAULT_VARIANTS: readonly UpdateNotifyTemplateVariantReq[] = ALL_CHANNEL_TYPES.map((channelType) => ({
   channelType,
   contentTemplate: '',
+  ...(channelType === 'EMAIL' ? { htmlContentTemplate: '' } : {}),
   enabled: false,
 }));
+
+/** 模板字段编码：必须是简单标识符，才能作为 Thymeleaf 顶层变量解析。 */
+export const TEMPLATE_FIELD_CODE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const RESERVED_TEMPLATE_VARIABLE = 'notify';
 
 /** 生成一份全新的默认变体列表（每个渠道一个空占位），避免多个表单实例共享同一批对象。 */
 export function createDefaultVariants(): UpdateNotifyTemplateVariantReq[] {
@@ -51,26 +56,50 @@ export function mergeVariantsWithDefaults(
   for (const variant of variants ?? []) {
     byChannelType.set(variant.channelType, variant);
   }
-  return ALL_CHANNEL_TYPES.map((channelType) => byChannelType.get(channelType) ?? { channelType, contentTemplate: '', enabled: false });
+  return ALL_CHANNEL_TYPES.map((channelType) => byChannelType.get(channelType)
+    ?? { channelType, contentTemplate: '', enabled: false, ...(channelType === 'EMAIL' ? { htmlContentTemplate: '' } : {}) });
 }
 
-export const SYSTEM_TEMPLATE_VARIABLES = [
-  { kind: 'BUILTIN', name: 'notify.currentDateTime', description: '当前日期时间', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.currentDate', description: '当前日期', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.currentTime', description: '当前时间', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.timestamp', description: '当前时间戳', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.year', description: '当前年份', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.month', description: '当前月份', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.day', description: '当前日期中的日', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.hour', description: '当前小时', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.minute', description: '当前分钟', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.second', description: '当前秒', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.dayOfWeek', description: '当前星期', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.templateCode', description: '当前模板编码（自动）', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.channelType', description: '当前发送渠道（自动）', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.receiverUserId', description: '当前接收用户 ID（自动）', builtin: true },
-  { kind: 'BUILTIN', name: 'notify.receiverEmail', description: '当前接收用户邮箱（自动）', builtin: true },
+export const SYSTEM_TIME_TEMPLATE_VARIABLES = [
+  { kind: 'BUILTIN', name: 'notify.currentDateTime', description: '当前日期时间（yyyy-MM-dd HH:mm:ss）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.currentDate', description: '当前日期（yyyy-MM-dd）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.currentTime', description: '当前时间（HH:mm:ss）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.timestamp', description: '当前毫秒时间戳', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.year', description: '当前年份，如 2026', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.month', description: '当前月份，两位（01-12）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.day', description: '当前日，两位（01-31）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.hour', description: '当前小时，两位（00-23）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.minute', description: '当前分钟，两位（00-59）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.second', description: '当前秒，两位（00-59）', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.dayOfWeek', description: '当前星期，英文（如 FRIDAY）', builtin: true },
 ] as const satisfies readonly TemplateVariable[];
+
+export const SYSTEM_CONTEXT_TEMPLATE_VARIABLES = [
+  { kind: 'BUILTIN', name: 'notify.templateCode', description: '当前模板编码，自动注入', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.channelType', description: '当前发送渠道，如 EMAIL、SITE、PUSH', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.receiverUserId', description: '当前接收用户 ID，站内信/推送渠道有值', builtin: true },
+  { kind: 'BUILTIN', name: 'notify.receiverEmail', description: '当前接收邮箱，仅邮件渠道有值', builtin: true },
+] as const satisfies readonly TemplateVariable[];
+
+export const SYSTEM_TEMPLATE_VARIABLES = [
+  ...SYSTEM_TIME_TEMPLATE_VARIABLES,
+  ...SYSTEM_CONTEXT_TEMPLATE_VARIABLES,
+] as const satisfies readonly TemplateVariable[];
+
+export const SYSTEM_TEMPLATE_VARIABLE_GROUPS = [
+  { key: 'time', title: '时间相关', variables: SYSTEM_TIME_TEMPLATE_VARIABLES },
+  { key: 'context', title: '发送上下文', variables: SYSTEM_CONTEXT_TEMPLATE_VARIABLES },
+] as const;
+
+/** 纯文本模板中引用变量的写法。 */
+export function textTemplateVariableUsage(name: string): string {
+  return '[(${' + name + '})]';
+}
+
+/** HTML 模板中引用变量的写法。 */
+export function htmlTemplateVariableUsage(name: string): string {
+  return 'th:text="${' + name + '}"';
+}
 
 export type NotifyTemplateService = Pick<
   NotifyService,
@@ -109,12 +138,12 @@ export function extractCustomTemplateVariables(
 ): readonly TemplateVariable[] {
   const variables: TemplateVariable[] = [];
   const names = new Set<string>();
-  const pattern = /\$\{([A-Za-z_][A-Za-z0-9_.-]*)\}/g;
+  const pattern = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
   for (const template of [subjectTemplate ?? '', contentTemplate]) {
     for (const match of template.matchAll(pattern)) {
       const name = match[1];
-      if (!name || name.startsWith('notify.') || names.has(name)) continue;
+      if (!name || name.toLowerCase() === RESERVED_TEMPLATE_VARIABLE || names.has(name)) continue;
       names.add(name);
       variables.push({ kind: 'CUSTOM', name, builtin: false });
     }
@@ -124,17 +153,17 @@ export function extractCustomTemplateVariables(
 }
 
 export function extractCustomTemplateVariablesFromVariants(
-  variants: readonly Pick<UpdateNotifyTemplateVariantReq, 'subjectTemplate' | 'contentTemplate'>[],
+  variants: readonly Pick<UpdateNotifyTemplateVariantReq, 'subjectTemplate' | 'contentTemplate' | 'htmlContentTemplate'>[],
 ): readonly TemplateVariable[] {
   const variables: TemplateVariable[] = [];
   const names = new Set<string>();
-  const pattern = /\$\{([A-Za-z_][A-Za-z0-9_.-]*)\}/g;
+  const pattern = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
   for (const variant of variants) {
-    for (const template of [variant.subjectTemplate ?? '', variant.contentTemplate]) {
+    for (const template of [variant.subjectTemplate ?? '', variant.contentTemplate, variant.htmlContentTemplate ?? '']) {
       for (const match of template.matchAll(pattern)) {
         const name = match[1];
-        if (!name || name.startsWith('notify.') || names.has(name)) continue;
+        if (!name || name.toLowerCase() === RESERVED_TEMPLATE_VARIABLE || names.has(name)) continue;
         names.add(name);
         variables.push({ kind: 'CUSTOM', name, builtin: false });
       }
@@ -218,13 +247,27 @@ function normalizeFields(values: readonly NotifyTemplateFieldReq[] | undefined):
 }
 
 function normalizeVariants(values: readonly UpdateNotifyTemplateVariantReq[]): readonly UpdateNotifyTemplateVariantReq[] {
-  return values.map((variant) => ({
-    ...(variant.id ? { id: variant.id } : {}),
-    channelType: variant.channelType,
-    contentTemplate: variant.contentTemplate.trim(),
-    enabled: variant.enabled ?? false,
-    ...optionalVariantValues(variant),
-  }));
+  return values.map((variant) => {
+    const htmlContentTemplate = variant.channelType === 'EMAIL'
+      ? normalizeOptionalText(variant.htmlContentTemplate)
+      : undefined;
+    return {
+      ...(variant.id ? { id: variant.id } : {}),
+      channelType: variant.channelType,
+      contentTemplate: variant.contentTemplate.trim(),
+      ...(htmlContentTemplate ? { htmlContentTemplate } : {}),
+      enabled: variant.enabled ?? false,
+      ...optionalVariantValues(variant),
+    };
+  });
+}
+
+/** 字段编码校验：只允许标识符，且不能占用内置 notify 变量。 */
+export function isValidTemplateFieldCode(fieldCode: string | undefined): boolean {
+  const normalized = fieldCode?.trim();
+  if (!normalized) return false;
+  return TEMPLATE_FIELD_CODE_PATTERN.test(normalized)
+    && normalized.toLowerCase() !== RESERVED_TEMPLATE_VARIABLE;
 }
 
 function optionalFieldValues(field: NotifyTemplateFieldReq): Pick<NotifyTemplateFieldReq, 'defaultValue' | 'exampleValue' | 'remark'> {

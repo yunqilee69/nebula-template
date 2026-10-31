@@ -24,6 +24,27 @@ function BuiltInMenuManagementPage() {
 // loader 使用动态 import()，页面代码只在对应路由被访问时才加载。
 // 系统管理 - 运营管理
 export const builtInMenuComponentRegistry = createMenuComponentRegistry({
+  // 平台管理（仅默认租户下发这些菜单）
+  TenantManagementPage: {
+    component: 'TenantManagementPage',
+    defaultName: '租户管理',
+    defaultCode: 'TENANT_MANAGEMENT',
+    defaultPath: '/tenant-config/tenant',
+    defaultIcon: 'ApartmentOutlined',
+    loader: () =>
+      import('@/pages/tenant-config/tenant-management').then((module) => ({ default: module.TenantManagementPage })),
+  },
+  PlatformPersonManagementPage: {
+    component: 'PlatformPersonManagementPage',
+    defaultName: '平台用户管理',
+    defaultCode: 'PLATFORM_PERSON_MANAGEMENT',
+    defaultPath: '/tenant-config/person',
+    defaultIcon: 'TeamOutlined',
+    loader: () =>
+      import('@/pages/tenant-config/person-management').then((module) => ({
+        default: module.PlatformPersonManagementPage,
+      })),
+  },
   // 仪表盘
   DashboardPage: {
     component: 'DashboardPage',
@@ -122,6 +143,18 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultCode: 'GENERAL_CONFIG',
     defaultPath: '/system/config/general',
     loader: () => import('@/pages/system/config/general').then((module) => ({ default: module.GeneralConfigPage })),
+  },
+  // 系统管理 - 企业设置（租户内自助维护企业资料与品牌）
+  TenantEnterpriseSettingsPage: {
+    component: 'TenantEnterpriseSettingsPage',
+    defaultName: '企业设置',
+    defaultCode: 'TENANT_ENTERPRISE_SETTINGS',
+    defaultPath: '/system/settings/tenant',
+    defaultIcon: 'ShopOutlined',
+    loader: () =>
+      import('@/pages/tenant/settings/enterprise').then((module) => ({
+        default: module.TenantEnterpriseSettingsPage,
+      })),
   },
   // 系统管理 - 系统监控
   AuditLogPage: {

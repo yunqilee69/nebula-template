@@ -41,4 +41,6 @@ test('EndpointsTest.anonymousWhitelist', () => {
   assert.equal(isAnonymousEndpoint('/api/auth/login'), true);
   assert.equal(isAnonymousEndpoint('/api/auth/current-user'), false);
   assert.equal(isAnonymousEndpoint('/api/auth/logout'), false);
+  assert.equal(isAnonymousEndpoint('/api/auth/account/person'), false);
+  assert.equal(isAnonymousEndpoint('/api/auth/account/person/tenants'), false);
 });

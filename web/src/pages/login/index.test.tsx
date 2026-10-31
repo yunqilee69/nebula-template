@@ -13,6 +13,8 @@ import type {
   NebulaExtraLoginBadgeRenderContext,
 } from '@/types/auth';
 import { saveAuthTokens } from '@/utils/auth/token-session';
+import { NebulaBusinessError } from '@/request/create-request-client';
+import { clearTenantCode, getStoredTenantCode } from '@/utils/tenant/tenant-host';
 import { LoginPage } from './index';
 
 const redirectToAuthorizeUrlMock = vi.hoisted(() => vi.fn());
@@ -31,7 +33,9 @@ vi.mock('./wechat-redirect-navigation', () => ({
 function createMockAuthService(partial?: Partial<AuthService>): AuthService {
   return {
     getAuthConfig: partial?.getAuthConfig ?? vi.fn(),
+    getInit: partial?.getInit ?? vi.fn(),
     login: partial?.login ?? vi.fn(),
+    personLogin: partial?.personLogin ?? vi.fn(),
     phoneLogin: partial?.phoneLogin ?? vi.fn(),
     emailLogin: partial?.emailLogin ?? vi.fn(),
     register: partial?.register ?? vi.fn(),
@@ -170,6 +174,7 @@ describe('LoginPage', () => {
     vi.unstubAllGlobals();
     vi.mocked(saveAuthTokens).mockClear();
     redirectToAuthorizeUrlMock.mockClear();
+    clearTenantCode();
   });
 
   it('loads config, shows password login by default, and renders only form methods as tabs', async () => {
@@ -201,6 +206,45 @@ describe('LoginPage', () => {
     expect(phoneTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('手机号')).toBeInTheDocument();
     expect(authService.getAuthConfig).toHaveBeenCalledOnce();
+  });
+
+  it('offers a separate platform account login method in tenant mode', async () => {
+    const user = userEvent.setup();
+    const authService = createMockAuthService({
+      getAuthConfig: vi.fn().mockResolvedValue({ ...passwordOnlyConfig, tenantEnabled: true }),
+      personLogin: vi.fn().mockResolvedValue(loginResp),
+    });
+    const onLoginSuccess = vi.fn();
+
+    renderLoginPage({ authService, onLoginSuccess });
+
+    expect(await screen.findByLabelText('用户名')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '平台账号登录' }));
+
+    expect(screen.getByLabelText('平台账号')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('平台账号'), 'platform_admin');
+    await user.type(screen.getByLabelText('密码'), '123456');
+    await user.click(screen.getByRole('button', { name: /登\s*录/ }));
+
+    await waitFor(() => {
+      expect(authService.personLogin).toHaveBeenCalledWith({
+        username: 'platform_admin',
+        password: '123456',
+      });
+    });
+    expect(authService.login).not.toHaveBeenCalled();
+    expect(onLoginSuccess).toHaveBeenCalledWith(loginResp);
+  });
+
+  it('does not offer platform account login outside tenant mode', async () => {
+    const authService = createMockAuthService({
+      getAuthConfig: vi.fn().mockResolvedValue(passwordOnlyConfig),
+    });
+
+    renderLoginPage({ authService });
+
+    expect(await screen.findByLabelText('用户名')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '平台账号登录' })).not.toBeInTheDocument();
   });
 
   it('renders extra login badges from NebulaProvider loginBadge.extraLoginBadges', async () => {
@@ -364,6 +408,26 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: '发送验证码' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '手机号登录' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByLabelText('用户名')).not.toBeInTheDocument();
+  });
+
+  it('asks for a tenant code on a bare host and retries after it is entered', async () => {
+    const user = userEvent.setup();
+    const getAuthConfig = vi.fn()
+      .mockRejectedValueOnce(new NebulaBusinessError('19001', '未指定租户'))
+      .mockResolvedValueOnce(passwordOnlyConfig);
+    const authService = createMockAuthService({ getAuthConfig });
+
+    renderLoginPage({ authService });
+
+    expect(await screen.findByText('输入企业代码')).toBeInTheDocument();
+    expect(screen.queryByLabelText('用户名')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('企业代码'), 'acme');
+    await user.click(screen.getByRole('button', { name: '进入企业' }));
+
+    expect(await screen.findByLabelText('用户名')).toBeInTheDocument();
+    expect(getStoredTenantCode()).toBe('acme');
+    expect(getAuthConfig).toHaveBeenCalledTimes(2);
   });
 
   it('password login calls onLoginSuccess with LoginResp', async () => {

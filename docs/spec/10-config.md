@@ -35,6 +35,7 @@
 | ThreadPool | `nebula.threadpool` |
 | Cloud/Feign | `nebula.cloud`, `nebula.cloud.feign` |
 | Architecture | `nebula.architecture` |
+| Template | `nebula.template` |
 
 ### 1.3 配置层级结构
 
@@ -52,7 +53,18 @@ nebula:
     mode: local
     remote:
       service-url: http://localhost:9905
+  template:              # 文本/HTML 模板（事务邮件）
+    locations:
+      - classpath:/templates/
+    text-suffix: .txt
+    html-suffix: .html
+    encoding: UTF-8
+    cacheable: true
+    validate-on-startup: true
+    app-name: Nebula
 ```
+
+事务邮件模板按 `locations` 顺序查找 `location + templateName + suffix`，第一个存在的资源生效；业务方把自己的目录放在 `classpath:/templates/` 之前即可覆盖内置模板。`validate-on-startup=true` 时，`AuthEmailNotifier` 和验证码发送器会在启动阶段校验模板存在且语法正确。
 
 ---
 
@@ -391,7 +403,9 @@ spring:
 
 ### 5.4 对象存储后端与直连下载配置
 
-正式内容存储后端由 `nebula.storage.content.type` 选择，取值来自**依赖里装进来的 provider 模块**：
+正式内容存储后端由当前租户 `sys_param` 中的 `storage.backend.type` 选择；当前租户没有该行时，回退到
+`nebula.storage.content.type` 启动配置。每个租户读取自己的参数，不存在跨租户兜底；
+无租户上下文（启动期）直接使用启动配置。可选值来自**依赖里装进来的 provider 模块**：
 
 | type | 提供模块 | 说明 |
 |---|---|---|
@@ -414,7 +428,7 @@ nebula:
       type: aliyun-oss
       aliyun-oss:
         endpoint: ${NEBULA_STORAGE_ALIYUN_OSS_ENDPOINT:}
-        access-key: ${NEBULA_STORAGE_ALIYUN_OSS_ACCESS_KEY:}     # 只能来自环境变量
+        access-key: ${NEBULA_STORAGE_ALIYUN_OSS_ACCESS_KEY:}     # 启动期回退值
         secret-key: ${NEBULA_STORAGE_ALIYUN_OSS_SECRET_KEY:}
         bucket: ${NEBULA_STORAGE_ALIYUN_OSS_BUCKET:}
         # 桶不存在时是否自动建；多数云厂商的 AK 无建桶权限，生产建议 false
@@ -441,7 +455,27 @@ nebula:
 4. 强制下载的 `Content-Disposition` 真名按 RFC 5987 编码（`filename*=UTF-8''...`），中文名不再乱码。
 5. 签名分享下载 `/api/storage/download-signed` 恒经服务端代理，以强制下载次数与时效，不受该开关影响。
 6. 直链 URL 本身即下载凭据，禁止写入日志、审计快照或错误信息（见 08-logging）。
-7. 对象存储凭据只能来自环境变量，禁止写入配置文件、数据库、仓库或日志（见六、敏感配置处理规范）。
+7. 对象存储凭据优先从当前租户 `sys_param` 读取（`storage.backend.access-key` / `secret-key`），
+   启动期 `nebula.storage.*` 只作为该租户未保存参数时的回退。凭据必须加密落库、只写不回显，禁止写入
+   仓库、日志或审计快照。
+
+存储后端参数（各租户自己的 `sys_param`，模块编码 `storage`）：
+
+| 参数键 | 说明 |
+|---|---|
+| `storage.backend.type` | 后端类型；**该行不存在时沿用 `nebula.storage.content.type`** |
+| `storage.backend.filesystem.base-dir` | 文件系统后端根目录 |
+| `storage.backend.endpoint` | MinIO / 阿里云 OSS 服务地址 |
+| `storage.backend.region` | 腾讯云 COS 地域 |
+| `storage.backend.bucket` | 桶名称 |
+| `storage.backend.access-key` | Access Key（加密存储、只写） |
+| `storage.backend.secret-key` | Secret Key（加密存储、只写） |
+| `storage.backend.create-bucket-if-missing` | 桶不存在时是否自动创建 |
+| `storage.backend.direct-download-enabled` | 是否启用直链下载 |
+| `storage.backend.direct-download-expire-seconds` | 直链有效期（1–3600 秒） |
+
+租户保存后存储后端最迟 5 秒热生效，无需重启。租户参数的单个字段为空时，回退到对应 provider 的
+`nebula.storage.content.<type>.*` 启动配置。
 
 ### 5.5 下载响应缓存配置
 

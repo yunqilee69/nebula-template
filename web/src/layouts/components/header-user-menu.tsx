@@ -11,10 +11,12 @@ import { useStoragePreviewUrl } from '@/hooks/use-storage-preview-url';
 import { useNebulaTheme } from '@/hooks/use-nebula-theme';
 import { useAuthStore } from '@/stores/auth-store';
 import type { NebulaThemeMode } from '@/stores/theme-store';
+import { hasPermission } from '@/utils/permissions';
 
 interface HeaderUserMenuProps {
   readonly compact?: boolean;
   onOpenProfile: () => void;
+  onOpenEnterpriseSettings?: () => void;
 }
 
 const useStyles = createStyles(({ token }) => ({
@@ -36,7 +38,7 @@ function getAvatarFallback(name: string): string {
   return Array.from(name.trim())[0]?.toUpperCase() ?? '?';
 }
 
-export function HeaderUserMenu({ compact = false, onOpenProfile }: HeaderUserMenuProps) {
+export function HeaderUserMenu({ compact = false, onOpenProfile, onOpenEnterpriseSettings }: HeaderUserMenuProps) {
   const navigate = useNavigate();
   const { token } = antdTheme.useToken();
   const { styles } = useStyles();
@@ -45,7 +47,11 @@ export function HeaderUserMenu({ compact = false, onOpenProfile }: HeaderUserMen
   const mode = useNebulaTheme((state) => state.mode);
   const setMode = useNebulaTheme((state) => state.setMode);
   const user = useAuthStore((state) => state.user);
+  const permissions = useAuthStore((state) => state.permissions);
+  const roles = useAuthStore((state) => state.roles);
   const clearUser = useAuthStore((state) => state.clearUser);
+  const canOpenEnterpriseSettings = Boolean(onOpenEnterpriseSettings)
+    && hasPermission(permissions, 'MENU:TENANT_ENTERPRISE_SETTINGS:Allow', { roles });
   const displayName = user?.name || user?.username || t('layout.headerUser.anonymous');
   const avatarPreviewUrl = useStoragePreviewUrl(user?.avatarPreview ?? user?.avatar);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
@@ -90,6 +96,9 @@ export function HeaderUserMenu({ compact = false, onOpenProfile }: HeaderUserMen
 
   const menuItems: MenuProps['items'] = [
     { key: 'profile', label: t('layout.headerUser.profile') },
+    ...(canOpenEnterpriseSettings
+      ? [{ key: 'enterprise-settings', label: t('layout.headerUser.enterpriseSettings') }]
+      : []),
     { key: 'preferences', label: t('layout.headerUser.preferences') },
     { type: 'divider' },
     { key: 'logout', label: t('layout.headerUser.logout'), danger: true },
@@ -106,6 +115,8 @@ export function HeaderUserMenu({ compact = false, onOpenProfile }: HeaderUserMen
           onClick: ({ key }) => {
             if (key === 'profile') {
               onOpenProfile();
+            } else if (key === 'enterprise-settings') {
+              onOpenEnterpriseSettings?.();
             } else if (key === 'preferences') {
               openPreferences();
             } else if (key === 'logout') {

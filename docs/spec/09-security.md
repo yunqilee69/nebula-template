@@ -805,6 +805,7 @@ public String maskEmail(String email) {
 - ❌ 在 Service 之上再给参数值加一层缓存。参数模块的 `@Cacheable` 落在 Dao 层，缓存里存的是密文；缓存到 Service 之上等于把解密后的明文写进 Redis。
 - ❌ 密钥出现在**数据库、日志、审计快照或异常消息**里，或出现在**随仓库分发的默认配置**中。⚠️ 部署侧自己的配置文件（不进仓库）直接写值不禁止、框架也不校验来源，但会失去"密钥不随配置流转"的好处——写进镜像层、备份或 Git 历史就会一起扩散（见 `docs/spec/10-config.md` §6.1 与 §9.4）。
 - ❌ 管理端接口回传机密参数的密文或明文：只回"是否已配置"布尔，值与密文都不下发。
+- 对象存储凭据（`storage.backend.access-key` / `storage.backend.secret-key`）与 SMTP 授权码同口径：落库必须 `is_encrypted=1`，参数管理接口只接受写入、不回显；`application.yml` / 环境变量只是当前租户从未保存过该参数时的兜底来源，一旦租户保存即以其为准。
 - ❌ 用 `TypeHandler` / MyBatis 拦截器做整列透明加解密：全局 String 注册会加密一切；`Wrapper` 条件绑定不经字段 typeHandler；`UpdateWrapper.set()` 绕过实体直接写库、静默写明文。
 
 **一致性规则（写意图 vs 存储事实）**：
@@ -1075,6 +1076,7 @@ log.info("OAuth2 身份解析成功: openid={}", body.get("openid"));
 - ❌ 加密密钥写入数据库、日志、审计快照，或提交进随仓库分发的默认配置（部署侧配置文件直接写值不禁止，但不推荐）
 - ❌ 写路径缺密钥时静默落明文（必须报 `01030001`）
 - ❌ 管理端接口回传机密参数的密文或明文（只回"是否已配置"）
+- ❌ 对象存储 AK/SK 以明文落 `sys_param`，或通过参数管理接口回显（只回"是否已配置"）
 - ❌ 用 `TypeHandler` / MyBatis 拦截器做整列透明加解密
 - ❌ 在更新接口上接受 `encrypted` 字段（标记属数据变更，只能随创建或 DDL 决定）
 

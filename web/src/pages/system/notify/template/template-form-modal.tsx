@@ -4,8 +4,8 @@ import type { FormInstance } from 'antd';
 import { DictLabel } from '@/components/dict-select';
 import type { NotifyCategoryOption } from '../notify-category-options';
 import type { NotifyTemplateFormState, NotifyTemplateFormValues } from './template-page-helpers';
-import { ALL_CHANNEL_TYPES, NOTIFY_CHANNEL_TYPE, createDefaultVariants } from './template-page-helpers';
-import { BuiltinVariableHelp, WeComWebhookHelp, FeishuWebhookHelp, DingTalkWebhookHelp } from './template-variable-panel';
+import { ALL_CHANNEL_TYPES, NOTIFY_CHANNEL_TYPE, createDefaultVariants, isValidTemplateFieldCode } from './template-page-helpers';
+import { BuiltinVariableHelp, TemplateUsageGuide, WeComWebhookHelp, FeishuWebhookHelp, DingTalkWebhookHelp } from './template-variable-panel';
 
 interface TemplateFormModalProps {
   readonly form: FormInstance<NotifyTemplateFormValues>;
@@ -25,6 +25,25 @@ function sectionTitle(title: string) {
       <BuiltinVariableHelp />
     </div>
   );
+}
+
+function isWebhookChannel(channelType: string): boolean {
+  return channelType === 'WECOM_GROUP_WEBHOOK'
+    || channelType === 'FEISHU_GROUP_WEBHOOK'
+    || channelType === 'DINGTALK_GROUP_WEBHOOK';
+}
+
+function contentPlaceholder(channelType: string): string {
+  switch (channelType) {
+    case 'WECOM_GROUP_WEBHOOK':
+      return '{"msgtype":"text","text":{"content":"订单 [(${orderNo})] 已通过"}}';
+    case 'FEISHU_GROUP_WEBHOOK':
+      return '{"msg_type":"text","content":{"text":"订单 [(${orderNo})] 已通过"}}';
+    case 'DINGTALK_GROUP_WEBHOOK':
+      return '{"msgtype":"text","text":{"content":"订单 [(${orderNo})] 已通过"}}';
+    default:
+      return '例如：您好 [(${userName})]，订单 [(${orderNo})] 已于 [(${notify.currentDateTime})] 通过。';
+  }
 }
 
 export function TemplateFormModal({
@@ -53,6 +72,9 @@ export function TemplateFormModal({
       onCancel={onCancel}
     >
       <Form form={form} layout="vertical" disabled={disabled} initialValues={{ fields: [], variants: createDefaultVariants() }}>
+        <div className="mb-4">
+          <TemplateUsageGuide />
+        </div>
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Form.Item
             name="templateCode"
@@ -86,7 +108,9 @@ export function TemplateFormModal({
               className="mb-4"
             >
               {fieldItems.length === 0 ? (
-                <Typography.Text type="secondary">暂无参数定义，可从变体内容中自动识别变量。</Typography.Text>
+                <Typography.Text type="secondary">
+                  暂无参数定义。模板中使用的自定义变量需要先在这里声明字段编码，否则发送时无法传入。
+                </Typography.Text>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[920px] border-separate border-spacing-0 text-sm">
@@ -108,7 +132,16 @@ export function TemplateFormModal({
                             <Form.Item name={[fieldItem.name, 'id']} hidden><Input /></Form.Item>
                             <Form.Item
                               name={[fieldItem.name, 'fieldCode']}
-                              rules={[{ required: true, whitespace: true, message: '字段编码不能为空' }]}
+                              rules={[
+                                { required: true, whitespace: true, message: '字段编码不能为空' },
+                                {
+                                  validator: async (_rule, value: string | undefined) => {
+                                    if (value && !isValidTemplateFieldCode(value)) {
+                                      throw new Error('字段编码只能包含字母、数字、下划线，且不能以数字开头或使用 notify');
+                                    }
+                                  },
+                                },
+                              ]}
                               className="mb-0"
                             >
                               <Input aria-label="字段编码" placeholder="如 orderNo" />
@@ -181,12 +214,19 @@ export function TemplateFormModal({
                       <Switch checkedChildren="启用" unCheckedChildren="禁用" />
                     </Form.Item>
                   </div>
-                  <Form.Item name={['variants', index, 'subjectTemplate']} label="主题模板">
-                    <Input.TextArea rows={2} placeholder="请输入主题模板，可使用 ${variableName} 变量" />
+                  <Form.Item
+                    name={['variants', index, 'subjectTemplate']}
+                    label="主题模板"
+                    extra="支持自定义参数与内置变量，例如 [(${orderNo})]。"
+                  >
+                    <Input.TextArea rows={2} placeholder={'例如：订单 [(${orderNo})] 已通过'} />
                   </Form.Item>
                   <Form.Item
                     name={['variants', index, 'contentTemplate']}
                     label={<span className="flex items-center gap-2">内容模板 {channelType === 'WECOM_GROUP_WEBHOOK' && <WeComWebhookHelp />}{channelType === 'FEISHU_GROUP_WEBHOOK' && <FeishuWebhookHelp />}{channelType === 'DINGTALK_GROUP_WEBHOOK' && <DingTalkWebhookHelp />}</span>}
+                    extra={isWebhookChannel(channelType)
+                      ? '内容会作为完整 JSON 发送；变量写在 JSON 字符串值中，双引号需要转义。'
+                      : '支持自定义参数与内置变量；换行会按纯文本原样发送。'}
                     rules={[{
                       validator: async (_rule, value: string | undefined) => {
                         if (form.getFieldValue(['variants', index, 'enabled']) && !value?.trim()) {
@@ -195,8 +235,17 @@ export function TemplateFormModal({
                       },
                     }]}
                   >
-                    <Input.TextArea rows={5} placeholder={"请输入内容模板，可使用 ${variableName} 变量"} />
+                    <Input.TextArea rows={5} placeholder={contentPlaceholder(channelType)} />
                   </Form.Item>
+                  {channelType === 'EMAIL' && (
+                    <Form.Item
+                      name={['variants', index, 'htmlContentTemplate']}
+                      label="HTML 内容模板（可选）"
+                      extra="仅邮件渠道；支持 th:text、th:if，th:text 默认自动转义变量；留空时只发送纯文本正文。"
+                    >
+                      <Input.TextArea rows={6} placeholder={'<p>您好，<span th:text="${userName}">用户</span>：</p>'} />
+                    </Form.Item>
+                  )}
                 </div>
               ),
             }))}
