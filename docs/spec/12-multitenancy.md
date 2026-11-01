@@ -39,7 +39,7 @@
     只修改全量初始化 SQL；不提供 `unreleased` 增量迁移脚本。已有数据的部署不在本次范围内。
 
 11. **默认单租户兼容。**  
-    `nebula.tenant.enabled=false` 时保持现有单租户登录行为；开启多租户后平台账号层随租户模式自动启用，并强制绑定。
+    `nebula.tenant.enabled=false` 时不启用租户解析和平台账号绑定，租户读写统一归属 `default-tenant-id`；开启多租户后平台账号层随租户模式自动启用，并强制绑定。
 
 12. **默认超级管理员账号为 `superadmin`。**  
     初始化 SQL 中只创建全局平台账号 `auth_person.username=superadmin`、`platform_admin=1`；它不绑定默认租户，也不在默认租户内创建同名 `auth_user`、角色或关联记录。超级管理员只存在于控制平面。后端能力标记仍保留字段名 `platform_admin`。
@@ -931,8 +931,9 @@ public final class TenantContext {
 
 ### 10.2 MyBatis
 
-- `TenantLineInnerInterceptor` 必须在 `PaginationInnerInterceptor` 之前；
-- `TenantTableRegistry` 启动校验所有表已分类，`strict=true` 时未分类启动失败；
+- `TenantLineInnerInterceptor` 必须在 `PaginationInnerInterceptor` 之前，且**单租户也注册**：系统租户模板数据与默认租户数据同处租户表，只有追加 `tenant_id = ?` 才能把模板行挡在运行时之外；
+- 拦截器的租户 ID 统一由 `TenantIdResolver` 解析：单租户缺上下文回落到 `default-tenant-id`，多租户缺上下文仍然失败；
+- `TenantTableRegistry` 启动校验所有表已分类：多租户下 `strict=true` 未分类直接启动失败，单租户只汇总提示一次并按全局表放行；
 - `TenantBaseEntity` / `TenantTreeEntity`；
 - 租户表实体继承 `TenantBaseEntity` 或实现 `TenantScoped`，由 `TenantIdResolver` 显式填充 `tenant_id`；无实体表登记 `nebula.tenant.tenant-tables`；
 - 手写 SQL、注解 SQL、原生 JDBC 显式加 `tenant_id`；
@@ -1181,7 +1182,7 @@ nebula:
     password-max-length: 20
 ```
 
-- `tenant.enabled=false`：不注册租户拦截器/过滤器/缓存前缀，保持单租户行为；
+- `tenant.enabled=false`：不启用租户解析、租户选择和平台账号绑定；租户拦截器仍然注册，读写统一落到 `default-tenant-id`，用于隔离系统租户模板数据；
 - `tenant.enabled=true`：平台账号层随租户模式自动启用，租户登录必须完成平台账号绑定；
 - 平台账号的密码策略固定读取 `nebula.person.password-*`，不读取当前租户的 `login.username.password-*` 参数；
 - 默认租户 ID 使用 UUIDv7 形状的固定值；系统租户固定为 `__system__`；
