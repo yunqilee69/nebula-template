@@ -12,10 +12,12 @@
 -- 影响：只新增/更新该字典项，不改动其它数据。
 -- ============================================================================
 
+SET @default_tenant_id = (SELECT id FROM auth_tenant WHERE code = 'default' LIMIT 1);
+
 INSERT INTO sys_dict_item (
-    id, dict_code, name, item_value, sort, is_enabled, tag_color, remark, create_time, update_time
+    id, tenant_id, dict_code, name, item_value, sort, is_enabled, tag_color, remark, create_time, update_time
 ) VALUES
-    ('019cf114a0007000800000000000004b', 'NOTIFY_CHANNEL_TYPE', '移动推送', 'PUSH', 6, 1, NULL, '移动端推送通知渠道', NOW(), NOW())
+    ('019cf114a0007000800000000000004b', @default_tenant_id, 'NOTIFY_CHANNEL_TYPE', '移动推送', 'PUSH', 6, 1, NULL, '移动端推送通知渠道', NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     dict_code = new_values.dict_code,
     name = new_values.name,

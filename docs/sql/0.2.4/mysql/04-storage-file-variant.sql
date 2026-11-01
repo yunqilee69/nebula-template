@@ -11,8 +11,11 @@
 --   5. uk_file_variant 保证一个文件每个派生版本只有一条记录。
 -- ============================================================================
 
+SET @default_tenant_id = (SELECT id FROM auth_tenant WHERE code = 'default' LIMIT 1);
+
 CREATE TABLE IF NOT EXISTS storage_file_variant (
     id CHAR(32) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     file_id CHAR(32) NOT NULL COMMENT '源文件ID',
     variant VARCHAR(50) NOT NULL COMMENT '派生标识，如 thumb',
     content_key VARCHAR(500) NOT NULL COMMENT '派生内容存储Key',
@@ -23,6 +26,6 @@ CREATE TABLE IF NOT EXISTS storage_file_variant (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_file_variant (file_id, variant),
-    KEY idx_file_variant_hash (file_hash)
+    UNIQUE KEY uk_file_variant (tenant_id, file_id, variant),
+    KEY idx_file_variant_hash (tenant_id, file_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件派生版本表';

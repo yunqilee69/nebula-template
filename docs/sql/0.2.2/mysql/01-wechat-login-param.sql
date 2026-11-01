@@ -12,8 +12,10 @@
 -- ----------------------------------------------------------------------------
 -- 1. 新增微信登录提供商开关
 -- ----------------------------------------------------------------------------
+SET @default_tenant_id = (SELECT id FROM auth_tenant WHERE code = 'default' LIMIT 1);
+
 INSERT INTO sys_param (
-    id,
+    id, tenant_id,
     param_key,
     param_name,
     description,
@@ -25,7 +27,7 @@ INSERT INTO sys_param (
     create_time,
     update_time
 ) VALUES
-    ('01959f0aa4d37c0d91a7d9af9c7d1025', 'login.oauth2.provider.wechat.enabled', '微信登录开关', '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道', 'false', 'BOOLEAN', NULL, 'auth', 1, NOW(), NOW())
+    ('01959f0aa4d37c0d91a7d9af9c7d1025', @default_tenant_id, 'login.oauth2.provider.wechat.enabled', '微信登录开关', '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道', 'false', 'BOOLEAN', NULL, 'auth', 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     param_name = new_values.param_name,
     description = new_values.description,

@@ -19,8 +19,10 @@
 -- ----------------------------------------------------------------------------
 -- 1. 补齐默认角色 / 默认组织参数
 -- ----------------------------------------------------------------------------
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 INSERT INTO sys_param (
-    id,
+    id, tenant_id,
     param_key,
     param_name,
     description,
@@ -32,6 +34,6 @@ INSERT INTO sys_param (
     create_time,
     update_time
 ) VALUES
-    ('01959f0aa4d37c0d91a7d9af9c7d1038', 'login.oauth2.default-role-id', '自助注册默认角色ID', '自助注册自动建号（OAuth2 首登、用户名注册、手机号/邮箱首次登录）绑定的默认角色ID，留空则不绑定；填写的角色必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('01959f0aa4d37c0d91a7d9af9c7d1039', 'login.oauth2.default-org-id', '自助注册默认组织ID', '自助注册自动建号绑定的默认组织ID（标记为主组织），留空则不绑定；填写的组织必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (param_key) DO NOTHING;
+    ('01959f0aa4d37c0d91a7d9af9c7d1038', current_setting('nebula.default_tenant_id'), 'login.oauth2.default-role-id', '自助注册默认角色ID', '自助注册自动建号（OAuth2 首登、用户名注册、手机号/邮箱首次登录）绑定的默认角色ID，留空则不绑定；填写的角色必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('01959f0aa4d37c0d91a7d9af9c7d1039', current_setting('nebula.default_tenant_id'), 'login.oauth2.default-org-id', '自助注册默认组织ID', '自助注册自动建号绑定的默认组织ID（标记为主组织），留空则不绑定；填写的组织必须存在，否则建号失败', NULL, 'STRING', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, param_key) DO NOTHING;

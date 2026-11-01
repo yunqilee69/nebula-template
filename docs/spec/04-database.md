@@ -280,6 +280,23 @@ Boolean builtinFlag;    -- 应为 builtin
 
 ---
 
+## 租户字段规范
+
+带租户归属的表（除 `auth_tenant`、`auth_person`、`auth_oauth2_provider`、`frontend_app_release` 等全局表）统一使用：
+
+```sql
+tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
+```
+
+- **禁止 `DEFAULT`**：默认租户只由代码/配置 `nebula.tenant.default-tenant-id` 提供，数据库不提供值；
+- **禁止 `NULL` / 空串**：写入必须由 `TenantIdResolver` 解析后显式赋值；
+- `tenant_id` 放在 `id` 之后、业务字段之前；
+- 唯一键和普通索引以 `tenant_id` 开头，例如 `(tenant_id, code)`；
+- 初始化/升级脚本的每条 `INSERT` 必须显式包含 `tenant_id`；
+- 无实体类的租户表登记 `nebula.tenant.tenant-tables`，有实体类的表实现 `TenantScoped`。
+
+---
+
 ## 索引命名规范
 
 ### 基本规则
@@ -307,26 +324,26 @@ Boolean builtinFlag;    -- 应为 builtin
 PRIMARY KEY (id)
 
 -- ✅ 唯一索引 - uk_{语义描述}
-CREATE UNIQUE INDEX uk_user_username ON auth_user (username);
-CREATE UNIQUE INDEX uk_role_code ON auth_role (code);
-CREATE UNIQUE INDEX uk_org_code ON auth_org (code);
+CREATE UNIQUE INDEX uk_user_username ON auth_user (tenant_id, username);
+CREATE UNIQUE INDEX uk_role_code ON auth_role (tenant_id, code);
+CREATE UNIQUE INDEX uk_org_code ON auth_org (tenant_id, code);
 CREATE UNIQUE INDEX uk_menu_code ON auth_menu (tenant_id, code);
 CREATE UNIQUE INDEX uk_api_code ON auth_api (tenant_id, code);
-CREATE UNIQUE INDEX uk_dict_type_code ON sys_dict_type (code);
-CREATE UNIQUE INDEX uk_sys_param_key ON sys_param (param_key);
-CREATE UNIQUE INDEX uk_notify_template_code ON sys_notify_template (template_code);
+CREATE UNIQUE INDEX uk_dict_type_code ON sys_dict_type (tenant_id, code);
+CREATE UNIQUE INDEX uk_sys_param_key ON sys_param (tenant_id, param_key);
+CREATE UNIQUE INDEX uk_notify_template_code ON sys_notify_template (tenant_id, template_code);
 
 -- ✅ 唯一索引（组合） - uk_{关联语义}
-CREATE UNIQUE INDEX uk_user_org ON auth_user_org (user_id, org_id);
-CREATE UNIQUE INDEX uk_user_role ON auth_user_role (user_id, role_id);
-CREATE UNIQUE INDEX uk_announcement_read_user ON sys_announcement_read_record (announcement_id, user_id);
+CREATE UNIQUE INDEX uk_user_org ON auth_user_org (tenant_id, user_id, org_id);
+CREATE UNIQUE INDEX uk_user_role ON auth_user_role (tenant_id, user_id, role_id);
+CREATE UNIQUE INDEX uk_announcement_read_user ON sys_announcement_read_record (tenant_id, announcement_id, user_id);
 
 -- ✅ 普通索引 - idx_{表}_{字段}
-CREATE INDEX idx_user_status ON auth_user (status);
-CREATE INDEX idx_role_status ON auth_role (status);
-CREATE INDEX idx_org_status ON auth_org (status);
+CREATE INDEX idx_user_status ON auth_user (tenant_id, status);
+CREATE INDEX idx_role_status ON auth_role (tenant_id, status);
+CREATE INDEX idx_org_status ON auth_org (tenant_id, status);
 CREATE INDEX idx_menu_status ON auth_menu (tenant_id, status);
-CREATE INDEX idx_dict_item_enabled ON sys_dict_item (is_enabled);
+CREATE INDEX idx_dict_item_enabled ON sys_dict_item (tenant_id, is_enabled);
 
 -- ✅ 普通索引（外键） - idx_{表}_{外键字段}
 CREATE INDEX idx_org_parent_id ON auth_org (parent_id);

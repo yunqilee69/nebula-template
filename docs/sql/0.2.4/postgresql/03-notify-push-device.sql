@@ -15,8 +15,11 @@
 --      属既有模块偏差，作为独立技术债记录。
 -- ============================================================================
 
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id VARCHAR(64) NOT NULL,
     device_id VARCHAR(128) NOT NULL,
     platform VARCHAR(16) NOT NULL,
@@ -34,9 +37,9 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_push_device ON sys_notify_push_device (device_id);
-CREATE INDEX IF NOT EXISTS idx_notify_push_device_user_status ON sys_notify_push_device (user_id, device_status);
-CREATE INDEX IF NOT EXISTS idx_notify_push_device_token ON sys_notify_push_device (push_token);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_push_device ON sys_notify_push_device (tenant_id, device_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_device_user_status ON sys_notify_push_device (tenant_id, user_id, device_status);
+CREATE INDEX IF NOT EXISTS idx_notify_push_device_token ON sys_notify_push_device (tenant_id, push_token);
 
 COMMENT ON TABLE sys_notify_push_device IS '移动推送设备注册表';
 COMMENT ON COLUMN sys_notify_push_device.user_id IS '所属用户ID，来自登录态，不接受客户端传入';
@@ -51,6 +54,7 @@ COMMENT ON COLUMN sys_notify_push_device.invalid_reason IS '失效原因，由�
 
 CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     record_id VARCHAR(64) NOT NULL,
     device_id VARCHAR(128) NOT NULL,
     user_id VARCHAR(64),
@@ -63,8 +67,8 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_notify_push_detail_record ON sys_notify_push_record_detail (record_id);
-CREATE INDEX IF NOT EXISTS idx_notify_push_detail_device ON sys_notify_push_record_detail (device_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_detail_record ON sys_notify_push_record_detail (tenant_id, record_id);
+CREATE INDEX IF NOT EXISTS idx_notify_push_detail_device ON sys_notify_push_record_detail (tenant_id, device_id);
 
 COMMENT ON TABLE sys_notify_push_record_detail IS '逐设备推送投递明细表';
 COMMENT ON COLUMN sys_notify_push_record_detail.record_id IS '关联 sys_notify_record.id（channel_type=PUSH）';

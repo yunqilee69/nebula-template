@@ -25,6 +25,8 @@
 -- ----------------------------------------------------------------------------
 -- 1. 增加类别列与索引
 -- ----------------------------------------------------------------------------
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 ALTER TABLE sys_notify_template ADD COLUMN IF NOT EXISTS category_code VARCHAR(32) DEFAULT NULL;
 ALTER TABLE sys_notify_record ADD COLUMN IF NOT EXISTS category_code VARCHAR(32) DEFAULT NULL;
 
@@ -41,6 +43,7 @@ COMMENT ON COLUMN sys_notify_record.fail_reason IS '失败原因；SUPPRESSED �
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sys_notify_category (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(32) NOT NULL,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(200),
@@ -55,7 +58,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_category (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_category_code ON sys_notify_category (code);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_category_code ON sys_notify_category (tenant_id, code);
 
 COMMENT ON TABLE sys_notify_category IS '通知类别表';
 COMMENT ON COLUMN sys_notify_category.code IS '类别编码，唯一且创建后不可修改';
@@ -71,14 +74,14 @@ COMMENT ON COLUMN sys_notify_category.remark IS '备注';
 
 -- 内置类别种子（与 docs/sql/init 保持一致）
 INSERT INTO sys_notify_category (
-    id, code, name, description, is_mandatory, is_default_enabled, sort, allowed_channels, is_builtin, is_enabled, remark, create_time, update_time
+    id, tenant_id, code, name, description, is_mandatory, is_default_enabled, sort, allowed_channels, is_builtin, is_enabled, remark, create_time, update_time
 ) VALUES
-    ('019cf114a00070008000000000000046', 'SECURITY', '安全与账号', '登录异常、密码变更等账号安全提醒', TRUE, TRUE, 10, 'SITE,EMAIL,PUSH', TRUE, TRUE, '强制类别：忽略用户偏好，始终放行', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('019cf114a00070008000000000000047', 'TODO', '待办与审批', '指派给你的待办、审批与流转提醒', FALSE, TRUE, 20, 'SITE,PUSH', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('019cf114a00070008000000000000048', 'BUSINESS', '业务提醒', '订单、库存等业务状态变化提醒', FALSE, TRUE, 30, 'SITE,PUSH', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('019cf114a00070008000000000000049', 'ANNOUNCEMENT', '公告通知', '系统公告与运营通知', FALSE, TRUE, 40, 'SITE', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('019cf114a0007000800000000000004a', 'DEFAULT', '其他通知', '未归类通知的兜底类别', FALSE, TRUE, 90, 'SITE,EMAIL,PUSH', TRUE, TRUE, '未指定类别的模板与临时消息归入此类', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+    ('019cf114a00070008000000000000046', current_setting('nebula.default_tenant_id'), 'SECURITY', '安全与账号', '登录异常、密码变更等账号安全提醒', TRUE, TRUE, 10, 'SITE,EMAIL,PUSH', TRUE, TRUE, '强制类别：忽略用户偏好，始终放行', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a00070008000000000000047', current_setting('nebula.default_tenant_id'), 'TODO', '待办与审批', '指派给你的待办、审批与流转提醒', FALSE, TRUE, 20, 'SITE,PUSH', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a00070008000000000000048', current_setting('nebula.default_tenant_id'), 'BUSINESS', '业务提醒', '订单、库存等业务状态变化提醒', FALSE, TRUE, 30, 'SITE,PUSH', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a00070008000000000000049', current_setting('nebula.default_tenant_id'), 'ANNOUNCEMENT', '公告通知', '系统公告与运营通知', FALSE, TRUE, 40, 'SITE', TRUE, TRUE, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('019cf114a0007000800000000000004a', current_setting('nebula.default_tenant_id'), 'DEFAULT', '其他通知', '未归类通知的兜底类别', FALSE, TRUE, 90, 'SITE,EMAIL,PUSH', TRUE, TRUE, '未指定类别的模板与临时消息归入此类', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
     is_mandatory = EXCLUDED.is_mandatory,
@@ -95,6 +98,7 @@ ON CONFLICT (code) DO UPDATE SET
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     id VARCHAR(64) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id VARCHAR(64) NOT NULL,
     category_code VARCHAR(32) NOT NULL,
     channel VARCHAR(32) NOT NULL,
@@ -103,8 +107,8 @@ CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_user_preference ON sys_notify_user_preference (user_id, category_code, channel);
-CREATE INDEX IF NOT EXISTS idx_notify_user_preference_user ON sys_notify_user_preference (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_notify_user_preference ON sys_notify_user_preference (tenant_id, user_id, category_code, channel);
+CREATE INDEX IF NOT EXISTS idx_notify_user_preference_user ON sys_notify_user_preference (tenant_id, user_id);
 
 COMMENT ON TABLE sys_notify_user_preference IS '用户通知订阅偏好表';
 COMMENT ON COLUMN sys_notify_user_preference.category_code IS '通知类别 code';
@@ -120,11 +124,11 @@ DROP TABLE IF EXISTS sys_notify_user_setting;
 -- 5. 「通知类别」菜单、按钮权限与 ADMIN 授权
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_menu (
-    id, name, parent_id, path, sort, code, icon, component, type, status,
+    id, tenant_id, name, parent_id, path, sort, code, icon, component, type, status,
     hidden, external_url, visible_in_breadcrumb, visible_in_tab,
     active_menu_path, remark, create_time, update_time
 ) VALUES (
-    '0196dbe0a6f17000a000000000000030',
+    '0196dbe0a6f17000a000000000000030', current_setting('nebula.default_tenant_id'),
     '通知类别',
     '0196dbe0a6f17000a000000000000020',
     '/system/notify/category',
@@ -158,13 +162,13 @@ INSERT INTO auth_menu (
     update_time = EXCLUDED.update_time;
 
 INSERT INTO auth_button (
-    id, menu_id, code, name, type, sort, status, create_time, update_time
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
 ) VALUES
-    ('0196dbe0a6f17000a000000000000104', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_CREATE', '新增通知类别', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000105', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_EDIT', '编辑通知类别', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000106', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_DELETE', '删除通知类别', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000107', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_QUERY', '查询通知类别', 'query', 4, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+    ('0196dbe0a6f17000a000000000000104', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_CREATE', '新增通知类别', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000105', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_EDIT', '编辑通知类别', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000106', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_DELETE', '删除通知类别', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000107', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_QUERY', '查询通知类别', 'query', 4, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     menu_id = EXCLUDED.menu_id,
     name = EXCLUDED.name,
     type = EXCLUDED.type,
@@ -174,10 +178,10 @@ ON CONFLICT (code) DO UPDATE SET
 
 -- 为 ADMIN 角色补授权：菜单 + 按钮（已存在的跳过）
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(gen_random_uuid()::text, '-', ''),
+    REPLACE(gen_random_uuid()::text, '-', ''), m.tenant_id,
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'MENU',
@@ -188,19 +192,21 @@ SELECT
     CURRENT_TIMESTAMP
 FROM auth_menu m
 WHERE m.id = '0196dbe0a6f17000a000000000000030'
+  AND m.tenant_id = current_setting('nebula.default_tenant_id')
   AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = m.tenant_id
+        AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'MENU'
       AND p.resource_id = m.id
 );
 
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(gen_random_uuid()::text, '-', ''),
+    REPLACE(gen_random_uuid()::text, '-', ''), b.tenant_id,
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'BUTTON',
@@ -211,9 +217,11 @@ SELECT
     CURRENT_TIMESTAMP
 FROM auth_button b
 WHERE b.menu_id = '0196dbe0a6f17000a000000000000030'
+  AND b.tenant_id = current_setting('nebula.default_tenant_id')
   AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = b.tenant_id
+        AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'BUTTON'
       AND p.resource_id = b.id

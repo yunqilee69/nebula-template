@@ -22,25 +22,27 @@
 -- ----------------------------------------------------------------------------
 -- 1. 补登记按钮码
 -- ----------------------------------------------------------------------------
+SET @default_tenant_id = (SELECT id FROM auth_tenant WHERE code = 'default' LIMIT 1);
+
 INSERT INTO auth_button (
-    id, menu_id, code, name, type, sort, status, create_time, update_time
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
 ) VALUES
     -- 通知模块（通知模板页承载模板管理与发送；公告、通知记录、渠道目标各自成页）
-    ('0196dbe0a6f17000a000000000000108', '0196dbe0a6f17000a000000000000021', 'NOTIFY_TEMPLATE_MANAGE', '管理通知模板', 'edit', 1, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000109', '0196dbe0a6f17000a000000000000021', 'NOTIFY_SEND', '发送通知', 'send', 2, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a00000000000010a', '0196dbe0a6f17000a000000000000022', 'NOTIFY_ANNOUNCEMENT_MANAGE', '管理公告', 'edit', 1, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a00000000000010b', '0196dbe0a6f17000a000000000000024', 'NOTIFY_RECORD_VIEW', '查看通知记录', 'query', 1, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a00000000000010c', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_QUERY', '查询渠道目标', 'query', 4, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000108', @default_tenant_id, '0196dbe0a6f17000a000000000000021', 'NOTIFY_TEMPLATE_MANAGE', '管理通知模板', 'edit', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000109', @default_tenant_id, '0196dbe0a6f17000a000000000000021', 'NOTIFY_SEND', '发送通知', 'send', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000010a', @default_tenant_id, '0196dbe0a6f17000a000000000000022', 'NOTIFY_ANNOUNCEMENT_MANAGE', '管理公告', 'edit', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000010b', @default_tenant_id, '0196dbe0a6f17000a000000000000024', 'NOTIFY_RECORD_VIEW', '查看通知记录', 'query', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000010c', @default_tenant_id, '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_QUERY', '查询渠道目标', 'query', 4, 1, NOW(), NOW()),
     -- 参数模块
-    ('0196dbe0a6f17000a000000000000501', '0196dbe0a6f17000a000000000000013', 'PARAM_CREATE', '新增参数', 'add', 1, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000502', '0196dbe0a6f17000a000000000000013', 'PARAM_UPDATE', '编辑参数', 'edit', 2, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000503', '0196dbe0a6f17000a000000000000013', 'PARAM_DELETE', '删除参数', 'delete', 3, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000504', '0196dbe0a6f17000a000000000000014', 'PARAM_GENERAL_CONFIG_EDIT', '编辑高级配置', 'edit', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000501', @default_tenant_id, '0196dbe0a6f17000a000000000000013', 'PARAM_CREATE', '新增参数', 'add', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000502', @default_tenant_id, '0196dbe0a6f17000a000000000000013', 'PARAM_UPDATE', '编辑参数', 'edit', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000503', @default_tenant_id, '0196dbe0a6f17000a000000000000013', 'PARAM_DELETE', '删除参数', 'delete', 3, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000504', @default_tenant_id, '0196dbe0a6f17000a000000000000014', 'PARAM_GENERAL_CONFIG_EDIT', '编辑高级配置', 'edit', 1, 1, NOW(), NOW()),
     -- 调度模块
-    ('0196dbe0a6f17000a000000000000601', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_MANAGE', '管理定时任务', 'edit', 1, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000602', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000601', @default_tenant_id, '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_MANAGE', '管理定时任务', 'edit', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000602', @default_tenant_id, '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, NOW(), NOW()),
     -- 前端模块
-    ('0196dbe0a6f17000a000000000000701', '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, NOW(), NOW())
+    ('0196dbe0a6f17000a000000000000701', @default_tenant_id, '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     menu_id = new_values.menu_id,
     name = new_values.name,
@@ -54,10 +56,10 @@ AS new_values ON DUPLICATE KEY UPDATE
 --    新增按钮码若不授权，ADMIN 也看不到（超管按码绕过校验，但界面按钮靠授权数据下发）
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(UUID(), '-', ''),
+    REPLACE(UUID(), '-', ''), b.tenant_id,
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'BUTTON',
@@ -74,9 +76,11 @@ WHERE b.code IN (
     'SCHEDULER_JOB_MANAGE', 'SCHEDULER_JOB_TRIGGER',
     'FRONTEND_CACHE_DELETE'
 )
+  AND b.tenant_id = @default_tenant_id
   AND NOT EXISTS (
       SELECT 1 FROM auth_permission p
-      WHERE p.subject_type = 'ROLE'
+      WHERE p.tenant_id = b.tenant_id
+        AND p.subject_type = 'ROLE'
         AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
         AND p.resource_type = 'BUTTON'
         AND p.resource_id = b.id

@@ -22,26 +22,28 @@
 -- ----------------------------------------------------------------------------
 -- 1. 补登记按钮码
 -- ----------------------------------------------------------------------------
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 INSERT INTO auth_button (
-    id, menu_id, code, name, type, sort, status, create_time, update_time
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
 ) VALUES
     -- 通知模块（通知模板页承载模板管理与发送；公告、通知记录、渠道目标各自成页）
-    ('0196dbe0a6f17000a000000000000108', '0196dbe0a6f17000a000000000000021', 'NOTIFY_TEMPLATE_MANAGE', '管理通知模板', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000109', '0196dbe0a6f17000a000000000000021', 'NOTIFY_SEND', '发送通知', 'send', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a00000000000010a', '0196dbe0a6f17000a000000000000022', 'NOTIFY_ANNOUNCEMENT_MANAGE', '管理公告', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a00000000000010b', '0196dbe0a6f17000a000000000000024', 'NOTIFY_RECORD_VIEW', '查看通知记录', 'query', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a00000000000010c', '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_QUERY', '查询渠道目标', 'query', 4, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000108', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000021', 'NOTIFY_TEMPLATE_MANAGE', '管理通知模板', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000109', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000021', 'NOTIFY_SEND', '发送通知', 'send', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a00000000000010a', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000022', 'NOTIFY_ANNOUNCEMENT_MANAGE', '管理公告', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a00000000000010b', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000024', 'NOTIFY_RECORD_VIEW', '查看通知记录', 'query', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a00000000000010c', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_QUERY', '查询渠道目标', 'query', 4, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     -- 参数模块
-    ('0196dbe0a6f17000a000000000000501', '0196dbe0a6f17000a000000000000013', 'PARAM_CREATE', '新增参数', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000502', '0196dbe0a6f17000a000000000000013', 'PARAM_UPDATE', '编辑参数', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000503', '0196dbe0a6f17000a000000000000013', 'PARAM_DELETE', '删除参数', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000504', '0196dbe0a6f17000a000000000000014', 'PARAM_GENERAL_CONFIG_EDIT', '编辑高级配置', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000501', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000013', 'PARAM_CREATE', '新增参数', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000502', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000013', 'PARAM_UPDATE', '编辑参数', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000503', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000013', 'PARAM_DELETE', '删除参数', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000504', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000014', 'PARAM_GENERAL_CONFIG_EDIT', '编辑高级配置', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     -- 调度模块
-    ('0196dbe0a6f17000a000000000000601', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_MANAGE', '管理定时任务', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000602', '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000601', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_MANAGE', '管理定时任务', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000602', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     -- 前端模块
-    ('0196dbe0a6f17000a000000000000701', '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+    ('0196dbe0a6f17000a000000000000701', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     menu_id = EXCLUDED.menu_id,
     name = EXCLUDED.name,
     type = EXCLUDED.type,
@@ -54,10 +56,10 @@ ON CONFLICT (code) DO UPDATE SET
 --    新增按钮码若不授权，ADMIN 也看不到（超管按码绕过校验，但界面按钮靠授权数据下发）
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(gen_random_uuid()::text, '-', ''),
+    REPLACE(gen_random_uuid()::text, '-', ''), b.tenant_id,
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'BUTTON',
@@ -74,4 +76,5 @@ WHERE b.code IN (
     'SCHEDULER_JOB_MANAGE', 'SCHEDULER_JOB_TRIGGER',
     'FRONTEND_CACHE_DELETE'
 )
-ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+  AND b.tenant_id = current_setting('nebula.default_tenant_id')
+ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;

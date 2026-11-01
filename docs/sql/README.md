@@ -56,6 +56,8 @@ for f in docs/sql/init/postgresql/*.sql; do psql -d nebula -f "$f"; done
 
 版本升级**不要**重复执行 `init/` 下的脚本——那是给全新环境用的。
 
+> **租户字段契约（0.2.5 起）**：所有租户表的 `tenant_id` 为 `CHAR(32) NOT NULL CHECK (tenant_id <> '')`，**数据库不提供 DEFAULT**。初始化与升级脚本里的每条 `INSERT` 都必须显式写入 `tenant_id`：默认租户数据用 `@default_tenant_id`（MySQL）或 `current_setting('nebula.default_tenant_id')`（PostgreSQL），模板数据用 `'__system__'`。新增升级脚本时也必须遵守，否则约束会直接拒绝写入。
+
 ## 调度引擎脚本 —— Quartz 与 XXL-JOB 二选一
 
 `nebula.scheduler.engine` 决定调度引擎（`quartz` 为默认，`xxl` 为备选），两者**互斥**，按选型只执行对应一方的脚本：

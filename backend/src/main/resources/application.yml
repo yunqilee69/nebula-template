@@ -40,6 +40,11 @@ spring:
       database: 0
 
 nebula:
+  tenant:
+    # 单租户模式的所有数据归属该租户；必须与初始化脚本中的默认租户行一致。
+    enabled: ${NEBULA_TENANT_ENABLED:false}
+    default-tenant-id: ${NEBULA_TENANT_DEFAULT_TENANT_ID:0194f3c8b6b77c0d91a7d9af9c7d0100}
+    system-tenant-id: ${NEBULA_TENANT_SYSTEM_TENANT_ID:__system__}
   architecture:
     mode: local
   web:

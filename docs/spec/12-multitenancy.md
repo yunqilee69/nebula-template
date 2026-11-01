@@ -728,7 +728,7 @@ tenant_configurable, allowed_endpoints, icon_url, status
 ```sql
 CREATE TABLE auth_tenant_oauth2_provider (
     id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     provider_id VARCHAR(32) NOT NULL,
     channel VARCHAR(32) NOT NULL DEFAULT 'default', -- default/web/mini
     enabled TINYINT NOT NULL DEFAULT 0,
@@ -844,6 +844,8 @@ UNIQUE (tenant_id, provider_config_id, provider_user_id)
 
 ### 9.2 改造表
 
+所有租户表的 `tenant_id` 统一为 `CHAR(32) NOT NULL CHECK (tenant_id <> '')`，**不设数据库 DEFAULT**。写入值只有两个来源：显式租户上下文，或单租户模式下的 `nebula.tenant.default-tenant-id`。实体插入由 `TenantIdResolver` 统一解析并显式写入，禁止依赖数据库默认值、空串或系统租户兜底。所有初始化/升级 SQL 的 `INSERT` 必须显式包含 `tenant_id`，并把它放在 `id` 之后。
+
 | 表 | 改动 | 新唯一键 |
 |---|---|---|
 | `auth_tenant` | `+ short_name`、`+ contact_phone`、`+ website`、`+ address`、`+ industry`、`+ description`、`+ locale`、`+ timezone`、`+ branding_json` | 现有唯一键不变 |
@@ -883,10 +885,10 @@ UNIQUE (tenant_id, provider_config_id, provider_user_id)
 
 ### 9.4 不做迁移
 
-- 只修改 `docs/sql/init/mysql/01-init-structure.sql`、`02-init-data.sql` 与 PostgreSQL 对应文件；
+- 只维护 `docs/sql/init/mysql/01-init-structure.sql`、`02-init-data.sql` 与 PostgreSQL 对应文件；
 - 不创建 `docs/sql/unreleased/**` 增量脚本；
 - 不写回填作业；
-- 已有数据部署不在本次范围，需自行导出/重建。
+- 当前数据库均为开发库，直接删库后重建，不做历史数据兼容。
 
 ### 9.5 初始化数据
 
@@ -932,6 +934,7 @@ public final class TenantContext {
 - `TenantLineInnerInterceptor` 必须在 `PaginationInnerInterceptor` 之前；
 - `TenantTableRegistry` 启动校验所有表已分类，`strict=true` 时未分类启动失败；
 - `TenantBaseEntity` / `TenantTreeEntity`；
+- 租户表实体继承 `TenantBaseEntity` 或实现 `TenantScoped`，由 `TenantIdResolver` 显式填充 `tenant_id`；无实体表登记 `nebula.tenant.tenant-tables`；
 - 手写 SQL、注解 SQL、原生 JDBC 显式加 `tenant_id`；
 - 无租户上下文访问租户表抛 `01030001 TENANT_CONTEXT_MISSING`。
 

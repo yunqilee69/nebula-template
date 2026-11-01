@@ -11,8 +11,11 @@
 --   5. uk_file_variant 保证一个文件每个派生版本只有一条记录。
 -- ============================================================================
 
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 CREATE TABLE IF NOT EXISTS storage_file_variant (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     file_id CHAR(32) NOT NULL,
     variant VARCHAR(50) NOT NULL,
     content_key VARCHAR(500) NOT NULL,
@@ -24,8 +27,8 @@ CREATE TABLE IF NOT EXISTS storage_file_variant (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_file_variant ON storage_file_variant (file_id, variant);
-CREATE INDEX IF NOT EXISTS idx_file_variant_hash ON storage_file_variant (file_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_file_variant ON storage_file_variant (tenant_id, file_id, variant);
+CREATE INDEX IF NOT EXISTS idx_file_variant_hash ON storage_file_variant (tenant_id, file_hash);
 
 COMMENT ON TABLE storage_file_variant IS '文件派生版本表';
 COMMENT ON COLUMN storage_file_variant.id IS '主键，UUID';

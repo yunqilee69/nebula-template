@@ -26,6 +26,8 @@
 -- ----------------------------------------------------------------------------
 -- 1. sys_notify_template / sys_notify_record 增加类别列与索引
 -- ----------------------------------------------------------------------------
+SET @default_tenant_id = (SELECT id FROM auth_tenant WHERE code = 'default' LIMIT 1);
+
 DROP PROCEDURE IF EXISTS nebula_upgrade_notify_category;
 
 DELIMITER $$
@@ -73,6 +75,7 @@ DROP PROCEDURE nebula_upgrade_notify_category;
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sys_notify_category (
     id VARCHAR(64) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(32) NOT NULL COMMENT '类别编码，唯一且创建后不可修改',
     name VARCHAR(50) NOT NULL COMMENT '类别名称',
     description VARCHAR(200) DEFAULT NULL COMMENT '类别说明，用于设置页展示',
@@ -86,18 +89,18 @@ CREATE TABLE IF NOT EXISTS sys_notify_category (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_notify_category_code (code)
+    UNIQUE KEY uk_notify_category_code (tenant_id, code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知类别表';
 
 -- 内置类别种子（与 docs/sql/init 保持一致）
 INSERT INTO sys_notify_category (
-    id, code, name, description, is_mandatory, is_default_enabled, sort, allowed_channels, is_builtin, is_enabled, remark, create_time, update_time
+    id, tenant_id, code, name, description, is_mandatory, is_default_enabled, sort, allowed_channels, is_builtin, is_enabled, remark, create_time, update_time
 ) VALUES
-    ('019cf114a00070008000000000000046', 'SECURITY', '安全与账号', '登录异常、密码变更等账号安全提醒', 1, 1, 10, 'SITE,EMAIL,PUSH', 1, 1, '强制类别：忽略用户偏好，始终放行', NOW(), NOW()),
-    ('019cf114a00070008000000000000047', 'TODO', '待办与审批', '指派给你的待办、审批与流转提醒', 0, 1, 20, 'SITE,PUSH', 1, 1, NULL, NOW(), NOW()),
-    ('019cf114a00070008000000000000048', 'BUSINESS', '业务提醒', '订单、库存等业务状态变化提醒', 0, 1, 30, 'SITE,PUSH', 1, 1, NULL, NOW(), NOW()),
-    ('019cf114a00070008000000000000049', 'ANNOUNCEMENT', '公告通知', '系统公告与运营通知', 0, 1, 40, 'SITE', 1, 1, NULL, NOW(), NOW()),
-    ('019cf114a0007000800000000000004a', 'DEFAULT', '其他通知', '未归类通知的兜底类别', 0, 1, 90, 'SITE,EMAIL,PUSH', 1, 1, '未指定类别的模板与临时消息归入此类', NOW(), NOW())
+    ('019cf114a00070008000000000000046', @default_tenant_id, 'SECURITY', '安全与账号', '登录异常、密码变更等账号安全提醒', 1, 1, 10, 'SITE,EMAIL,PUSH', 1, 1, '强制类别：忽略用户偏好，始终放行', NOW(), NOW()),
+    ('019cf114a00070008000000000000047', @default_tenant_id, 'TODO', '待办与审批', '指派给你的待办、审批与流转提醒', 0, 1, 20, 'SITE,PUSH', 1, 1, NULL, NOW(), NOW()),
+    ('019cf114a00070008000000000000048', @default_tenant_id, 'BUSINESS', '业务提醒', '订单、库存等业务状态变化提醒', 0, 1, 30, 'SITE,PUSH', 1, 1, NULL, NOW(), NOW()),
+    ('019cf114a00070008000000000000049', @default_tenant_id, 'ANNOUNCEMENT', '公告通知', '系统公告与运营通知', 0, 1, 40, 'SITE', 1, 1, NULL, NOW(), NOW()),
+    ('019cf114a0007000800000000000004a', @default_tenant_id, 'DEFAULT', '其他通知', '未归类通知的兜底类别', 0, 1, 90, 'SITE,EMAIL,PUSH', 1, 1, '未指定类别的模板与临时消息归入此类', NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     name = new_values.name,
     description = new_values.description,
@@ -115,6 +118,7 @@ AS new_values ON DUPLICATE KEY UPDATE
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     id VARCHAR(64) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
     category_code VARCHAR(32) NOT NULL COMMENT '通知类别 code',
     channel VARCHAR(32) NOT NULL COMMENT '渠道：SITE/EMAIL/PUSH',
@@ -122,8 +126,8 @@ CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_notify_user_preference (user_id, category_code, channel),
-    KEY idx_notify_user_preference_user (user_id)
+    UNIQUE KEY uk_notify_user_preference (tenant_id, user_id, category_code, channel),
+    KEY idx_notify_user_preference_user (tenant_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户通知订阅偏好表';
 
 -- ----------------------------------------------------------------------------
@@ -135,11 +139,11 @@ DROP TABLE IF EXISTS sys_notify_user_setting;
 -- 5. 「通知类别」菜单、按钮权限与 ADMIN 授权
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_menu (
-    id, name, parent_id, path, sort, code, icon, component, type, status,
+    id, tenant_id, name, parent_id, path, sort, code, icon, component, type, status,
     hidden, external_url, visible_in_breadcrumb, visible_in_tab,
     active_menu_path, remark, create_time, update_time
 ) VALUES (
-    '0196dbe0a6f17000a000000000000030',
+    '0196dbe0a6f17000a000000000000030', @default_tenant_id,
     '通知类别',
     '0196dbe0a6f17000a000000000000020',
     '/system/notify/category',
@@ -173,12 +177,12 @@ INSERT INTO auth_menu (
     update_time = new_values.update_time;
 
 INSERT INTO auth_button (
-    id, menu_id, code, name, type, sort, status, create_time, update_time
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
 ) VALUES
-    ('0196dbe0a6f17000a000000000000104', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_CREATE', '新增通知类别', 'add', 1, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000105', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_EDIT', '编辑通知类别', 'edit', 2, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000106', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_DELETE', '删除通知类别', 'delete', 3, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000107', '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_QUERY', '查询通知类别', 'query', 4, 1, NOW(), NOW())
+    ('0196dbe0a6f17000a000000000000104', @default_tenant_id, '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_CREATE', '新增通知类别', 'add', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000105', @default_tenant_id, '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_EDIT', '编辑通知类别', 'edit', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000106', @default_tenant_id, '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_DELETE', '删除通知类别', 'delete', 3, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000107', @default_tenant_id, '0196dbe0a6f17000a000000000000030', 'NOTIFY_CATEGORY_QUERY', '查询通知类别', 'query', 4, 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     menu_id = new_values.menu_id,
     name = new_values.name,
@@ -189,10 +193,10 @@ AS new_values ON DUPLICATE KEY UPDATE
 
 -- 为 ADMIN 角色补授权：菜单 + 按钮（已存在的跳过）
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(UUID(), '-', ''),
+    REPLACE(UUID(), '-', ''), m.tenant_id,
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'MENU',
@@ -203,19 +207,21 @@ SELECT
     NOW()
 FROM auth_menu m
 WHERE m.id = '0196dbe0a6f17000a000000000000030'
+  AND m.tenant_id = @default_tenant_id
   AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = m.tenant_id
+        AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'MENU'
       AND p.resource_id = m.id
 );
 
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(UUID(), '-', ''),
+    REPLACE(UUID(), '-', ''), b.tenant_id,
     'ROLE',
     '0194f3c8b6b77c0d91a7d9af9c7d0002',
     'BUTTON',
@@ -226,9 +232,11 @@ SELECT
     NOW()
 FROM auth_button b
 WHERE b.menu_id = '0196dbe0a6f17000a000000000000030'
+  AND b.tenant_id = @default_tenant_id
   AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = b.tenant_id
+        AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'BUTTON'
       AND p.resource_id = b.id

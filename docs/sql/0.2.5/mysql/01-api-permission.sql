@@ -15,8 +15,11 @@
 -- ----------------------------------------------------------------------------
 -- 1. 建表
 -- ----------------------------------------------------------------------------
+SET @default_tenant_id = (SELECT id FROM auth_tenant WHERE code = 'default' LIMIT 1);
+
 CREATE TABLE IF NOT EXISTS auth_api (
     id CHAR(32) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(100) NOT NULL COMMENT '接口权限编码，唯一',
     name VARCHAR(100) NOT NULL COMMENT '接口权限名称',
     module VARCHAR(50) COMMENT '所属模块编码，取值来自字典 param_module',
@@ -26,21 +29,21 @@ CREATE TABLE IF NOT EXISTS auth_api (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_api_code (code),
-    KEY idx_api_module (module),
-    KEY idx_api_status (status)
+    UNIQUE KEY uk_api_code (tenant_id, code),
+    KEY idx_api_module (tenant_id, module),
+    KEY idx_api_status (tenant_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='接口权限表';
 
 -- ----------------------------------------------------------------------------
 -- 2. 管理端菜单与按钮：接口管理、接口权限授权
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_menu (
-    id, name, parent_id, path, sort, code, icon, component, type, status,
+    id, tenant_id, name, parent_id, path, sort, code, icon, component, type, status,
     hidden, external_url, visible_in_breadcrumb, visible_in_tab,
     active_menu_path, remark, create_time, update_time
 ) VALUES
     (
-        '0196dbe0a6f17000a000000000000025',
+        '0196dbe0a6f17000a000000000000025', @default_tenant_id,
         '接口管理',
         '0196dbe0a6f17000a000000000000003',
         '/system/operation/api',
@@ -54,7 +57,7 @@ INSERT INTO auth_menu (
         NOW(), NOW()
     ),
     (
-        '0196dbe0a6f17000a000000000000031',
+        '0196dbe0a6f17000a000000000000031', @default_tenant_id,
         '接口权限',
         '0196dbe0a6f17000a000000000000009',
         '/system/permission/api-permission',
@@ -83,11 +86,11 @@ AS new_values ON DUPLICATE KEY UPDATE
     update_time = new_values.update_time;
 
 INSERT INTO auth_button (
-    id, menu_id, code, name, type, sort, status, create_time, update_time
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
 ) VALUES
-    ('0196dbe0a6f17000a000000000000301', '0196dbe0a6f17000a000000000000025', 'AUTH_API_CREATE', '新增接口权限', 'add', 1, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000302', '0196dbe0a6f17000a000000000000025', 'AUTH_API_EDIT', '编辑接口权限', 'edit', 2, 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000303', '0196dbe0a6f17000a000000000000025', 'AUTH_API_DELETE', '删除接口权限', 'delete', 3, 1, NOW(), NOW())
+    ('0196dbe0a6f17000a000000000000301', @default_tenant_id, '0196dbe0a6f17000a000000000000025', 'AUTH_API_CREATE', '新增接口权限', 'add', 1, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000302', @default_tenant_id, '0196dbe0a6f17000a000000000000025', 'AUTH_API_EDIT', '编辑接口权限', 'edit', 2, 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000303', @default_tenant_id, '0196dbe0a6f17000a000000000000025', 'AUTH_API_DELETE', '删除接口权限', 'delete', 3, 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     menu_id = new_values.menu_id,
     name = new_values.name,
@@ -100,12 +103,12 @@ AS new_values ON DUPLICATE KEY UPDATE
 -- 3. 内置接口权限码
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_api (
-    id, code, name, module, sort, remark, status, create_time, update_time
+    id, tenant_id, code, name, module, sort, remark, status, create_time, update_time
 ) VALUES
-    ('0196dbe0a6f17000a000000000000401', 'AUDIT_RECORD_VIEW', '审计记录查询', 'audit', 1, '审计记录分页与详情查询；界面上没有"查询"按钮，属列表接口准入', 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000402', 'PARAM_GENERAL_CONFIG_QUERY', '通用配置查询', 'param', 2, '通用配置读取；前端初始化时按需拉取', 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000403', 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000404', 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, NOW(), NOW())
+    ('0196dbe0a6f17000a000000000000401', @default_tenant_id, 'AUDIT_RECORD_VIEW', '审计记录查询', 'audit', 1, '审计记录分页与详情查询；界面上没有"查询"按钮，属列表接口准入', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000402', @default_tenant_id, 'PARAM_GENERAL_CONFIG_QUERY', '通用配置查询', 'param', 2, '通用配置读取；前端初始化时按需拉取', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000403', @default_tenant_id, 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000404', @default_tenant_id, 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     name = new_values.name,
     module = new_values.module,
@@ -119,10 +122,10 @@ AS new_values ON DUPLICATE KEY UPDATE
 --    必须在删除 auth_button 行之前执行。按 code 关联，与具体 id 无关。
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(UUID(), '-', ''),
+    REPLACE(UUID(), '-', ''), p.tenant_id,
     p.subject_type,
     p.subject_id,
     'API',
@@ -132,12 +135,13 @@ SELECT
     NOW(),
     NOW()
 FROM auth_permission p
-JOIN auth_button b ON p.resource_type = 'BUTTON' AND p.resource_id = b.id
-JOIN auth_api a ON a.code = b.code
+JOIN auth_button b ON p.resource_type = 'BUTTON' AND p.resource_id = b.id AND b.tenant_id = p.tenant_id
+JOIN auth_api a ON a.code = b.code AND a.tenant_id = b.tenant_id
 WHERE b.code IN ('AUDIT_RECORD_VIEW', 'PARAM_GENERAL_CONFIG_QUERY', 'FRONTEND_APP_RELEASE_QUERY', 'STORAGE_FILE_QUERY')
   AND NOT EXISTS (
       SELECT 1 FROM auth_permission x
-      WHERE x.subject_type = p.subject_type
+      WHERE x.tenant_id = p.tenant_id
+        AND x.subject_type = p.subject_type
         AND x.subject_id = p.subject_id
         AND x.resource_type = 'API'
         AND x.resource_id = a.id
@@ -161,41 +165,47 @@ WHERE code IN ('AUDIT_RECORD_VIEW', 'PARAM_GENERAL_CONFIG_QUERY', 'FRONTEND_APP_
 -- 6. 为 ADMIN 角色补授权：新菜单、新按钮、接口权限
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
-SELECT REPLACE(UUID(), '-', ''), 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'MENU', m.id, 'Allow', 'ALL', NOW(), NOW()
+SELECT REPLACE(UUID(), '-', ''), m.tenant_id, 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'MENU', m.id, 'Allow', 'ALL', NOW(), NOW()
 FROM auth_menu m
 WHERE m.id IN ('0196dbe0a6f17000a000000000000025', '0196dbe0a6f17000a000000000000031')
+  AND m.tenant_id = @default_tenant_id
   AND NOT EXISTS (
       SELECT 1 FROM auth_permission p
-      WHERE p.subject_type = 'ROLE'
+      WHERE p.tenant_id = m.tenant_id
+        AND p.subject_type = 'ROLE'
         AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
         AND p.resource_type = 'MENU'
         AND p.resource_id = m.id
   );
 
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
-SELECT REPLACE(UUID(), '-', ''), 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'BUTTON', b.id, 'Allow', 'ALL', NOW(), NOW()
+SELECT REPLACE(UUID(), '-', ''), b.tenant_id, 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'BUTTON', b.id, 'Allow', 'ALL', NOW(), NOW()
 FROM auth_button b
 WHERE b.code IN ('AUTH_API_CREATE', 'AUTH_API_EDIT', 'AUTH_API_DELETE')
+  AND b.tenant_id = @default_tenant_id
   AND NOT EXISTS (
       SELECT 1 FROM auth_permission p
-      WHERE p.subject_type = 'ROLE'
+      WHERE p.tenant_id = b.tenant_id
+        AND p.subject_type = 'ROLE'
         AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
         AND p.resource_type = 'BUTTON'
         AND p.resource_id = b.id
   );
 
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
-SELECT REPLACE(UUID(), '-', ''), 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'API', a.id, 'Allow', 'ALL', NOW(), NOW()
+SELECT REPLACE(UUID(), '-', ''), a.tenant_id, 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'API', a.id, 'Allow', 'ALL', NOW(), NOW()
 FROM auth_api a
-WHERE NOT EXISTS (
+WHERE a.tenant_id = @default_tenant_id
+  AND NOT EXISTS (
     SELECT 1 FROM auth_permission p
-    WHERE p.subject_type = 'ROLE'
+    WHERE p.tenant_id = a.tenant_id
+        AND p.subject_type = 'ROLE'
       AND p.subject_id = '0194f3c8b6b77c0d91a7d9af9c7d0002'
       AND p.resource_type = 'API'
       AND p.resource_id = a.id

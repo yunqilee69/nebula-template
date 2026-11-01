@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_tenant_status ON auth_tenant (status);
 
 CREATE TABLE IF NOT EXISTS auth_tenant_domain (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     domain VARCHAR(255) NOT NULL,
     primary_domain BOOLEAN NOT NULL DEFAULT FALSE,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
@@ -74,7 +74,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_person_username ON auth_person (username);
 CREATE TABLE IF NOT EXISTS auth_person_user (
     id CHAR(32) PRIMARY KEY,
     person_id CHAR(32) NOT NULL,
-    tenant_id CHAR(32) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id CHAR(32) NOT NULL,
     link_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     link_source VARCHAR(20) NOT NULL,
@@ -104,7 +104,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_oauth2_provider_code ON auth_oauth2_provide
 
 CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     provider_id CHAR(32) NOT NULL,
     channel VARCHAR(20) NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -126,7 +126,7 @@ CREATE INDEX IF NOT EXISTS idx_tenant_oauth2_tenant ON auth_tenant_oauth2_provid
 
 CREATE TABLE IF NOT EXISTS auth_tenant_invitation (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     email VARCHAR(100),
     phone VARCHAR(32),
     role_id CHAR(32),
@@ -148,7 +148,7 @@ CREATE INDEX IF NOT EXISTS idx_tenant_invitation_tenant ON auth_tenant_invitatio
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     employee_no VARCHAR(50),
     username VARCHAR(50) NOT NULL,
     password VARCHAR(100) NOT NULL,
@@ -188,7 +188,7 @@ COMMENT ON COLUMN auth_user.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_role (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(50) NOT NULL,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(200),
@@ -215,7 +215,7 @@ COMMENT ON COLUMN auth_role.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_org (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     name VARCHAR(100) NOT NULL,
     parent_id CHAR(32),
     path VARCHAR(500),
@@ -245,7 +245,7 @@ COMMENT ON COLUMN auth_org.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_user_org (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id CHAR(32) NOT NULL,
     org_id CHAR(32) NOT NULL,
     is_main_org BOOLEAN NOT NULL DEFAULT FALSE,
@@ -271,7 +271,7 @@ COMMENT ON COLUMN auth_user_org.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user_role (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id CHAR(32) NOT NULL,
     role_id CHAR(32) NOT NULL,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -295,7 +295,7 @@ COMMENT ON COLUMN auth_user_role.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_menu (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     name VARCHAR(100) NOT NULL,
     parent_id CHAR(32),
     path VARCHAR(200),
@@ -342,7 +342,7 @@ COMMENT ON COLUMN auth_menu.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_button (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     menu_id CHAR(32) NOT NULL,
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -371,7 +371,7 @@ COMMENT ON COLUMN auth_button.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_api (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     module VARCHAR(50),
@@ -404,7 +404,7 @@ COMMENT ON COLUMN auth_api.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_permission (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     subject_type VARCHAR(20) NOT NULL,
     subject_id CHAR(32) NOT NULL,
     resource_type VARCHAR(20) NOT NULL,
@@ -433,7 +433,7 @@ COMMENT ON COLUMN auth_permission.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS auth_data_scope (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     subject_type VARCHAR(20) NOT NULL,
     subject_id CHAR(32) NOT NULL,
     resource_type VARCHAR(50) NOT NULL,
@@ -464,7 +464,7 @@ COMMENT ON COLUMN auth_data_scope.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_oauth2_account (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     provider_config_id CHAR(32),
     user_id CHAR(32) NOT NULL,
     provider_id VARCHAR(50) NOT NULL,
@@ -496,7 +496,7 @@ COMMENT ON COLUMN auth_oauth2_account.update_time IS '更新时间';
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_login_record (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     person_id CHAR(32) DEFAULT NULL,
     user_id CHAR(32) DEFAULT NULL,
     login_account VARCHAR(100) NOT NULL,
@@ -543,7 +543,7 @@ COMMENT ON COLUMN auth_login_record.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_dict_type (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     remark VARCHAR(255),
@@ -563,7 +563,7 @@ COMMENT ON COLUMN sys_dict_type.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_dict_item (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     dict_code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     parent_id CHAR(32),
@@ -602,7 +602,7 @@ COMMENT ON COLUMN sys_dict_item.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS frontend_user_preference (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id CHAR(32) NOT NULL,
     locale_tag VARCHAR(32),
     theme_code VARCHAR(64),
@@ -662,7 +662,7 @@ COMMENT ON COLUMN frontend_app_release.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_notify_template (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     template_code VARCHAR(100) NOT NULL,
     template_name VARCHAR(100) NOT NULL,
     remark VARCHAR(500),
@@ -685,7 +685,7 @@ COMMENT ON COLUMN sys_notify_template.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_field (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     template_id VARCHAR(64) NOT NULL,
     field_code VARCHAR(100) NOT NULL,
     field_name VARCHAR(100) NOT NULL,
@@ -714,7 +714,7 @@ COMMENT ON COLUMN sys_notify_template_field.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_variant (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     template_id VARCHAR(64) NOT NULL,
     channel_type VARCHAR(32) NOT NULL,
     subject_template VARCHAR(255),
@@ -744,7 +744,7 @@ COMMENT ON COLUMN sys_notify_template_variant.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     target_name VARCHAR(100) NOT NULL,
     channel_type VARCHAR(32) NOT NULL,
     endpoint_url VARCHAR(1000) NOT NULL,
@@ -768,7 +768,7 @@ COMMENT ON COLUMN sys_notify_channel_target.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_record (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     channel_type VARCHAR(20) NOT NULL,
     template_code VARCHAR(100),
     template_variant_id VARCHAR(64),
@@ -817,7 +817,7 @@ COMMENT ON COLUMN sys_notify_record.update_time IS '更新时间';
 -- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=TRUE 的内置类别不可删除。
 CREATE TABLE IF NOT EXISTS sys_notify_category (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(32) NOT NULL,
     name VARCHAR(50) NOT NULL,
     description VARCHAR(200),
@@ -851,7 +851,7 @@ COMMENT ON COLUMN sys_notify_category.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     record_id VARCHAR(64) NOT NULL,
     category_code VARCHAR(32) NOT NULL DEFAULT 'DEFAULT',
     receiver_user_id VARCHAR(64) NOT NULL,
@@ -883,7 +883,7 @@ COMMENT ON COLUMN sys_site_message.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_announcement (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
@@ -919,7 +919,7 @@ COMMENT ON COLUMN sys_announcement.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_announcement_target (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     announcement_id VARCHAR(64) NOT NULL,
     target_type VARCHAR(20) NOT NULL,
     target_value VARCHAR(64) NOT NULL,
@@ -940,7 +940,7 @@ COMMENT ON COLUMN sys_announcement_target.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     announcement_id VARCHAR(64) NOT NULL,
     user_id VARCHAR(64) NOT NULL,
     read_time TIMESTAMP NOT NULL,
@@ -962,7 +962,7 @@ COMMENT ON COLUMN sys_announcement_read_record.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id VARCHAR(64) NOT NULL,
     category_code VARCHAR(32) NOT NULL,
     channel VARCHAR(32) NOT NULL,
@@ -989,7 +989,7 @@ COMMENT ON COLUMN sys_notify_user_preference.update_time IS '更新时间';
 -- push_token 是可定位到设备的个人数据：注销时清空，日志中不得完整打印。
 CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id VARCHAR(64) NOT NULL,
     device_id VARCHAR(128) NOT NULL,
     platform VARCHAR(16) NOT NULL,
@@ -1026,7 +1026,7 @@ COMMENT ON COLUMN sys_notify_push_device.invalid_reason IS '失效原因，由�
 -- 排障要能回答"是哪台设备、哪个厂商、什么原因失败的"。刻意不落 push_token。
 CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     record_id VARCHAR(64) NOT NULL,
     device_id VARCHAR(128) NOT NULL,
     user_id VARCHAR(64),
@@ -1056,7 +1056,7 @@ COMMENT ON COLUMN sys_notify_push_record_detail.send_time IS '投递时间；未
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_param (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     param_key VARCHAR(150) NOT NULL,
     param_name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
@@ -1096,7 +1096,7 @@ COMMENT ON COLUMN sys_param.is_deleted IS '软删除标记：0-正常，1-已删
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS scheduler_job (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     job_code VARCHAR(128) NOT NULL,
     job_name VARCHAR(128) NOT NULL,
     description VARCHAR(512),
@@ -1136,7 +1136,7 @@ COMMENT ON COLUMN scheduler_job.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS scheduler_job_run (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     request_id VARCHAR(64) NOT NULL,
     job_code VARCHAR(128) NOT NULL,
     trigger_source VARCHAR(32),
@@ -1197,7 +1197,7 @@ COMMENT ON COLUMN scheduler_job_run.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS audit_record (
     id VARCHAR(64) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     operator_id VARCHAR(64),
     operator_name VARCHAR(128),
     person_id CHAR(32),
@@ -1245,7 +1245,7 @@ COMMENT ON COLUMN audit_record.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS event_outbox (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     event_id VARCHAR(64) NOT NULL,
     event_type VARCHAR(128) NOT NULL,
     module VARCHAR(64) NOT NULL,
@@ -1300,7 +1300,7 @@ COMMENT ON COLUMN event_outbox.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS event_consume_record (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     consumer_name VARCHAR(128) NOT NULL,
     event_id VARCHAR(64) NOT NULL,
     idempotency_key VARCHAR(128) NOT NULL,
@@ -1333,7 +1333,7 @@ COMMENT ON COLUMN event_consume_record.update_time IS '更新时间';
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS storage_upload_task (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     task_mode VARCHAR(20) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     file_extension VARCHAR(50),
@@ -1375,7 +1375,7 @@ COMMENT ON COLUMN storage_upload_task.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_upload_part (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     task_id CHAR(32) NOT NULL,
     part_number INTEGER NOT NULL,
     part_hash VARCHAR(64),
@@ -1403,7 +1403,7 @@ COMMENT ON COLUMN storage_upload_part.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_file (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     file_name VARCHAR(255) NOT NULL,
     file_extension VARCHAR(50),
     file_mime_type VARCHAR(100),
@@ -1446,7 +1446,7 @@ COMMENT ON COLUMN storage_file.create_time IS '创建时间';
 COMMENT ON COLUMN storage_file.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_content (
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     storage_key VARCHAR(500) NOT NULL,
     content BYTEA NOT NULL,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1462,7 +1462,7 @@ COMMENT ON COLUMN storage_content.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS storage_file_variant (
     id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) DEFAULT '0194f3c8b6b77c0d91a7d9af9c7d0100',
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     file_id CHAR(32) NOT NULL,
     variant VARCHAR(50) NOT NULL,
     content_key VARCHAR(500) NOT NULL,

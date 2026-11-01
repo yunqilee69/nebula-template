@@ -7,8 +7,11 @@
 --       因此这里先补建整张表，再补齐端类型列；两者对既有环境均为增量。
 -- ============================================================================
 
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 CREATE TABLE IF NOT EXISTS auth_login_record (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id CHAR(32) NOT NULL,
     login_account VARCHAR(100) NOT NULL,
     login_type VARCHAR(20) NOT NULL,

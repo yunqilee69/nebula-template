@@ -12,10 +12,12 @@
 -- 影响：只新增/更新该字典项，不改动其它数据。
 -- ============================================================================
 
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 INSERT INTO sys_dict_item (
-    id, dict_code, name, item_value, sort, is_enabled, tag_color, remark, create_time, update_time
+    id, tenant_id, dict_code, name, item_value, sort, is_enabled, tag_color, remark, create_time, update_time
 ) VALUES
-    ('019cf114a0007000800000000000004b', 'NOTIFY_CHANNEL_TYPE', '移动推送', 'PUSH', 6, TRUE, NULL, '移动端推送通知渠道', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('019cf114a0007000800000000000004b', current_setting('nebula.default_tenant_id'), 'NOTIFY_CHANNEL_TYPE', '移动推送', 'PUSH', 6, TRUE, NULL, '移动端推送通知渠道', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO UPDATE SET
     dict_code = EXCLUDED.dict_code,
     name = EXCLUDED.name,

@@ -21,8 +21,11 @@
 -- ----------------------------------------------------------------------------
 -- 1. 推送设备注册表
 -- ----------------------------------------------------------------------------
+SET @default_tenant_id = (SELECT id FROM auth_tenant WHERE code = 'default' LIMIT 1);
+
 CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     id VARCHAR(64) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     user_id VARCHAR(64) NOT NULL COMMENT '所属用户ID，来自登录态，不接受客户端传入',
     device_id VARCHAR(128) NOT NULL COMMENT '客户端生成的稳定设备标识，全局唯一',
     platform VARCHAR(16) NOT NULL COMMENT '平台：IOS/ANDROID/OHOS',
@@ -39,9 +42,9 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    UNIQUE KEY uk_notify_push_device (device_id),
-    KEY idx_notify_push_device_user_status (user_id, device_status),
-    KEY idx_notify_push_device_token (push_token)
+    UNIQUE KEY uk_notify_push_device (tenant_id, device_id),
+    KEY idx_notify_push_device_user_status (tenant_id, user_id, device_status),
+    KEY idx_notify_push_device_token (tenant_id, push_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='移动推送设备注册表';
 
 -- ----------------------------------------------------------------------------
@@ -49,6 +52,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_device (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     id VARCHAR(64) NOT NULL,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     record_id VARCHAR(64) NOT NULL COMMENT '关联 sys_notify_record.id（channel_type=PUSH）',
     device_id VARCHAR(128) NOT NULL COMMENT '设备标识',
     user_id VARCHAR(64) DEFAULT NULL COMMENT '设备所属用户ID',
@@ -60,6 +64,6 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
-    KEY idx_notify_push_detail_record (record_id),
-    KEY idx_notify_push_detail_device (device_id)
+    KEY idx_notify_push_detail_record (tenant_id, record_id),
+    KEY idx_notify_push_detail_device (tenant_id, device_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='逐设备推送投递明细表';

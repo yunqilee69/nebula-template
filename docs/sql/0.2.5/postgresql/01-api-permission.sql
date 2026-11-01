@@ -15,8 +15,11 @@
 -- ----------------------------------------------------------------------------
 -- 1. 建表
 -- ----------------------------------------------------------------------------
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 CREATE TABLE IF NOT EXISTS auth_api (
     id CHAR(32) PRIMARY KEY,
+    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     code VARCHAR(100) NOT NULL,
     name VARCHAR(100) NOT NULL,
     module VARCHAR(50),
@@ -27,9 +30,9 @@ CREATE TABLE IF NOT EXISTS auth_api (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_api_code ON auth_api (code);
-CREATE INDEX IF NOT EXISTS idx_api_module ON auth_api (module);
-CREATE INDEX IF NOT EXISTS idx_api_status ON auth_api (status);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_api_code ON auth_api (tenant_id, code);
+CREATE INDEX IF NOT EXISTS idx_api_module ON auth_api (tenant_id, module);
+CREATE INDEX IF NOT EXISTS idx_api_status ON auth_api (tenant_id, status);
 
 COMMENT ON TABLE auth_api IS '接口权限表';
 COMMENT ON COLUMN auth_api.code IS '接口权限编码，唯一';
@@ -49,12 +52,12 @@ WHERE resource_type = 'MENU'
 DELETE FROM auth_menu WHERE code = 'NOTIFY_SITE_MESSAGE';
 
 INSERT INTO auth_menu (
-    id, name, parent_id, path, sort, code, icon, component, type, status,
+    id, tenant_id, name, parent_id, path, sort, code, icon, component, type, status,
     hidden, external_url, visible_in_breadcrumb, visible_in_tab,
     active_menu_path, remark, create_time, update_time
 ) VALUES
     (
-        '0196dbe0a6f17000a000000000000025',
+        '0196dbe0a6f17000a000000000000025', current_setting('nebula.default_tenant_id'),
         '接口管理',
         '0196dbe0a6f17000a000000000000003',
         '/system/operation/api',
@@ -68,7 +71,7 @@ INSERT INTO auth_menu (
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
     ),
     (
-        '0196dbe0a6f17000a000000000000031',
+        '0196dbe0a6f17000a000000000000031', current_setting('nebula.default_tenant_id'),
         '接口权限',
         '0196dbe0a6f17000a000000000000009',
         '/system/permission/api-permission',
@@ -97,12 +100,12 @@ ON CONFLICT (id) DO UPDATE SET
     update_time = EXCLUDED.update_time;
 
 INSERT INTO auth_button (
-    id, menu_id, code, name, type, sort, status, create_time, update_time
+    id, tenant_id, menu_id, code, name, type, sort, status, create_time, update_time
 ) VALUES
-    ('0196dbe0a6f17000a000000000000301', '0196dbe0a6f17000a000000000000025', 'AUTH_API_CREATE', '新增接口权限', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000302', '0196dbe0a6f17000a000000000000025', 'AUTH_API_EDIT', '编辑接口权限', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000303', '0196dbe0a6f17000a000000000000025', 'AUTH_API_DELETE', '删除接口权限', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+    ('0196dbe0a6f17000a000000000000301', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000025', 'AUTH_API_CREATE', '新增接口权限', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000302', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000025', 'AUTH_API_EDIT', '编辑接口权限', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000303', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000025', 'AUTH_API_DELETE', '删除接口权限', 'delete', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     menu_id = EXCLUDED.menu_id,
     name = EXCLUDED.name,
     type = EXCLUDED.type,
@@ -114,13 +117,13 @@ ON CONFLICT (code) DO UPDATE SET
 -- 3. 内置接口权限码
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_api (
-    id, code, name, module, sort, remark, status, create_time, update_time
+    id, tenant_id, code, name, module, sort, remark, status, create_time, update_time
 ) VALUES
-    ('0196dbe0a6f17000a000000000000401', 'AUDIT_RECORD_VIEW', '审计记录查询', 'audit', 1, '审计记录分页与详情查询；界面上没有"查询"按钮，属列表接口准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000402', 'PARAM_GENERAL_CONFIG_QUERY', '通用配置查询', 'param', 2, '通用配置读取；前端初始化时按需拉取', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000403', 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000404', 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (code) DO UPDATE SET
+    ('0196dbe0a6f17000a000000000000401', current_setting('nebula.default_tenant_id'), 'AUDIT_RECORD_VIEW', '审计记录查询', 'audit', 1, '审计记录分页与详情查询；界面上没有"查询"按钮，属列表接口准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000402', current_setting('nebula.default_tenant_id'), 'PARAM_GENERAL_CONFIG_QUERY', '通用配置查询', 'param', 2, '通用配置读取；前端初始化时按需拉取', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000403', current_setting('nebula.default_tenant_id'), 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000404', current_setting('nebula.default_tenant_id'), 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, code) DO UPDATE SET
     name = EXCLUDED.name,
     module = EXCLUDED.module,
     sort = EXCLUDED.sort,
@@ -133,10 +136,10 @@ ON CONFLICT (code) DO UPDATE SET
 --    必须在删除 auth_button 行之前执行。按 code 关联，与具体 id 无关。
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
 SELECT
-    REPLACE(gen_random_uuid()::text, '-', ''),
+    REPLACE(gen_random_uuid()::text, '-', ''), p.tenant_id,
     p.subject_type,
     p.subject_id,
     'API',
@@ -146,10 +149,10 @@ SELECT
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM auth_permission p
-JOIN auth_button b ON p.resource_type = 'BUTTON' AND p.resource_id = b.id
-JOIN auth_api a ON a.code = b.code
+JOIN auth_button b ON p.resource_type = 'BUTTON' AND p.resource_id = b.id AND b.tenant_id = p.tenant_id
+JOIN auth_api a ON a.code = b.code AND a.tenant_id = b.tenant_id
 WHERE b.code IN ('AUDIT_RECORD_VIEW', 'PARAM_GENERAL_CONFIG_QUERY', 'FRONTEND_APP_RELEASE_QUERY', 'STORAGE_FILE_QUERY')
-ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
 -- 5. 清理：旧按钮行及其授权。这些码在代码里已改注解为 @NebulaApiPermission，
@@ -169,24 +172,27 @@ WHERE code IN ('AUDIT_RECORD_VIEW', 'PARAM_GENERAL_CONFIG_QUERY', 'FRONTEND_APP_
 -- 6. 为 ADMIN 角色补授权：新菜单、新按钮、接口权限
 -- ----------------------------------------------------------------------------
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
-SELECT REPLACE(gen_random_uuid()::text, '-', ''), 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'MENU', m.id, 'Allow', 'ALL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+SELECT REPLACE(gen_random_uuid()::text, '-', ''), m.tenant_id, 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'MENU', m.id, 'Allow', 'ALL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM auth_menu m
 WHERE m.id IN ('0196dbe0a6f17000a000000000000025', '0196dbe0a6f17000a000000000000031')
-ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+  AND m.tenant_id = current_setting('nebula.default_tenant_id')
+ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;
 
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
-SELECT REPLACE(gen_random_uuid()::text, '-', ''), 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'BUTTON', b.id, 'Allow', 'ALL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+SELECT REPLACE(gen_random_uuid()::text, '-', ''), b.tenant_id, 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'BUTTON', b.id, 'Allow', 'ALL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM auth_button b
 WHERE b.code IN ('AUTH_API_CREATE', 'AUTH_API_EDIT', 'AUTH_API_DELETE')
-ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+  AND b.tenant_id = current_setting('nebula.default_tenant_id')
+ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;
 
 INSERT INTO auth_permission (
-    id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
+    id, tenant_id, subject_type, subject_id, resource_type, resource_id, effect, scope, create_time, update_time
 )
-SELECT REPLACE(gen_random_uuid()::text, '-', ''), 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'API', a.id, 'Allow', 'ALL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+SELECT REPLACE(gen_random_uuid()::text, '-', ''), a.tenant_id, 'ROLE', '0194f3c8b6b77c0d91a7d9af9c7d0002', 'API', a.id, 'Allow', 'ALL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM auth_api a
-ON CONFLICT (subject_type, subject_id, resource_type, resource_id) DO NOTHING;
+WHERE a.tenant_id = current_setting('nebula.default_tenant_id')
+ON CONFLICT (tenant_id, subject_type, subject_id, resource_type, resource_id) DO NOTHING;

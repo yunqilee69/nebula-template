@@ -42,6 +42,8 @@ mvn spring-boot:run
 | `NEBULA_APP_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` | 数据库连接 |
 | `NEBULA_APP_REDIS_HOST` / `_PORT` / `_PASSWORD` | Redis 连接 |
 | `NEBULA_AUTH_JWT_SECRET` | JWT 签名密钥，至少 32 字节随机串（**必须**） |
+| `NEBULA_TENANT_ENABLED` | 是否启用多租户，默认 `false` |
+| `NEBULA_TENANT_DEFAULT_TENANT_ID` | 默认租户 ID，默认与初始化 SQL 的 `default` 租户一致；单租户下所有数据归属该租户 |
 
 本机依赖栈（`docker-compose.yml`）使用独立的 `NEBULA_LOCAL_*` 变量，避免被宿主机上导出的远程连接信息改写：`NEBULA_LOCAL_MYSQL_ROOT_PASSWORD` / `_MYSQL_DATABASE` / `_MYSQL_USER` / `_MYSQL_PASSWORD` / `_MYSQL_PORT` / `_REDIS_PORT`。
 
@@ -67,6 +69,7 @@ PostgreSQL 初始化脚本见仓库根 `docs/sql/init/postgresql/`，脚本目�
 
 - Mapper 扫描：启动类已声明 `@MapperScan("cn.cloudomni.nebula.template.**.mapper")`，业务 Mapper 接口放在 `<业务包>.**.mapper` 下即可，无需再改启动类；Mapper XML 放在 `src/main/resources/mapper/**/*.xml`。
 - 实体与审计字段：继承 `cn.cloudomni.nebula.mybatis.entity.BaseEntity` / `BaseIdEntity`，`create_time` / `update_time` 由框架自动填充。
+- 租户字段：租户表实体继承 `cn.cloudomni.nebula.mybatis.entity.TenantBaseEntity`，或实现 `TenantScoped` 并提供 `tenantId` 字段；`tenant_id` 由服务端显式写入，数据库列没有 DEFAULT。手写 SQL 必须显式带 `tenant_id`，新增表结构使用 `tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '')`。
 - 操作审计：在 Controller 方法上标注 `@NebulaAudit(module = "...", action = "...", resourceType = "...", recordRequestParams = true)`，审计记录写入 `audit_record`。
 - 定时任务：实现 `INebulaJobHandler` 并在类上标注 `@NebulaScheduledJob(code = "...", name = "...", cron = "...")`，注册为 Bean 后由调度模块同步（见 `nebula-scheduler/README.md`）。
 - 短信/邮件验证码：实现 `cn.cloudomni.nebula.auth.service.VerificationCodeSender` 并注册为 Bean；未实现时发送验证码接口返回「验证码发送器未配置」，本地联调可临时开启 `nebula.auth.code.log-enabled=true` 把验证码打到日志。

@@ -12,8 +12,10 @@
 -- ----------------------------------------------------------------------------
 -- 1. 新增微信登录提供商开关
 -- ----------------------------------------------------------------------------
+SELECT set_config('nebula.default_tenant_id', (SELECT id FROM auth_tenant WHERE code = 'default'), false);
+
 INSERT INTO sys_param (
-    id,
+    id, tenant_id,
     param_key,
     param_name,
     description,
@@ -25,8 +27,8 @@ INSERT INTO sys_param (
     create_time,
     update_time
 ) VALUES
-    ('01959f0aa4d37c0d91a7d9af9c7d1025', 'login.oauth2.provider.wechat.enabled', '微信登录开关', '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道', 'false', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT (param_key) DO UPDATE SET
+    ('01959f0aa4d37c0d91a7d9af9c7d1025', current_setting('nebula.default_tenant_id'), 'login.oauth2.provider.wechat.enabled', '微信登录开关', '微信登录提供商开关，覆盖网站应用（扫码）与小程序两个渠道', 'false', 'BOOLEAN', NULL, 'auth', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (tenant_id, param_key) DO UPDATE SET
     param_name = EXCLUDED.param_name,
     description = EXCLUDED.description,
     param_value = EXCLUDED.param_value,
