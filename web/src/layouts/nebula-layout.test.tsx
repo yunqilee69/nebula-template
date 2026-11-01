@@ -1,11 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { useRef } from 'react';
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { MemoryRouter, Navigate, Route, Routes, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Grid } from 'antd';
 import { NebulaProvider } from '@/providers/nebula-provider';
 import { NebulaLayout } from './nebula-layout';
+import { useRouteTabTitle } from './route-tab-title';
 import { useAppStore } from '@/stores/app-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLocaleStore } from '@/stores/locale-store';
@@ -140,6 +142,67 @@ async function openTabContextMenu(tab: HTMLElement, coordinates?: { clientX: num
   await act(async () => {
     fireEvent.contextMenu(tab, coordinates);
   });
+}
+
+const detailMenuItems: NebulaMenuItem[] = [
+  { key: '/', path: '/', name: '工作台' },
+  { key: '/detail', path: '/detail', name: '客户详情' },
+];
+
+function DetailLocationProbe() {
+  const location = useLocation();
+  return <h1 data-testid="detail-location">{`${location.pathname}${location.search}`}</h1>;
+}
+
+let detailRefreshCount = 0;
+
+function DetailRefreshProbe() {
+  const [instanceId] = useState(() => ++detailRefreshCount);
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  return (
+    <>
+      <h1>{`详情 ${searchParams.get('customerId')} 实例 ${instanceId}`}</h1>
+      <p data-testid="detail-location">{`${location.pathname}${location.search}`}</p>
+    </>
+  );
+}
+
+function AutoTitledDetail() {
+  const location = useLocation();
+  const customerId = new URLSearchParams(location.search).get('customerId');
+  useRouteTabTitle(customerId ? `客户 ${customerId}` : undefined);
+  return <h1 data-testid="detail-location">{`${location.pathname}${location.search}`}</h1>;
+}
+
+function DetailTabsHarness({ detailElement }: { detailElement: ReactNode }) {
+  return (
+    <>
+      <nav>
+        <Link to="/detail?customerId=A">打开客户 A</Link>
+        <Link to="/detail?customerId=B">打开客户 B</Link>
+        <Link to="/detail?customerId=A&tab=orders">打开客户 A 订单</Link>
+        <Link to="/">打开工作台</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<h1>工作台内容</h1>} />
+        <Route path="/detail" element={detailElement} />
+      </Routes>
+    </>
+  );
+}
+
+function renderDetailLayout(
+  initialPath = '/detail?customerId=A',
+  detailElement: ReactNode = <DetailLocationProbe />,
+) {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <NebulaLayout title="Nebula Web" menuItems={detailMenuItems}>
+        <DetailTabsHarness detailElement={detailElement} />
+      </NebulaLayout>
+    </MemoryRouter>,
+  );
 }
 
 describe('NebulaLayout', () => {
@@ -1139,6 +1202,122 @@ describe('NebulaLayout', () => {
       await user.click(screen.getByRole('menuitem', { name: '新窗口打开' }));
 
       expect(window.open).toHaveBeenCalledWith('/redirect/ops', '_blank', 'noopener,noreferrer');
+    });
+  });
+
+  describe('multi-tab route tabs', () => {
+    it('opens one tab per full path and restores query params when switching back', async () => {
+      const user = userEvent.setup();
+      renderDetailLayout('/detail?customerId=A');
+
+      expect(await screen.findByTestId('detail-location')).toHaveTextContent('/detail?customerId=A');
+      expect(screen.getAllByRole('tab', { name: '客户详情' })).toHaveLength(1);
+
+      await user.click(screen.getByRole('link', { name: '打开客户 B' }));
+
+      expect(await screen.findByTestId('detail-location')).toHaveTextContent('/detail?customerId=B');
+      expect(screen.getAllByRole('tab', { name: '客户详情' })).toHaveLength(2);
+
+      await user.click(screen.getAllByRole('tab', { name: '客户详情' })[0]);
+
+      expect(await screen.findByTestId('detail-location')).toHaveTextContent('/detail?customerId=A');
+      expect(screen.getAllByRole('tab', { name: '客户详情' })[0]).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('activates an existing tab instead of duplicating the same full path', async () => {
+      const user = userEvent.setup();
+      renderDetailLayout('/detail?customerId=A');
+
+      await screen.findByTestId('detail-location');
+      await user.click(screen.getByRole('link', { name: '打开客户 B' }));
+      await screen.findByTestId('detail-location');
+      await user.click(screen.getByRole('link', { name: '打开客户 A' }));
+      await screen.findByTestId('detail-location');
+
+      expect(screen.getAllByRole('tab', { name: '客户详情' })).toHaveLength(2);
+      expect(screen.getByTestId('detail-location')).toHaveTextContent('/detail?customerId=A');
+    });
+
+    it('treats different query strings as different tabs', async () => {
+      const user = userEvent.setup();
+      renderDetailLayout('/detail?customerId=A');
+
+      await screen.findByTestId('detail-location');
+      await user.click(screen.getByRole('link', { name: '打开客户 A 订单' }));
+
+      expect(await screen.findByTestId('detail-location')).toHaveTextContent('/detail?customerId=A&tab=orders');
+      expect(screen.getAllByRole('tab', { name: '客户详情' })).toHaveLength(2);
+    });
+
+    it('refreshes an inactive query tab with its original params', async () => {
+      const user = userEvent.setup();
+      detailRefreshCount = 0;
+      renderDetailLayout('/detail?customerId=A', <DetailRefreshProbe />);
+
+      const firstARender = await screen.findByRole('heading', { name: /详情 A 实例 \d+/ });
+
+      await user.click(screen.getByRole('link', { name: '打开客户 B' }));
+      expect(await screen.findByRole('heading', { name: '详情 B 实例 2' })).toBeInTheDocument();
+
+      await openTabContextMenu(screen.getAllByRole('tab', { name: '客户详情' })[0]);
+      await user.click(screen.getByRole('menuitem', { name: '刷新' }));
+
+      const refreshedARender = await screen.findByRole('heading', { name: /详情 A 实例 \d+/ });
+      expect(refreshedARender.textContent).not.toBe(firstARender.textContent);
+      expect(screen.getByTestId('detail-location')).toHaveTextContent('/detail?customerId=A');
+      expect(screen.getAllByRole('tab', { name: '客户详情' })[0]).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('navigates to the remaining tab URL when closing the active query tab', async () => {
+      const user = userEvent.setup();
+      renderDetailLayout('/detail?customerId=A');
+
+      await screen.findByTestId('detail-location');
+      await user.click(screen.getByRole('link', { name: '打开客户 B' }));
+      await screen.findByTestId('detail-location');
+
+      await openTabContextMenu(screen.getAllByRole('tab', { name: '客户详情' })[1]);
+      await user.click(screen.getByRole('menuitem', { name: '关闭' }));
+
+      expect(await screen.findByTestId('detail-location')).toHaveTextContent('/detail?customerId=A');
+      expect(screen.getAllByRole('tab', { name: '客户详情' })).toHaveLength(1);
+      expect(screen.getByRole('tab', { name: '客户详情' })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('opens a query tab in a new window with its params', async () => {
+      const user = userEvent.setup();
+      renderDetailLayout('/detail?customerId=A');
+
+      await screen.findByTestId('detail-location');
+      await openTabContextMenu(screen.getByRole('tab', { name: '客户详情' }));
+      await user.click(screen.getByRole('menuitem', { name: '新窗口打开' }));
+
+      expect(window.open).toHaveBeenCalledWith('/redirect/detail?customerId=A', '_blank', 'noopener,noreferrer');
+    });
+
+    it('uses page-provided tab titles and keeps manual rename precedence', async () => {
+      const user = userEvent.setup();
+      renderDetailLayout('/detail?customerId=A', <AutoTitledDetail />);
+
+      expect(await screen.findByRole('tab', { name: '客户 A' })).toHaveAttribute('aria-selected', 'true');
+
+      await user.click(screen.getByRole('link', { name: '打开客户 B' }));
+      expect(await screen.findByRole('tab', { name: '客户 B' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('tab', { name: '客户 A' }));
+      expect(await screen.findByTestId('detail-location')).toHaveTextContent('/detail?customerId=A');
+
+      await user.dblClick(screen.getByRole('tab', { name: '客户 A' }));
+      const input = screen.getByRole('textbox', { name: '重命名标签页' });
+      await user.clear(input);
+      await user.type(input, '重点客户');
+      await user.keyboard('{Enter}');
+
+      expect(screen.getByRole('tab', { name: '重点客户' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('tab', { name: '客户 B' }));
+      expect(screen.getByRole('tab', { name: '重点客户' })).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: '客户 A' })).not.toBeInTheDocument();
     });
   });
 

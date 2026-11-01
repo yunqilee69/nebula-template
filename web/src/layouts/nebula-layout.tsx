@@ -3,7 +3,7 @@ import { Breadcrumb, Button, Dropdown, Grid, Input, Layout, Menu, Tabs, Typograp
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { BreadcrumbProps, MenuProps, TabsProps, InputRef } from 'antd';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { createStyles } from 'antd-style';
 import { useNebulaBrand } from '@/providers/brand-context';
@@ -16,6 +16,7 @@ import { HeaderTenantSwitcher } from './components/header-tenant-switcher';
 import { HeaderUserMenu } from './components/header-user-menu';
 import { NotificationBell } from './components/notification-bell';
 import { PopupAnnouncement } from './components/popup-announcement';
+import { RouteTabTitleProvider } from './route-tab-title';
 
 const { Header, Sider, Content } = Layout;
 
@@ -162,10 +163,19 @@ interface NebulaLayoutProps {
 }
 
 interface RouteTab {
+  /** pathname + search，标签唯一标识，同时作为切回标签时的导航目标 */
   path: string;
   label: string;
   closable: boolean;
   renamed?: boolean;
+}
+
+function toTabPath(pathname: string, search: string): string {
+  return `${pathname}${search}`;
+}
+
+function toPathname(path: string): string {
+  return path.split(/[?#]/, 1)[0];
 }
 
 function toTabKey(path: string): string {
@@ -234,7 +244,8 @@ function createSidebarCollapseIcon(collapsed: boolean, className?: string): Reac
 }
 
 function createInitialTabs(items: NebulaMenuItem[], currentPath: string, currentTitle: string): RouteTab[] {
-  const currentItem = findMenuItem(items, currentPath);
+  const currentPathname = toPathname(currentPath);
+  const currentItem = findMenuItem(items, currentPathname);
   const firstItem = flattenMenuItems(items).find((item) => isNavigableMenuItem(item) && isVisibleInRouteTabs(item));
 
   if (!firstItem) {
@@ -245,7 +256,7 @@ function createInitialTabs(items: NebulaMenuItem[], currentPath: string, current
     return [{ path: firstItem.path, label: firstItem.name, closable: true, renamed: false }];
   }
 
-  if (firstItem.path === currentPath) {
+  if (firstItem.path === currentPathname) {
     return [{ path: currentPath, label: currentTitle, closable: true, renamed: false }];
   }
 
@@ -403,6 +414,7 @@ export function NebulaLayout({
   );
   const currentMenuItem = currentMenuPath.at(-1) ?? findMenuItem(menuItems, location.pathname);
   const currentTitle = currentMenuItem?.name ?? brandTitle;
+  const currentTabPath = toTabPath(location.pathname, location.search);
   const requestedSelectedPath = currentMenuItem?.activeMenuPath ?? location.pathname;
   const selectedMenuItem = findMenuItem(menuItems, requestedSelectedPath);
   const selectedMenuPath = selectedMenuItem && isNavigableMenuItem(selectedMenuItem)
@@ -429,7 +441,8 @@ export function NebulaLayout({
     [builtInRouteTabLabels, location.pathname, menuItems],
   );
 
-  const [tabs, setTabs] = useState<RouteTab[]>(() => createInitialTabs(menuItems, location.pathname, currentTitle));
+  const [tabs, setTabs] = useState<RouteTab[]>(() => createInitialTabs(menuItems, currentTabPath, currentTitle));
+  const [customTabTitles, setCustomTabTitles] = useState<Record<string, string>>({});
 
   const [editingTabKey, setEditingTabKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -439,6 +452,23 @@ export function NebulaLayout({
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
 
+  const customTabTitlesRef = useRef(customTabTitles);
+  customTabTitlesRef.current = customTabTitles;
+
+  const resolveTabLabel = useCallback(
+    (tab: RouteTab) => (tab.renamed ? tab.label : customTabTitles[tab.path] ?? tab.label),
+    [customTabTitles],
+  );
+
+  const setTabTitle = useCallback((path: string, title: string) => {
+    setCustomTabTitles((current) => (current[path] === title ? current : { ...current, [path]: title }));
+  }, []);
+
+  const tabTitleContextValue = useMemo(
+    () => ({ path: currentTabPath, setTitle: setTabTitle }),
+    [currentTabPath, setTabTitle],
+  );
+
   useEffect(() => {
     const handleDblClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -447,9 +477,10 @@ export function NebulaLayout({
         const currentTabs = tabsRef.current;
         const tab = currentTabs.find((t) => toTabKey(t.path) === tabKey);
         if (tab) {
+          const label = tab.renamed ? tab.label : customTabTitlesRef.current[tab.path] ?? tab.label;
           flushSync(() => {
             setEditingTabKey(tabKey);
-            setEditValue(tab.label);
+            setEditValue(label);
           });
         }
       }
@@ -466,10 +497,10 @@ export function NebulaLayout({
     for (const tab of tabs) {
       const tabKey = toTabKey(tab.path);
       const element = findTabElement(tabKey);
-      element?.setAttribute('aria-label', tab.label);
+      element?.setAttribute('aria-label', resolveTabLabel(tab));
       element?.setAttribute('data-nebula-tab-key', tabKey);
     }
-  }, [tabs]);
+  }, [resolveTabLabel, tabs]);
 
   useEffect(() => {
     setTabs((prev) =>
@@ -477,7 +508,7 @@ export function NebulaLayout({
         if (tab.renamed) {
           return tab;
         }
-        const item = findMenuItem(menuItems, tab.path);
+        const item = findMenuItem(menuItems, toPathname(tab.path));
         const updatedLabel = item?.name ?? tab.label;
         return updatedLabel !== tab.label ? { ...tab, label: updatedLabel } : tab;
       }),
@@ -485,19 +516,27 @@ export function NebulaLayout({
   }, [menuItems]);
 
   useEffect(() => {
-    if (!currentRouteTabLabel) return;
-    setTabs((currentTabs) => upsertRouteTab(currentTabs, location.pathname, currentRouteTabLabel));
-  }, [currentRouteTabLabel, location.pathname]);
+    setCustomTabTitles((current) => {
+      const tabPaths = new Set(tabs.map((tab) => tab.path));
+      const nextEntries = Object.entries(current).filter(([path]) => tabPaths.has(path));
+      return nextEntries.length === Object.keys(current).length ? current : Object.fromEntries(nextEntries);
+    });
+  }, [tabs]);
 
   useEffect(() => {
-    if (pendingRefreshPath !== location.pathname) return;
+    if (!currentRouteTabLabel) return;
+    setTabs((currentTabs) => upsertRouteTab(currentTabs, currentTabPath, currentRouteTabLabel));
+  }, [currentRouteTabLabel, currentTabPath]);
+
+  useEffect(() => {
+    if (pendingRefreshPath !== currentTabPath) return;
 
     setRouteRefreshKeys((current) => ({
       ...current,
       [pendingRefreshPath]: (current[pendingRefreshPath] ?? 0) + 1,
     }));
     setPendingRefreshPath(null);
-  }, [location.pathname, pendingRefreshPath]);
+  }, [currentTabPath, pendingRefreshPath]);
 
   const breadcrumbItems: BreadcrumbProps['items'] = currentMenuPath.length
     ? currentMenuPath.map((item, index) => ({
@@ -510,7 +549,7 @@ export function NebulaLayout({
       }))
     : [{ title: currentTitle }];
 
-  const activeTabKey = toTabKey(location.pathname);
+  const activeTabKey = toTabKey(currentTabPath);
 
   function openRoute(path: string) {
     const targetMenuItem = findMenuItem(menuItems, path);
@@ -663,7 +702,7 @@ export function NebulaLayout({
       label: (
         <TabLabel
           tabKey={tabKey}
-          label={tab.label}
+          label={resolveTabLabel(tab)}
           renameAriaLabel={t('layout.tabRenameAriaLabel')}
           editingTabKey={editingTabKey}
           editValue={editValue}
@@ -835,12 +874,14 @@ export function NebulaLayout({
           className={styles.content}
           style={{ flex: '1 1 0%' }}
         >
-          <div
-            key={`${location.pathname}:${routeRefreshKeys[location.pathname] ?? 0}`}
-            className={styles.contentInner}
-          >
-            {children ?? <Outlet />}
-          </div>
+          <RouteTabTitleProvider value={tabTitleContextValue}>
+            <div
+              key={`${currentTabPath}:${routeRefreshKeys[currentTabPath] ?? 0}`}
+              className={styles.contentInner}
+            >
+              {children ?? <Outlet />}
+            </div>
+          </RouteTabTitleProvider>
         </Content>
       </Layout>
     </Layout>

@@ -35,7 +35,7 @@ export function NotificationInboxPage({ service = notifyService }: NotificationI
   const incrementUnread = useNotifyStore((state) => state.incrementUnread);
   const decrementUnread = useNotifyStore((state) => state.decrementUnread);
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<readonly SiteMessageResp[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [batchError, setBatchError] = useState<string>();
@@ -58,20 +58,14 @@ export function NotificationInboxPage({ service = notifyService }: NotificationI
   );
 
   const selectMessage = useCallback((message: SiteMessageResp) => {
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.set('messageId', message.id);
-    setSearchParams(nextSearchParams);
     setActiveMessageId(message.id);
     closedMessageIdsRef.current.delete(message.id);
-  }, [searchParams, setSearchParams]);
+  }, []);
 
   const closeDetail = useCallback(() => {
-    const nextSearchParams = new URLSearchParams(searchParams);
-    nextSearchParams.delete('messageId');
-    setSearchParams(nextSearchParams, { replace: true });
     if (activeMessageId) closedMessageIdsRef.current.add(activeMessageId);
     setActiveMessageId(undefined);
-  }, [activeMessageId, searchParams, setSearchParams]);
+  }, [activeMessageId]);
 
   const handleDataLoaded = useCallback((nextMessages: readonly SiteMessageResp[]) => {
     for (const message of nextMessages) seenMessageIdsRef.current.add(message.id);

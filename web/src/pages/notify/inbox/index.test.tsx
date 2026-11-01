@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { NebulaProvider } from '@/providers/nebula-provider';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLocaleStore } from '@/stores/locale-store';
@@ -55,13 +55,26 @@ function createService(overrides: Partial<InboxService> = {}): InboxService {
   };
 }
 
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="current-location">{`${location.pathname}${location.search}`}</output>;
+}
+
 function renderPage(service = createService(), initialEntry = '/notify/inbox') {
   const currentUser = useAuthStore.getState().user;
   render(
     <NebulaProvider authAdapter={{ getCurrentUser: async () => currentUser }}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
-          <Route path="/notify/inbox" element={<NotificationInboxPage service={service} />} />
+          <Route
+            path="/notify/inbox"
+            element={(
+              <>
+                <NotificationInboxPage service={service} />
+                <LocationProbe />
+              </>
+            )}
+          />
         </Routes>
       </MemoryRouter>
     </NebulaProvider>,
@@ -117,6 +130,7 @@ describe('NotificationInboxPage', () => {
     expect(within(dialog).getByText('您提交的采购申请已经通过审批，可以继续后续流程。')).toBeInTheDocument();
     await waitFor(() => expect(service.markSiteMessageRead).toHaveBeenCalledWith('message-unread'));
     await waitFor(() => expect(useNotifyStore.getState().unreadCount).toBe(1));
+    expect(screen.getByTestId('current-location')).toHaveTextContent('/notify/inbox?messageId=message-unread');
   });
 
   it('marks a message read when its row is opened and closes the detail back to the list', async () => {
@@ -128,10 +142,12 @@ describe('NotificationInboxPage', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('您提交的采购申请已经通过审批，可以继续后续流程。')).toBeInTheDocument();
     await waitFor(() => expect(service.markSiteMessageRead).toHaveBeenCalledWith('message-unread'));
+    expect(screen.getByTestId('current-location')).toHaveTextContent(/^\/notify\/inbox$/);
 
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByTestId('current-location')).toHaveTextContent(/^\/notify\/inbox$/);
   });
 
   it('deletes a message from the row actions', async () => {

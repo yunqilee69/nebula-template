@@ -38,8 +38,10 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
   const setStoredUser = useAuthStore((state) => state.setUser);
   const currentUser = useAuthStore((state) => state.user);
   const multiTenant = Boolean(currentUser?.tenantId);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') === 'platform' ? 'platform' : 'tenant';
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() =>
+    searchParams.get('tab') === 'platform' ? 'platform' : 'tenant',
+  );
   const [form] = Form.useForm<ProfileFormValues>();
   const [passwordForm] = Form.useForm<PasswordFormValues>();
 
@@ -268,7 +270,7 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
   return (
     <Tabs
       activeKey={activeTab}
-      onChange={(key) => setSearchParams(key === 'platform' ? { tab: 'platform' } : {}, { replace: true })}
+      onChange={setActiveTab}
       items={[
         {
           key: 'tenant',
