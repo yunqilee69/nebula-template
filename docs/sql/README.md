@@ -111,7 +111,7 @@ scripts/set-version.sh X.Y.Z --release
 
 ## 当前状态
 
-当前版本为 `0.2.5`。
+当前版本为 `0.3.0`。
 
 - `0.2.1/`：升级到 `0.2.1` 所需的增量脚本（`auth_login_record` 端类型列；移除失效的 `spring.servlet.multipart.*` 参数、新增 `storage.upload.*` 上传策略参数）；版本低于 `0.2.1` 的环境执行本目录脚本即可对齐。
 - `0.2.2/`：升级到 `0.2.2` 所需的增量脚本（新增微信登录提供商开关参数 `login.oauth2.provider.wechat.enabled`，默认关闭；该开关覆盖网站应用扫码与小程序两个渠道）。
@@ -126,10 +126,16 @@ scripts/set-version.sh X.Y.Z --release
   - `02-button-permission-backfill.sql`：补登记 12 个此前只在代码里声明、未落 `auth_button` 的内置按钮权限码（`param` / `scheduler` / `frontend` 及通知模块新增项），并为 `ADMIN` 补齐授权；无归属菜单的 8 个码不在范围内；
   - `03-notify-channel-dict.sql`：`NOTIFY_CHANNEL_TYPE` 字典补「移动推送」（`PUSH`，排序 6）项，修复模板 PUSH 变体页签与 PUSH 发送记录的渠道标签空白。
 
+- `0.3.0/`：升级到 `0.3.0` 所需的增量脚本，按文件名顺序执行（**含破坏性变更**，升级前先备份并阅读脚本头注释）：
+  - `01-site-message-category.sql`：`sys_site_message` 增加通知类别冗余列 `category_code`（`NOT NULL DEFAULT 'DEFAULT'`），按 `record_id` 从 `sys_notify_record` 回填，并新增 `(receiver_user_id, category_code)` 索引，支撑站内信列表的类别标签与筛选；
+  - `02-menu-type-not-null.sql`：`auth_menu.type` 先把历史空值回填为 `MENU`，再改为 `NOT NULL DEFAULT 'MENU'`，避免类型为空的菜单把整段子树渲染成不可达；
+  - `03-sys-param-encrypted-flag.sql`：`sys_param` 增加「加密存储」标记列 `is_encrypted`，并标记存量机密参数行（`nebula-base-crypto` 同批次，密钥配置见该模块 README）；
+  - `04-exposure-hardening.sql`：暴露面治理——登记动态缓存查询接口权限码 `FRONTEND_CACHE_QUERY` 并补 `ADMIN` 授权；删除密码重置模板的 `defaultPassword` 字段行并把正文里的密码占位符换成「向管理员索取 / 忘记密码」文案；
+  - `05-notify-template-thymeleaf-html.sql`：通知模板切换到 Thymeleaf 语法并支持 HTML 正文——新增 `html_content_template` 列、把存量模板中的 `${key}` 改写为 `[(${key})]`、复核字段编码。**`${key}` 裸占位符不再被解释**，未完成迁移的模板会把占位符原样发出。
+
 `unreleased/` 存放下一个版本尚未发版的增量脚本（`mysql/`、`postgresql/` 两个方言子目录各一套，内容等价，按文件名顺序执行）：
 
-  - `03-sys-param-encrypted-flag.sql`：`sys_param` 增加「加密存储」标记列 `is_encrypted`（`nebula-base-crypto` 同批次）；
-  - `04-exposure-hardening.sql`：暴露面治理——登记动态缓存查询接口权限码 `FRONTEND_CACHE_QUERY` 并补 `ADMIN` 授权；删除密码重置模板的 `defaultPassword` 字段行并把正文里的密码占位符换成「向管理员索取 / 忘记密码」文案。
+  - 当前为空（`0.3.0/` 已随本次发版从 `unreleased/` 更名归档）。
 
 `0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
 
