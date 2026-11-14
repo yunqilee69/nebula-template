@@ -122,7 +122,7 @@ echo "==> 更新 application.yml ..."
 APP_YML="$REPO_ROOT/backend/src/main/resources/application.yml"
 sed -i.bak \
   -e "s|name: nebula-template-backend|name: ${APP_NAME}|" \
-  -e "s|jdbc:mysql://localhost:3306/nebula\?|jdbc:mysql://localhost:3306/${DB_NAME}?|" \
+  -e "s|jdbc:postgresql://localhost:5432/nebula|jdbc:postgresql://localhost:5432/${DB_NAME}|" \
   "$APP_YML"
 rm -f "$APP_YML.bak"
 
@@ -132,10 +132,10 @@ rm -f "$APP_YML.bak"
 echo "==> 更新 docker-compose.yml ..."
 COMPOSE="$REPO_ROOT/backend/docker-compose.yml"
 sed -i.bak \
-  -e "s|container_name: nebula-template-mysql|container_name: ${CONTAINER_PREFIX}-mysql|" \
+  -e "s|container_name: nebula-template-postgres|container_name: ${CONTAINER_PREFIX}-postgres|" \
   -e "s|container_name: nebula-template-redis|container_name: ${CONTAINER_PREFIX}-redis|" \
-  -e "s|MYSQL_DATABASE: \"\${NEBULA_LOCAL_MYSQL_DATABASE:-nebula}\"|MYSQL_DATABASE: \"\${NEBULA_LOCAL_MYSQL_DATABASE:-${DB_NAME}}\"|" \
-  -e "s|nebula-mysql-data|${CONTAINER_PREFIX}-mysql-data|g" \
+  -e "s|POSTGRES_DB: \"\${NEBULA_LOCAL_POSTGRES_DATABASE:-nebula}\"|POSTGRES_DB: \"\${NEBULA_LOCAL_POSTGRES_DATABASE:-${DB_NAME}}\"|" \
+  -e "s|nebula-postgres-data|${CONTAINER_PREFIX}-postgres-data|g" \
   -e "s|nebula-redis-data|${CONTAINER_PREFIX}-redis-data|g" \
   "$COMPOSE"
 rm -f "$COMPOSE.bak"

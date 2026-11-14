@@ -16,7 +16,7 @@ Nebula 中台的前后端完整模板。克隆下来就是一个可直接开发�
 | `.agents/` | 项目 skills：AI 辅助开发时复用（模块导读、功能分析、规范检索等） |
 | `scripts/` | `rename-project.sh`：fork 后一键改名（groupId / artifactId / Java 包名 / 数据库名 / 容器名等）。主仓自用的发布与审计脚本不同步到模板仓 |
 
-环境要求与三步启动（MySQL + Redis → 后端 → 前端）见根 `README.md`；后端细节见 `backend/README.md`，
+环境要求与三步启动（PostgreSQL + Redis → 后端 → 前端）见根 `README.md`；后端细节见 `backend/README.md`，
 数据平面细节见 `web/README.md`，控制平面细节见 `control/README.md`。
 
 > 本仓库内容由 [nebula 主仓](https://github.com/yunqilee69/nebula) 自动同步生成（同步目录清单见主仓

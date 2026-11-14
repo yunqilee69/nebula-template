@@ -7,13 +7,13 @@
 ## 环境要求
 
 - JDK 21
-- Docker（用于 MySQL + Redis，或使用你自有的实例）
+- Docker（用于 PostgreSQL + Redis，或使用你自有的实例）
 - Maven 3.9+
 
 ## 快速启动
 
 ```bash
-# 1. 启动依赖（首次自动建库并导入 ../docs/sql/init/mysql/ 下的初始化脚本）
+# 1. 启动依赖（首次自动建库并导入 ../docs/sql/init/postgresql/ 下的初始化脚本）
 docker compose up -d
 
 # 2. 启动后端（默认 localhost:8080）
@@ -45,9 +45,9 @@ mvn spring-boot:run
 | `NEBULA_TENANT_ENABLED` | 是否启用多租户，默认 `false` |
 | `NEBULA_TENANT_DEFAULT_TENANT_ID` | 默认租户 ID，默认与初始化 SQL 的 `default` 租户一致；单租户下所有数据归属该租户 |
 
-本机依赖栈（`docker-compose.yml`）使用独立的 `NEBULA_LOCAL_*` 变量，避免被宿主机上导出的远程连接信息改写：`NEBULA_LOCAL_MYSQL_ROOT_PASSWORD` / `_MYSQL_DATABASE` / `_MYSQL_USER` / `_MYSQL_PASSWORD` / `_MYSQL_PORT` / `_REDIS_PORT`。
+本机依赖栈（`docker-compose.yml`）使用独立的 `NEBULA_LOCAL_*` 变量，避免被宿主机上导出的远程连接信息改写：`NEBULA_LOCAL_POSTGRES_DATABASE` / `_POSTGRES_USER` / `_POSTGRES_PASSWORD` / `_POSTGRES_PORT` / `_REDIS_PORT`。
 
-PostgreSQL 初始化脚本见仓库根 `docs/sql/init/postgresql/`，脚本目录组织见 `docs/sql/README.md`。
+默认数据库是 PostgreSQL，初始化脚本见仓库根 `docs/sql/init/postgresql/`；如需改用 MySQL，把 `docker-compose.yml` 的挂载换成 `docs/sql/init/mysql/`，并确认 classpath 中有 MySQL 驱动。脚本目录组织见 `docs/sql/README.md`。
 
 ## 升级
 

@@ -22,37 +22,37 @@ if (entity.getIsEnabled().equals(true)) { ... }
 
 ### 数据库侧规范
 
-- MySQL 使用 `TINYINT`，PostgreSQL 使用 `SMALLINT`，存储值为 `1`（true）或 `0`（false）。
+- MySQL 使用 `TINYINT(1)`，PostgreSQL 使用 `BOOLEAN`；MyBatis 通过 `setBoolean` / `getBoolean` 与 Java `Boolean` 直接映射，由驱动完成 `1/0` 与 `TRUE/FALSE` 的转换。
 - 列命名使用 `is_xxx` 形式，例如 `is_vip`、`is_deleted`、`is_published`、`is_enabled`。
 - 原因：数据库列名与 Java 字段名采用不同命名风格，避免生成代码时产生 getter/setter 冲突；`is_` 前缀在 SQL 语义上更直观表达布尔判断。
 
 ```sql
 -- ✅ 正确
-is_vip      TINYINT      -- MySQL
-is_deleted  SMALLINT     -- PostgreSQL
+is_vip      TINYINT(1)   -- MySQL
+is_deleted  BOOLEAN      -- PostgreSQL
 
 -- ❌ 错误 - 列名与 Java 字段名同风格易混淆
-vip         TINYINT
-deleted     SMALLINT
+vip         TINYINT(1)
+deleted     BOOLEAN
 ```
 
 ### MyBatis XML 判断规范
 
-- 项目全局配置了 `BooleanTypeHandler`，自动处理 `Boolean`（Java）与 `0/1`（DB）的双向转换。
-- 在 MyBatis XML 的 `<if>` 条件判断中，**使用整数形式**判断，例如 `xx != 1`（非 true）、`xx = 0`（false），而非布尔形式。
+- 项目全局配置了 `BooleanTypeHandler`，自动处理 Java `Boolean` 与数据库布尔列的映射。
+- MyBatis XML 中直接把布尔参数绑定到列上（`#{enabled}`），**不要写 `= 1` / `= 0` 字面量**：PostgreSQL 的 `BOOLEAN` 不接受与整数比较，MySQL 的 `TINYINT(1)` 也依赖隐式转换。
 
 ```xml
-<!-- ✅ 正确 - 使用整数判断 -->
-<if test="is_vip != 1">
+<!-- ✅ 正确 - 交给驱动转换 -->
+<if test="vip != null">
     AND is_vip = #{vip}
 </if>
-<if test="is_deleted = 0">
-    AND is_deleted = 0
+<if test="deleted != null">
+    AND is_deleted = #{deleted}
 </if>
 
-<!-- ❌ 错误 - 布尔形式判断不可靠 -->
-<if test="vip == true">
-    AND is_vip = #{vip}
+<!-- ❌ 错误 - PostgreSQL 会报 boolean = integer 类型不匹配 -->
+<if test="is_vip != 1">
+    AND is_vip = 1
 </if>
 ```
 
@@ -60,10 +60,10 @@ deleted     SMALLINT
 
 | Java 字段名 | 数据库列名 | MySQL 类型 | PostgreSQL 类型 |
 |---|---|---|---|
-| `vip` | `is_vip` | `TINYINT` | `SMALLINT` |
-| `deleted` | `is_deleted` | `TINYINT` | `SMALLINT` |
-| `published` | `is_published` | `TINYINT` | `SMALLINT` |
-| `enabled` | `is_enabled` | `TINYINT` | `SMALLINT` |
+| `vip` | `is_vip` | `TINYINT(1)` | `BOOLEAN` |
+| `deleted` | `is_deleted` | `TINYINT(1)` | `BOOLEAN` |
+| `published` | `is_published` | `TINYINT(1)` | `BOOLEAN` |
+| `enabled` | `is_enabled` | `TINYINT(1)` | `BOOLEAN` |
 
 ---
 

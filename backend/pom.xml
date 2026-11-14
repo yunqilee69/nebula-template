@@ -8,7 +8,7 @@
         Nebula 后端模板工程：独立于主仓 reactor，只依赖发布到 Maven Central 的
         cn.cloudomni:nebula-app-starter。fork nebula-template 仓库后：
         1. 修改 groupId / artifactId 为你自己的项目坐标
-        2. docker compose up -d 启动 MySQL + Redis（首次自动导入初始化 SQL）
+        2. docker compose up -d 启动 PostgreSQL + Redis（首次自动导入初始化 SQL）
         3. mvn spring-boot:run
     -->
     <parent>
@@ -67,6 +67,16 @@
             <groupId>cn.cloudomni</groupId>
             <artifactId>nebula-app-starter</artifactId>
             <version>${nebula.version}</version>
+        </dependency>
+        <!--
+            PostgreSQL 是默认数据库。这里显式声明驱动，不依赖 starter 的传递依赖：
+            starter 的发布件版本可能滞后于源码，显式声明可保证模板开箱即启。
+            版本由 spring-boot-starter-parent 统一管理。
+        -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <!--
             业务代码使用 Lombok（实体/DTO 的 @Data、@Slf4j 等）：

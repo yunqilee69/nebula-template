@@ -502,7 +502,7 @@ CREATE TABLE IF NOT EXISTS auth_login_record (
     login_account VARCHAR(100) NOT NULL,
     login_type VARCHAR(20) NOT NULL,
     login_result VARCHAR(20) NOT NULL,
-    is_success SMALLINT NOT NULL DEFAULT 0,
+    is_success BOOLEAN NOT NULL DEFAULT FALSE,
     login_ip VARCHAR(50) DEFAULT NULL,
     user_agent VARCHAR(500) DEFAULT NULL,
     client_type VARCHAR(20) DEFAULT NULL,
@@ -525,7 +525,7 @@ COMMENT ON COLUMN auth_login_record.user_id IS '用户ID';
 COMMENT ON COLUMN auth_login_record.login_account IS '登录账号（用户名/手机/邮箱/OAuth2标识）';
 COMMENT ON COLUMN auth_login_record.login_type IS '登录类型：PASSWORD/PHONE/EMAIL/OAUTH2';
 COMMENT ON COLUMN auth_login_record.login_result IS '登录结果：SUCCESS/FAILED';
-COMMENT ON COLUMN auth_login_record.is_success IS '是否成功：0失败 1成功';
+COMMENT ON COLUMN auth_login_record.is_success IS '是否成功：false 失败 true 成功';
 COMMENT ON COLUMN auth_login_record.login_ip IS '登录IP地址';
 COMMENT ON COLUMN auth_login_record.user_agent IS '原始User-Agent字符串';
 COMMENT ON COLUMN auth_login_record.client_type IS '客户端端类型：WEB/H5/MP_WEIXIN/MP_ALIPAY/APP/API/UNKNOWN';
@@ -1103,11 +1103,11 @@ CREATE TABLE IF NOT EXISTS scheduler_job (
     handler_bean_name VARCHAR(128),
     param_class_name VARCHAR(256),
     cron_expr VARCHAR(128),
-    enabled SMALLINT DEFAULT 1,
+    enabled BOOLEAN DEFAULT TRUE,
     execution_target VARCHAR(128),
     engine_job_ref VARCHAR(64),
-    manual_trigger_enabled SMALLINT DEFAULT 1,
-    param_override_enabled SMALLINT DEFAULT 1,
+    manual_trigger_enabled BOOLEAN DEFAULT TRUE,
+    param_override_enabled BOOLEAN DEFAULT TRUE,
     default_param_json TEXT,
     timeout_ms INTEGER,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

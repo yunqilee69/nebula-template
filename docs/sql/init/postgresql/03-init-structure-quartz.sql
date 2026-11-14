@@ -20,15 +20,16 @@ CREATE TABLE IF NOT EXISTS qrtz_job_details (
     job_group VARCHAR(200) NOT NULL,
     description VARCHAR(250) DEFAULT NULL,
     job_class_name VARCHAR(250) NOT NULL,
-    is_durable VARCHAR(1) NOT NULL,
-    is_nonconcurrent VARCHAR(1) NOT NULL,
-    is_update_data VARCHAR(1) NOT NULL,
-    requests_recovery VARCHAR(1) NOT NULL,
+    is_durable BOOLEAN NOT NULL,
+    is_nonconcurrent BOOLEAN NOT NULL,
+    is_update_data BOOLEAN NOT NULL,
+    requests_recovery BOOLEAN NOT NULL,
     job_data BYTEA DEFAULT NULL,
     PRIMARY KEY (sched_name, job_name, job_group)
 );
 
 CREATE INDEX IF NOT EXISTS idx_qrtz_j_req_recovery ON qrtz_job_details (sched_name, requests_recovery);
+CREATE INDEX IF NOT EXISTS idx_qrtz_j_grp ON qrtz_job_details (sched_name, job_group);
 
 CREATE TABLE IF NOT EXISTS qrtz_triggers (
     sched_name VARCHAR(120) NOT NULL,
@@ -53,7 +54,7 @@ CREATE TABLE IF NOT EXISTS qrtz_triggers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_qrtz_t_j ON qrtz_triggers (sched_name, job_name, job_group);
-CREATE INDEX IF NOT EXISTS idx_qrtz_t_jg ON qrtz_triggers (sched_name, trigger_group);
+CREATE INDEX IF NOT EXISTS idx_qrtz_t_jg ON qrtz_triggers (sched_name, job_group);
 CREATE INDEX IF NOT EXISTS idx_qrtz_t_c ON qrtz_triggers (sched_name, calendar_name);
 CREATE INDEX IF NOT EXISTS idx_qrtz_t_g ON qrtz_triggers (sched_name, trigger_group);
 CREATE INDEX IF NOT EXISTS idx_qrtz_t_state ON qrtz_triggers (sched_name, trigger_state);
@@ -101,8 +102,8 @@ CREATE TABLE IF NOT EXISTS qrtz_simprop_triggers (
     long_prop_2 BIGINT DEFAULT NULL,
     dec_prop_1 NUMERIC(13,4) DEFAULT NULL,
     dec_prop_2 NUMERIC(13,4) DEFAULT NULL,
-    bool_prop_1 VARCHAR(1) DEFAULT NULL,
-    bool_prop_2 VARCHAR(1) DEFAULT NULL,
+    bool_prop_1 BOOLEAN DEFAULT NULL,
+    bool_prop_2 BOOLEAN DEFAULT NULL,
     PRIMARY KEY (sched_name, trigger_name, trigger_group),
     CONSTRAINT fk_qrtz_simprop_triggers FOREIGN KEY (sched_name, trigger_name, trigger_group)
         REFERENCES qrtz_triggers (sched_name, trigger_name, trigger_group)
@@ -143,8 +144,8 @@ CREATE TABLE IF NOT EXISTS qrtz_fired_triggers (
     state VARCHAR(16) NOT NULL,
     job_name VARCHAR(200) DEFAULT NULL,
     job_group VARCHAR(200) DEFAULT NULL,
-    is_nonconcurrent VARCHAR(1) DEFAULT NULL,
-    requests_recovery VARCHAR(1) DEFAULT NULL,
+    is_nonconcurrent BOOLEAN DEFAULT NULL,
+    requests_recovery BOOLEAN DEFAULT NULL,
     PRIMARY KEY (sched_name, entry_id)
 );
 

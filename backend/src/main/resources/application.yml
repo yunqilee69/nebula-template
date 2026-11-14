@@ -19,10 +19,10 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
     # 默认值与 backend/docker-compose.yml 对齐，零配置即可本地启动；
     # 环境差异（生产凭据、微信 secret 等）通过 application-local.yml 覆盖（已 gitignore）
-    url: jdbc:mysql://localhost:3306/nebula?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:postgresql://localhost:5432/nebula
     username: nebula
     password: nebula
     type: com.alibaba.druid.pool.DruidDataSource
@@ -149,7 +149,7 @@ org:
       threadPriority: 5
     jobStore:
       class: org.quartz.impl.jdbcjobstore.JobStoreTX
-      driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+      driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
       useProperties: false
       tablePrefix: QRTZ_
       dataSource: nebulaQuartzDS

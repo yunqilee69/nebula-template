@@ -12,7 +12,7 @@ Nebula 中台**前后端完整模板**。Fork 本仓库即可开始你的项目�
 ## 快速开始（三步启动）
 
 ```bash
-# 1. 启动依赖：MySQL 8 + Redis 7（首次自动建库并导入初始化 SQL）
+# 1. 启动依赖：PostgreSQL 16 + Redis 7（首次自动建库并导入初始化 SQL）
 cd backend && docker compose up -d && cd ..
 
 # 2. 启动后端（localhost:8080）

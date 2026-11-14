@@ -35,11 +35,11 @@ docs/sql/
 执行顺序与文件名顺序一致：先建表（`01`），再灌数据（`02`），Quartz 表（`03`）按调度引擎选型决定是否执行。也可以整目录一次导入：
 
 ```bash
-# MySQL：按文件名顺序导入 init/mysql/ 下全部脚本
-for f in docs/sql/init/mysql/*.sql; do mysql --default-character-set=utf8mb4 -u root -p nebula < "$f"; done
-
-# PostgreSQL：按文件名顺序导入 init/postgresql/ 下全部脚本
+# PostgreSQL（默认方言）：按文件名顺序导入 init/postgresql/ 下全部脚本
 for f in docs/sql/init/postgresql/*.sql; do psql -d nebula -f "$f"; done
+
+# MySQL（可选方言）：按文件名顺序导入 init/mysql/ 下全部脚本
+for f in docs/sql/init/mysql/*.sql; do mysql --default-character-set=utf8mb4 -u root -p nebula < "$f"; done
 ```
 
 > **字符集：导入中文时最容易踩的坑。** 脚本文件本身是 UTF-8，但写入是否乱码取决于**导入时的会话字符集**。若客户端以 `latin1`（cp1252）连接——命令行客户端的默认字符集可能跟随系统 locale，部分 GUI 客户端的「文件编码」默认也不是 UTF-8——中文菜单、字典、参数名会被双重编码成 `å…¶ä»–é€šçŸ¥` 这类乱码，且**不报任何错**。
@@ -91,10 +91,10 @@ scripts/set-version.sh X.Y.Z --release
 
 升级规则：**从当前版本之后的下一个版本目录开始，按版本号升序逐个执行，直到目标版本目录为止（含目标版本自身）。**
 
-以从 `0.1.0` 升级到 `0.2.1` 为例（假设使用 MySQL）：
+以从 `0.1.0` 升级到 `0.2.1` 为例（假设使用 PostgreSQL，默认方言）：
 
 1. 目标版本是 `0.2.1`，区间内只有 `0.2.1/` 一个目录（`0.1.0`、`0.2.0` 没有需要落库的变更，故不存在这两个目录）
-2. 进入 `docs/sql/0.2.1/mysql/`，按文件名顺序逐个执行（`01-xxx.sql`、`02-xxx.sql`……）
+2. 进入 `docs/sql/0.2.1/postgresql/`，按文件名顺序逐个执行（`01-xxx.sql`、`02-xxx.sql`……）
 3. 执行完毕即到达 `0.2.1`；若之后还有 `0.3.0/`、`0.4.0/` 等目录，继续按版本号升序执行到目标版本为止
 
 `unreleased/` 是不带版本号的例外：其中的脚本尚未随任何版本发布，**升级时不要执行**，仅用于在开发/预发环境上提前验证。
@@ -133,9 +133,10 @@ scripts/set-version.sh X.Y.Z --release
   - `04-exposure-hardening.sql`：暴露面治理——登记动态缓存查询接口权限码 `FRONTEND_CACHE_QUERY` 并补 `ADMIN` 授权；删除密码重置模板的 `defaultPassword` 字段行并把正文里的密码占位符换成「向管理员索取 / 忘记密码」文案；
   - `05-notify-template-thymeleaf-html.sql`：通知模板切换到 Thymeleaf 语法并支持 HTML 正文——新增 `html_content_template` 列、把存量模板中的 `${key}` 改写为 `[(${key})]`、复核字段编码。**`${key}` 裸占位符不再被解释**，未完成迁移的模板会把占位符原样发出。
 
-`unreleased/` 存放下一个版本尚未发版的增量脚本（`mysql/`、`postgresql/` 两个方言子目录各一套，内容等价，按文件名顺序执行）：
+`unreleased/` 存放下一个版本尚未发版的增量脚本（`mysql/`、`postgresql/` 两个方言子目录各一套，按文件名成对、按文件名顺序执行；某一方言无需变更时保留同名空操作脚本）：
 
-  - 当前为空（`0.3.0/` 已随本次发版从 `unreleased/` 更名归档）。
+  - `01-boolean-column-types.sql`：布尔列类型修正。PostgreSQL 侧把实体为 `Boolean`、建表却为 `SMALLINT` / `VARCHAR(1)` 的列统一改为 `BOOLEAN`——`auth_login_record.is_success`、`scheduler_job` 的 3 个开关、Quartz 的 8 个布尔列；不改会导致 MyBatis / Quartz 用 `setBoolean` 写入时报类型不匹配。MySQL 侧对应列本来就是 `TINYINT(1)` / `VARCHAR(1)`，驱动会转成 1/0，脚本为空操作。
+  - `02-quartz-indexes.sql`：Quartz 索引对齐官方 DDL。两个方言都补 `QRTZ_JOB_DETAILS(SCHED_NAME, JOB_GROUP)` 的 `IDX_QRTZ_J_GRP`；PostgreSQL 侧另外把 `idx_qrtz_t_jg` 从误用的 `trigger_group` 修正为 `job_group`。脚本幂等，可重复执行。
 
 `0.1.0`、`0.2.0` 没有版本目录：这两个版本没有需要落库的变更，全新环境直接执行 `init/` 即可。
 

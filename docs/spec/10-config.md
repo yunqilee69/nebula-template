@@ -392,9 +392,9 @@ nebula:
 # 开发环境友好默认值示例
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/nebula?useSSL=false  # 本地数据库
-    username: root
-    password: root
+    url: jdbc:postgresql://localhost:5432/nebula  # 本地数据库（默认方言）
+    username: nebula
+    password: nebula
   data:
     redis:
       host: localhost
@@ -542,9 +542,9 @@ nebula:
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/nebula}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}  # 生产环境必须通过环境变量覆盖
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/nebula}
+    username: ${DB_USERNAME:nebula}
+    password: ${DB_PASSWORD:nebula}  # 生产环境必须通过环境变量覆盖
 
 nebula:
   crypto:
