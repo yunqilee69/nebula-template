@@ -956,7 +956,18 @@ INSERT INTO auth_api (
     ('0196dbe0a6f17000a000000000000402', @default_tenant_id, 'PARAM_GENERAL_CONFIG_QUERY', '通用配置查询', 'param', 2, '通用配置读取；前端初始化时按需拉取', 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000403', @default_tenant_id, 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, NOW(), NOW()),
     ('0196dbe0a6f17000a000000000000404', @default_tenant_id, 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, NOW(), NOW()),
-    ('0196dbe0a6f17000a000000000000405', @default_tenant_id, 'FRONTEND_CACHE_QUERY', '动态缓存查询', 'frontend', 5, '动态缓存列表查询；响应会回传缓存条目值，属管理端调试准入码', 1, NOW(), NOW())
+    ('0196dbe0a6f17000a000000000000405', @default_tenant_id, 'FRONTEND_CACHE_QUERY', '动态缓存查询', 'frontend', 5, '动态缓存列表查询；响应会回传缓存条目值，属管理端调试准入码', 1, NOW(), NOW()),
+    -- 以下 8 个码代码侧用 @NebulaPermission 声明，但框架内没有对应管理端页面：
+    -- auth_button 行挂不上菜单（部分码甚至没有种子行），管理端看不到也授不出去。
+    -- 按 docs/spec/09-security.md 2.3.3 改判为接口权限：代码侧用 @NebulaApiPermission，登记行落 auth_api。
+    ('0196dbe0a6f17000a000000000000406', @default_tenant_id, 'STORAGE_UPLOAD', '文件上传', 'storage', 6, '建上传任务、单文件上传、分片上传、完成与绑定共用的准入码；入口散落在各业务的 nebula-upload 组件里，无独立按钮', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000407', @default_tenant_id, 'STORAGE_FILE_DELETE', '删除文件', 'storage', 7, '删除正式文件；入口在文件列表行内，无独立按钮', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000408', @default_tenant_id, 'FRONTEND_CONFIG_SAVE', '保存前端配置', 'frontend', 8, '保存前端初始化配置；框架内暂无管理端页面，仅做服务端准入', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a000000000000409', @default_tenant_id, 'FRONTEND_APP_RELEASE_CREATE', '新增应用版本', 'frontend', 9, '新增应用版本发布记录；框架内暂无管理端页面，仅做服务端准入', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000040a', @default_tenant_id, 'FRONTEND_APP_RELEASE_EDIT', '编辑应用版本', 'frontend', 10, '编辑应用版本发布记录；框架内暂无管理端页面，仅做服务端准入', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000040b', @default_tenant_id, 'FRONTEND_APP_RELEASE_DELETE', '删除应用版本', 'frontend', 11, '删除应用版本发布记录；框架内暂无管理端页面，仅做服务端准入', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000040c', @default_tenant_id, 'NOTIFY_PUSH_DEVICE_QUERY', '查询推送设备', 'notify', 12, '管理端查看全系统推送设备；面向当前用户的设备接口不加权限码', 1, NOW(), NOW()),
+    ('0196dbe0a6f17000a00000000000040d', @default_tenant_id, 'NOTIFY_PUSH_TEST', '测试推送', 'notify', 13, '向指定用户或设备发起测试推送；会向真实终端下发通知，属运营动作', 1, NOW(), NOW())
 AS new_values ON DUPLICATE KEY UPDATE
     name = new_values.name,
     module = new_values.module,

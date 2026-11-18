@@ -756,7 +756,7 @@ CREATE TABLE IF NOT EXISTS scheduler_job_run (
     operator_id VARCHAR(64) COMMENT '操作人ID',
     operator_name VARCHAR(128) COMMENT '操作人名称',
     retry_index INT COMMENT '重试序号',
-    result_message VARCHAR(512) COMMENT '执行结果消息',
+    result_message LONGTEXT COMMENT '执行结果消息',
     result_json LONGTEXT COMMENT '执行结果JSON',
     terminate_reason VARCHAR(255) COMMENT '终止原因',
     terminated_by VARCHAR(64) COMMENT '终止人ID',

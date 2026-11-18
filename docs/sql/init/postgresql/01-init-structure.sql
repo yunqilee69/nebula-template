@@ -1147,7 +1147,7 @@ CREATE TABLE IF NOT EXISTS scheduler_job_run (
     operator_id VARCHAR(64),
     operator_name VARCHAR(128),
     retry_index INTEGER,
-    result_message VARCHAR(512),
+    result_message TEXT,
     result_json TEXT,
     terminate_reason VARCHAR(255),
     terminated_by VARCHAR(64),

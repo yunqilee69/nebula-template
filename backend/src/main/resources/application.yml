@@ -47,6 +47,16 @@ nebula:
     system-tenant-id: ${NEBULA_TENANT_SYSTEM_TENANT_ID:__system__}
   architecture:
     mode: local
+  crypto:
+    # 加密能力默认开启：模板内置一把开发密钥，克隆工程后无需额外配置即可写入加密参数。
+    # ⚠️ 这把密钥随模板仓库公开，只能用于本地开发 / 联调；生产必须通过环境变量
+    #    NEBULA_CRYPTO_KEY_1 覆盖，或改到 application-local.yml（已 gitignore）。
+    # 轮换密钥时保留旧 key 条目用于解密历史密文，再把 active-key-id 指向新 key。
+    algorithm: aes-gcm
+    active-key-id: "1"
+    keys:
+      - id: "1"
+        secret: "${NEBULA_CRYPTO_KEY_1:GHofrULf2Yhnt33ILyysC0iBJn9LORFtcxjlJIktTHk=}"
   web:
     result-advice-enable: true
     # 跨域配置：默认关闭。浏览器端跨域访问（H5 / 移动端 WebView / 独立前端域名）时按需开启：

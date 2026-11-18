@@ -688,10 +688,12 @@ public class AuthProperties {
 ### 9.4 配置文件禁止
 
 - ❌ 默认配置文件缺少关键配置项
-- ❌ 配置文件使用硬编码密码/密钥（**限于随仓库分发的默认配置文件**，如 `nebula-app-runner/application.yml`；运维自己的部署配置不进仓库，写值属正常用法，见下方说明）
+- ❌ 配置文件使用硬编码密码/密钥（**限于随仓库分发的默认配置文件**，如 `nebula-app-runner/application.yml`；运维自己的部署配置不进仓库，写值属正常用法，见下方说明）。**唯一例外**是模板工程显式标注的开发默认值（JWT 的 `*-dev-*` secret、`nebula.crypto` 的开发密钥）：只能用于本地联调，注释必须写明生产覆盖方式
 - ❌ 配置层级混乱（如 `nebula.auth.token.expire` 应为 `nebula.auth.token.access-token-expire`）
 
 > **加解密密钥的来源不做强制**：`nebula.crypto.keys[].secret` 直接写值即可用——框架不校验来源、不要求 `${ENV:}` 占位符，`keys`/`active-key-id` 的合法性校验与密钥来源无关。推荐环境变量注入只是因为它更省心：密钥写进随仓库分发的配置会随镜像层、备份与 Git 历史一起扩散。
+>
+> **模板开发默认密钥是显式例外**：模板 `backend/src/main/resources/application.yml` 内置的 `nebula.crypto` 开发密钥只为克隆后开箱可用；它随仓库公开，生产必须用 `NEBULA_CRYPTO_KEY_1` 覆盖。
 
 ---
 
