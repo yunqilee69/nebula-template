@@ -74,6 +74,11 @@ export interface FrontendConfigResp {
 
 /** 登录页配置。 */
 export interface FrontendLoginConfigResp {
+  /**
+   * 是否启用多租户模式（部署级总开关，Web 与 Mobile 语义相同）。
+   * 客户端仅当明确 `false` 时隐藏企业代码输入；缺失或 `null` 一律视为未知并保留输入框。
+   */
+  tenantEnabled?: boolean;
   usernameEnabled?: boolean;
   usernameRegisterAllowed?: boolean;
   usernamePasswordMinLength?: number;

@@ -29,7 +29,12 @@ import {
 } from '../packages/client-sdk/index.ts';
 import { runBootstrap, type BootstrapResult } from './src/bootstrap/index.ts';
 import { createAppRuntimeConfig } from './src/config/app-config.ts';
-import { BindingRequiredError, createLoginService, isUsernameRegisterAllowed } from './src/auth/login-service.ts';
+import {
+  BindingRequiredError,
+  createLoginService,
+  isUsernameRegisterAllowed,
+  shouldShowTenantCodeInput,
+} from './src/auth/login-service.ts';
 import { extractTenantCode } from './src/auth/tenant-code.ts';
 import { createProfileService } from './src/auth/profile-service.ts';
 import { createPushService } from './src/push/push-service.ts';
@@ -372,7 +377,12 @@ export default function App() {
             onSendPhoneCode={handleSendPhoneCode}
             onSendEmailCode={handleSendEmailCode}
             tenantCode={tenantCode}
-            onTenantCodeChange={updateTenantCode}
+            // 单租户部署（后端明确 tenantEnabled=false）不传 callback，登录页不渲染企业代码输入框。
+            // fail-open：配置未知（init 失败 / 被 19001 拦截 / loginConfig 缺失）时照常传入，
+            // 否则多租户首启既拿不到配置又没有手工输入入口，用户无路可走。
+            onTenantCodeChange={
+              shouldShowTenantCodeInput(state.loginConfig) ? updateTenantCode : undefined
+            }
             onRegister={
               isUsernameRegisterAllowed(state.loginConfig)
                 ? () => setAuthScreen('register')

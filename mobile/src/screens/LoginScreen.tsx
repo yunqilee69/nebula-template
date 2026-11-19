@@ -445,6 +445,7 @@ export function LoginScreen({
           <View style={styles.card}>
             <Text style={styles.title}>登录</Text>
 
+            {/* 是否渲染由组合根（App.tsx）决定：单租户部署不传 onTenantCodeChange。 */}
             {onTenantCodeChange ? (
               <View style={styles.field}>
                 <Text style={styles.label}>企业代码（可选）</Text>
@@ -452,7 +453,7 @@ export function LoginScreen({
                   style={styles.input}
                   value={tenantCode}
                   onChangeText={onTenantCodeChange}
-                  placeholder="例如 acme；已通过域名进入时可留空"
+                  placeholder="例如 acme；通过链接或二维码进入时可留空"
                   autoCapitalize="none"
                   autoCorrect={false}
                   editable={!submitting}

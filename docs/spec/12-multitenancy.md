@@ -29,8 +29,8 @@
 7. **平台账号自助集成在个人详情页。**  
    多租户模式下数据平面的个人详情页提供「企业个人信息 / 平台个人信息」两个页签：前者管理当前企业的账号，后者查看平台账号资料、联系方式和已关联企业。该页签使用当前租户令牌，不依赖控制平面。
 
-8. **OAuth2 配置按租户隔离。**  
-   平台维护 provider 目录，租户管理员配置本租户的 client_id/secret/回调；超级管理员可以在控制平面代配。租户 OAuth 只签发租户会话，不自动成为平台账号。
+8. **OAuth2 配置按租户隔离，单租户默认租户配置同样生效。**  
+   平台维护 provider 目录，租户管理员配置本租户的 client_id/secret/回调；超级管理员可以在控制平面代配。合法组合固定为 `github + WEB`、`wechat + WEB`、`wechat + MINI`。单租户读取默认租户的企业配置（停用即停用，无记录才回退 YAML 默认配置），多租户不继承其他租户或系统租户凭据。租户 OAuth 只签发租户会话，不自动成为平台账号。
 
 9. **超级管理员不提供跨租户代登录。**  
    超级管理员排障时不签发任何跨租户令牌，也没有只读旁路；由租户提供该租户内的账号和密码，平台人员以普通租户用户身份登录查看。
@@ -693,7 +693,7 @@ https://acme.app.example.com/
 | 19002 | `TENANT_NOT_FOUND` | 租户不存在 |
 | 19003 | `TENANT_DISABLED` | 租户暂停/过期 |
 | 19004 | `TENANT_LOGIN_METHOD_DISABLED` | 当前租户未启用该登录方式 |
-| 19005 | `TENANT_OAUTH2_PROVIDER_NOT_CONFIGURED` | 当前租户未配置该 OAuth provider |
+| 19005 | `TENANT_OAUTH2_PROVIDER_NOT_CONFIGURED` | 当前租户未配置该 OAuth provider，或配置非法（不支持的 Provider/渠道、URL/前端承接页非站内相对路径、启用但必填缺失） |
 | 19006 | `TENANT_MISMATCH` | 令牌租户与请求断言不一致 |
 | 19007 | `PERSON_BINDING_REQUIRED` | 需要完成平台账号绑定 |
 | 19008 | `BINDING_TICKET_INVALID` | 绑定票据失效 |
@@ -723,40 +723,103 @@ id (github/wechat/oidc), name, protocol, supports_channels,
 tenant_configurable, allowed_endpoints, icon_url, status
 ```
 
-租户级配置 `auth_tenant_oauth2_provider`：
+租户级配置 `auth_tenant_oauth2_provider`（结构与 `docs/sql/init/` 一致，本次需求无 DDL 变更）：
 
 ```sql
 CREATE TABLE auth_tenant_oauth2_provider (
     id CHAR(32) NOT NULL,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
-    provider_id VARCHAR(32) NOT NULL,
-    channel VARCHAR(32) NOT NULL DEFAULT 'default', -- default/web/mini
-    enabled TINYINT NOT NULL DEFAULT 0,
-    client_id VARCHAR(128) NULL,
-    client_secret_cipher VARCHAR(1024) NULL,
-    redirect_uri VARCHAR(512) NULL,
-    frontend_callback_uri VARCHAR(512) NULL,
-    frontend_callback_allowlist VARCHAR(1024) NULL,
-    authorize_url VARCHAR(512) NULL,
-    token_url VARCHAR(512) NULL,
-    userinfo_url VARCHAR(512) NULL,
-    scope VARCHAR(512) NULL,
-    config_json JSON NULL,
+    provider_id CHAR(32) NOT NULL,                     -- github / wechat（小写）
+    channel VARCHAR(20) NOT NULL,                      -- WEB / MINI（大写）
+    enabled TINYINT(1) NOT NULL DEFAULT 1,
+    client_id VARCHAR(200) NULL,
+    client_secret_cipher TEXT NULL,                    -- Client Secret 密文，只写不读
+    redirect_uri VARCHAR(500) NULL,                    -- Web 渠道 OAuth 回调地址
+    frontend_callback_uri VARCHAR(500) NULL,           -- Web 登录完成后的前端承接页
+    frontend_callback_allowlist TEXT NULL,             -- 历史列（保留不删），承接页已统一为站内相对路径，代码不再读写
+    authorize_url VARCHAR(500) NULL,
+    token_url VARCHAR(500) NULL,
+    userinfo_url VARCHAR(500) NULL,
+    scope VARCHAR(500) NULL,
+    config_json TEXT NULL,                             -- 微信小程序手机号接口 URL（字段名沿用历史命名）
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_tenant_provider (tenant_id, provider_id, channel)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户第三方登录配置';
+    UNIQUE KEY uk_tenant_oauth2_provider (tenant_id, provider_id, channel)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户OAuth2提供商配置';
 ```
 
-规则：
+通用规则：
 
-- 租户配置**不继承**系统租户凭据；未配置就是不可用；
-- `client_secret` 使用 `nebula-base-crypto` 加密，API 永不返回明文；
-- 启用前必须校验凭据完整性；
+- `client_secret` 使用 `nebula-base-crypto` 加密，API 永不返回明文，响应只返回 `hasClientSecret`；
+- 保存时校验 Provider/渠道组合、URL 格式、前端承接页（仅站内相对路径）；启用时校验凭据完整性（见 7.1.3）；
 - `redirect_uri` 建议统一使用中心回调；
 - 租户管理员只能配置平台允许的 provider；
 - 超级管理员可以代配任意租户，审计但不记录 secret 值。
+
+#### 7.1.1 合法 Provider/渠道组合
+
+| Provider | 允许渠道 | 说明 |
+|---|---|---|
+| `github` | `WEB` | GitHub OAuth App，仅浏览器授权回调，不支持小程序/APP 渠道 |
+| `wechat` | `WEB` | 微信开放平台「网站应用」，`connect/qrconnect` 扫码 |
+| `wechat` | `MINI` | 微信小程序，`jscode2session` 直连式登录 |
+
+- 请求接受 `web` / `mini`（不区分大小写）与大小写混写的 providerId；服务端归一化为小写 providerId + 大写渠道后再校验、存储、读取，保证 DAO 与 Provider Client 口径一致；
+- 其他组合（如 `github + MINI`）与未知 Provider/渠道一律返回 `19005`，message 明确指出不支持的组合与可用渠道，不新增错误码；
+- 唯一键 `(tenant_id, provider_id, channel)` 语义不变，同一租户同一组合只有一行，新增与更新统一走 `POST /api/auth/tenant/oauth2-providers` 的 upsert；
+- 存量库可能已有 `github + MINI` 或不完整的启用记录：保存校验只阻止新增/更新，**读取侧保持不可用语义，不自动删除、不迁移**，由运维确认后手工清理。
+
+#### 7.1.2 单租户与多租户的读取语义
+
+`TenantOAuth2ProviderConfigResolver` 按固定 Provider/渠道解析企业配置，规则如下：
+
+| 部署模式 | 命中记录且 `enabled=true` | 命中记录且 `enabled=false` | 无记录 |
+|---|---|---|---|
+| 单租户（`nebula.tenant.enabled=false`） | 使用该记录（含解密后的 Secret） | **停用**，不回退 YAML 默认配置 | 返回 `null`，Provider Client 沿用部署级 YAML 默认配置 |
+| 多租户（`nebula.tenant.enabled=true`） | 使用当前租户记录 | 停用 | 返回禁用设置，等价「未配置即不可用」 |
+
+- 租户 ID 解析：优先当前 `TenantContext`；单租户下没有上下文（匿名/早期流程）回退 `nebula.tenant.default-tenant-id`；多租户没有上下文返回 `null`，由 Provider Client 沿用 YAML 默认配置；
+- **单租户企业配置是生效的**：保存到 `auth_tenant_oauth2_provider` 的凭据会真正接管登录，不再固定读取 YAML；
+- 多租户**不继承**系统租户或其他租户凭据；有上下文但无记录时不会回退到 YAML，也不会跨租户兜底；
+- 查询与解密始终使用当前租户 ID 与库中存储的 `provider_id`/`channel` 原值构造 `CryptoScope`，不跨租户读取、不打印 Secret。
+
+#### 7.1.3 启用校验（必填矩阵）
+
+禁用状态允许保存不完整草稿；启用后必须满足下表，前后端规则一致：
+
+| 场景 | 必填字段 |
+|---|---|
+| 所有新增/编辑 | `providerId`、`channel` |
+| 任意启用配置 | Client ID / AppID；Client Secret / AppSecret（编辑且库中已有密文时留空表示保留原值） |
+| `github + WEB` 且启用 | OAuth 回调地址（`redirectUri`） |
+| `wechat + WEB` 且启用 | OAuth 回调地址、`scope` |
+| `wechat + MINI` 且启用 | `userinfoUrl`（jscode2session 地址）、`tokenUrl`（access_token 地址）、`configJson`（手机号接口地址） |
+
+- 启用校验必须在查到已有记录之后执行，才能判断 Secret 是否已存在；
+- 其他端点可留空：GitHub 的授权/Token/用户信息地址、微信 Web 的授权/Token 地址留空时沿用 YAML 默认端点；Web 前端承接页留空时沿用 YAML 默认承接页；
+- 端点类字段必须是 `http/https` 绝对地址（去首尾空格后校验），非法值返回 `19005` 可读消息；`configJson` 仅在 `wechat + MINI` 下作为手机号接口 URL 校验，其他组合不使用。
+
+#### 7.1.4 前端承接页（仅站内相对路径）
+
+- `frontendCallbackUri`：Web 登录成功后的前端承接页；**只接受站内相对路径**——以 `/` 开头且不能以 `//` 开头（`//host/path` 是协议相对绝对地址，同样跳出站内）；
+- 绝对地址（`http/https`、`javascript:` 等任何带协议的写法）在任何入口都不再被接受，直接拒绝：这是唯一的开放重定向防线；
+- 判定收敛在共享工具 `OAuth2FrontendCallbackUri`（纯计算，不读上下文、不访问数据库），保存期与运行时共用同一份规则与同一句消息措辞，避免「保存成功、登录 302 才失败」；
+- 保存期：`frontendCallbackUri` 非空但不是合法相对路径时返回 `19005` 可读消息，消息内只回显配置值本身；
+- 运行时按 `github + WEB` / `wechat + WEB` 解析：企业启用且承接页非空时用企业值；企业未配置或未启用则回退 YAML 默认承接页；企业值非法（绝对地址、`//host`、`javascript:` 等）**不回退**，直接以 GitHub `19107` / 微信 `19213` 的 Provider 配置缺失码报错（沿用既有 Provider 配置码，不新增错误码）；
+- YAML 默认承接页不做相对路径强校验：仓库默认值为 `http://localhost:5173/...` 绝对地址，便于本地联调；强校验只作用于企业配置值；
+- 账号绑定流程返回的 `frontendRedirect` 优先，不被登录承接页覆盖；`/profile/bind-callback` 逻辑不变；
+- 配置非法时返回可读配置错误，不执行未校验的跳转（防开放重定向），错误消息只包含配置值，不含任何 Secret。
+
+#### 7.1.5 微信小程序的字段映射
+
+`config_json` 字段名沿用历史命名，**不是任意 JSON 配置**，当前只承载微信小程序手机号接口 URL：
+
+| 接口字段 | 微信小程序语义 | YAML 对应项 |
+|---|---|---|
+| `userinfoUrl` | 授权码换会话（`jscode2session`） | `mini.js-code2-session-url` |
+| `tokenUrl` | 接口调用凭证（`access_token`） | `mini.access-token-url` |
+| `configJson` | 手机号接口地址 | `mini.phone-number-url` |
 
 ### 7.2 管理权限
 
@@ -783,7 +846,7 @@ https://<tenant>.<base>/api/auth/oauth2/{provider}/callback
 - state 一次性、短 TTL、存哈希；
 - 回调先解析 state，设置租户上下文，再用该租户的凭据兑换 code；
 - 租户 A 的 state/code 不能在租户 B 兑换；
-- 前端最终回到租户子域的回调页；
+- 前端最终回到租户子域的回调页：登录 GET 回调的 302 承接页在运行时按 7.1.4 解析（企业配置优先、空值或未启用回退 YAML、承接页仅接受站内相对路径，非法值直接拒绝而不会回退 YAML）；
 - 微信小程序 `appId` 按租户配置；登录请求带 `appId`，服务端按 `appId` 反查唯一租户，多个命中拒绝并告警。
 
 ### 7.4 账号绑定
@@ -795,7 +858,7 @@ UNIQUE (tenant_id, provider_config_id, provider_user_id)
 ```
 
 - 同一第三方账号可以在不同租户分别绑定；
-- 同一租户可以配置多个微信小程序/多个 GitHub App；
+- 同一租户同一 Provider/渠道只有一条配置（唯一键 `(tenant_id, provider_id, channel)`），不同租户各自独立配置；
 - 租户 OAuth 登录只签发租户会话，不自动创建/登录平台账号；
 - 如果该租户用户未绑定平台账号，仍走绑定挑战。
 
@@ -1281,10 +1344,24 @@ VITE_TENANT_ENTRY_URL_TEMPLATE=https://{code}.app.example.com
 |---|---|
 | 租户 A/B 不同 client_id | 各自授权 |
 | A 的 state 在 B 回调 | 失败 |
-| 租户未配置 provider | `19005` |
+| 租户未配置 provider（多租户有上下文无记录） | `19005`，不回退 YAML、不跨租户兜底 |
 | 租户管理员配置本租户 | 成功，secret 不回显 |
 | 租户管理员配置其他租户 | 403 |
 | 微信小程序 appId 反查租户 | 唯一命中；多命中拒绝 |
+| 保存 `github + WEB` / `wechat + WEB` / `wechat + MINI` | 成功 |
+| 保存 `github + MINI` 或未知 Provider/渠道 | `19005`，message 指出不支持的组合与可用渠道 |
+| 启用但缺 Client ID / Secret / Web 回调 / 微信 Web Scope / 小程序三个端点 | `19005`，错误消息指明缺失字段 |
+| 禁用状态下保存不完整草稿 | 成功 |
+| 编辑已有 Secret 配置且 Secret 留空 | 保留库中原密文，响应仍是 `hasClientSecret=true` |
+| 单租户存在默认租户启用记录 | 登录使用企业凭据，不再固定读 YAML |
+| 单租户存在默认租户停用记录 | 该渠道不可用，不回退 YAML |
+| 单租户无任何记录 | 沿用 YAML 默认配置 |
+| 单租户无租户上下文 | 按 `nebula.tenant.default-tenant-id` 查询企业配置 |
+| 企业前端承接页为站内相对路径（`/xxx`） | 302 到该相对路径 |
+| 企业前端承接页为绝对地址（`http/https`） | 保存期 `19005`、运行时 `19107`/`19213` 拒绝，不发生跳转 |
+| 企业前端承接页为 `//host/xxx` 或 `javascript:` 等非法前缀 | 保存期 `19005`、运行时 `19107`/`19213` 拒绝，不发生跳转 |
+| 企业未配置前端承接页 | 回退 YAML 默认承接页 |
+| 账号绑定流程回调 | `frontendRedirect` 优先，不被登录承接页覆盖 |
 
 ### 15.6 命令
 

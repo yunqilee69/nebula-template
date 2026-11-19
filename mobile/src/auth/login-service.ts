@@ -194,6 +194,25 @@ export function isUsernameRegisterAllowed(config: FrontendLoginConfigResp | null
   return config?.usernameRegisterAllowed === true;
 }
 
+/**
+ * 登录页是否显示企业代码输入框。
+ *
+ * <p>只有后端<b>明确</b>下发 `tenantEnabled === false` 才隐藏。`true` / `undefined` /
+ * `null` / `loginConfig` 整个缺失时一律显示：多租户首启未带企业代码时
+ * `init` 会被 19001 拦截，配置必然缺失，此时隐藏输入框会让用户无路可走。</p>
+ *
+ * <p>禁止用 `init.tenant === null` 判断：单租户、平台入口、init 失败都会导致
+ * tenant 节点缺失，与是否多租户无关。</p>
+ *
+ * <p>`tenantEnabled` 是后端多租户总开关（`tenantProperties.isEnabled()` 的唯一投影），
+ * Web 与 Mobile 使用同一解释；本函数只决定移动端这一层的 UI 表现。</p>
+ */
+export function shouldShowTenantCodeInput(
+  loginConfig?: FrontendLoginConfigResp | null,
+): boolean {
+  return loginConfig?.tenantEnabled !== false;
+}
+
 /** 登录页表单类登录方式。 */
 export type FormLoginMethod = 'phone' | 'username' | 'email';
 
