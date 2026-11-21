@@ -862,3 +862,46 @@ feature/authLogin  # 应使用连字符 feature/auth-login
 | Encoding | UTF-8 | Settings → Editor → File Encodings |
 | Annotation processing | Enabled | Settings → Build → Compiler → Annotation Processors |
 | Line break at EOF | true | Settings → Editor → General → Ensure line break |
+
+## 七、测试执行
+
+### 7.1 单元测试与集成测试的分工
+
+| 类型 | 命名 | 执行插件 | 阶段 | 允许的依赖 |
+|---|---|---|---|---|
+| 单元测试 | `*Test` / `Test*` / `*Tests` | `maven-surefire-plugin` | `test` | 不得依赖外部中间件，可用 mock 或内存实现 |
+| 集成测试 | `*IT` / `IT*` / `*ITCase` | `maven-failsafe-plugin` | `integration-test` + `verify` | 可用真实数据库、Redis、对象存储等外部基础设施 |
+
+- `mvn test` 只跑单元测试；`mvn verify` 同时跑单元测试与集成测试，且**只有 `verify` 阶段才让集成测试失败中断构建**（`integration-test` 阶段先跑完，保证 surefire 报告与 failsafe 报告都能生成）。
+- 需要外部基础设施的行为**不能只有集成测试覆盖**：能用 mock 表达的核心逻辑（例如「Redis 命令是否按批量接口调用」）必须补一条不依赖中间件的单元测试，否则默认构建里没有任何守卫。
+
+### 7.2 集成测试的基础设施门禁
+
+需要外部基础设施的集成测试类，**必须自带跳过条件**，否则会让无基础设施的机器与发布流水线直接失败：
+
+```java
+// 云端凭据类：缺凭据即跳过
+@EnabledIfEnvironmentVariable(named = "NEBULA_STORAGE_ALIYUN_OSS_ENDPOINT", matches = ".+")
+
+// 数据库/缓存类：用统一的显式开关声明基础设施已就绪（值为任意非空字符串）
+@EnabledIfEnvironmentVariable(named = "NEBULA_IT_POSTGRES_REDIS", matches = ".+")
+```
+
+- `@PostgresRedisIT`（真实 PostgreSQL + Redis）统一使用 `NEBULA_IT_POSTGRES_REDIS`；库名、账号、端口仍按各模块 `application-postgres-it.yml` 的环境变量覆盖。
+- 跳过条件必须写在**类上**：JUnit 的 `ExecutionCondition` 在容器创建前生效，`@BeforeAll` 里的 `Assumptions` 对 `@SpringBootTest` 太晚（上下文已加载并会直接报启动失败）。
+
+### 7.3 常用命令
+
+| 场景 | 命令 |
+|---|---|
+| 只跑单元测试（日常提交前） | `mvn test` |
+| 跑单元测试 + 集成测试（无基础设施时 IT 自动跳过） | `mvn verify` |
+| 跑真实数据库/缓存的集成测试 | `NEBULA_IT_POSTGRES_REDIS=1 mvn verify -pl nebula-param/nebula-param-service` |
+| 临时跳过全部集成测试 | `mvn verify -DskipITs=true` |
+| 只跑某个模块 | `mvn test -pl nebula-base/nebula-base-cache` |
+
+### 7.4 测试禁止行为
+
+- 禁止新增 `*IT` 而不加环境门禁：会让 `mvn verify` 与发布流水线在不具备该基础设施时失败。
+- 禁止把只跑集成测试的关键缺陷修复合入：默认构建（`mvn test`）跑不到的守卫等于没有守卫。
+- 禁止用 `@Disabled` 长期禁用集成测试类：需要停用就用环境门禁，让「有条件就跑起来」保持可用。

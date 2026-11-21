@@ -3,6 +3,8 @@ import type { GeneralConfigDTO } from '@/types/param';
 
 /* ------------------------------------------------------------------ */
 /*  配置项元数据 —— 映射 DTO 字段 + paramKey                            */
+/*  存储相关参数（storage.backend.* / storage.upload.*）不在此页维护：    */
+/*  它们统一由同页「存储」tab 提交，并按后端类型与上传策略校验。          */
 /* ------------------------------------------------------------------ */
 
 export interface FieldConfig {
@@ -135,21 +137,6 @@ export const TAB_CONFIGS: ConfigTab[] = [
     ],
   },
   { tabName: '通信', groups: [{ groupName: '通信配置', fields: [] }] },
-  {
-    tabName: '存储',
-    groups: [
-      {
-        groupName: '上传配置',
-        fields: [
-          { field: 'storageUploadMaxFileSize', paramKey: 'storage.upload.max-file-size', paramName: '单文件大小上限（MB）', description: '单个文件上传大小上限，单位 MB；需不大于 application.yml 的 multipart 传输口径，且满足 分片大小 ≤ 分片阈值 ≤ 单文件上限', dataType: DataType.INT },
-          { field: 'storageUploadChunkThreshold', paramKey: 'storage.upload.chunk-threshold', paramName: '分片上传阈值（MB）', description: '文件超过该值必须走分片上传，单位 MB；需满足 分片大小 ≤ 分片阈值 ≤ 单文件上限', dataType: DataType.INT },
-          { field: 'storageUploadChunkSize', paramKey: 'storage.upload.chunk-size', paramName: '分片大小（MB）', description: '分片上传的单片大小，单位 MB；需满足 分片大小 ≤ 分片阈值 ≤ 单文件上限，且不超过 2047', dataType: DataType.INT },
-          { field: 'storageUploadAllowedExtensions', paramKey: 'storage.upload.allowed-extensions', paramName: '允许的扩展名', description: '逗号分隔，可带或不带点（jpg,png 与 .jpg,.png 等价），大小写不敏感，留空表示不限制', dataType: DataType.STRING },
-          { field: 'storageUploadTempRetentionDays', paramKey: 'storage.upload.temp-retention-days', paramName: '临时任务保留天数', description: '临时上传任务及临时文件的保留天数，超期由定时清理任务删除', dataType: DataType.INT },
-        ],
-      },
-    ],
-  },
   { tabName: '调度', groups: [{ groupName: '调度配置', fields: [] }] },
   { tabName: '前端', groups: [{ groupName: '前端配置', fields: [] }] },
 ];
@@ -240,10 +227,6 @@ function assignConfigValue(dto: GeneralConfigDTO, field: keyof GeneralConfigDTO,
     case 'auditRequestMaxLength':
     case 'auditResponseMaxLength':
     case 'auditRetentionDays':
-    case 'storageUploadMaxFileSize':
-    case 'storageUploadChunkThreshold':
-    case 'storageUploadChunkSize':
-    case 'storageUploadTempRetentionDays':
     case 'notifyEmailSmtpPort':
       dto[field] = parseNumberValue(value, dataType);
       return;
@@ -251,7 +234,6 @@ function assignConfigValue(dto: GeneralConfigDTO, field: keyof GeneralConfigDTO,
     case 'notifyEmailSecurity':
     case 'notifyEmailUsername':
     case 'notifyEmailPassword':
-    case 'storageUploadAllowedExtensions':
       dto[field] = value;
       return;
   }

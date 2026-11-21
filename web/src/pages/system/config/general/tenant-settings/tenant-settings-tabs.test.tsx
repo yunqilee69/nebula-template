@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,7 +6,8 @@ import { NebulaProvider } from '@/providers/nebula-provider';
 import { DEFAULT_UPLOAD_POLICY, useUploadPolicyStore } from '@/stores/upload-policy-store';
 import { useAuthStore } from '@/stores/auth-store';
 import type { TenantProfile } from '@/types/tenant-profile';
-import { TenantEnterpriseSettingsPage } from './index';
+import { Tabs } from 'antd';
+import { TenantInfoTab, TenantProfileProvider } from './index';
 import { tenantProfileService } from '@/api/tenant-profile';
 import { appStorageService } from '@/api/storage-service';
 
@@ -53,16 +54,17 @@ function mockObjectUrls(...urls: readonly string[]) {
   return { createObjectURL, revokeObjectURL };
 }
 
-/** 四个资源位按页面渲染顺序排列：企业 Logo、登录页 Logo、Favicon、登录页背景图。 */
-function getAssetFileInputs() {
-  const inputs = [...document.querySelectorAll('input[type="file"]')];
-  if (inputs.length !== 4) throw new Error(`expected 4 asset inputs, got ${inputs.length}`);
-  return {
-    logo: inputs[0] as HTMLInputElement,
-    loginLogo: inputs[1] as HTMLInputElement,
-    favicon: inputs[2] as HTMLInputElement,
-    loginBackground: inputs[3] as HTMLInputElement,
-  };
+/**
+ * 当前激活 tab 内的资源位上传框。
+ *
+ * <p>antd v6 切换后仍保留已渲染面板的 DOM，只有激活面板带 `-active` 标记，
+ * 因此按激活容器取，避免拿到上一个 tab 残留的 input。</p>
+ */
+function getAssetFileInputs(expected: number) {
+  const activePane = document.querySelector('.ant-tabs-content-active') ?? document.querySelector('[role="tabpanel"]');
+  const inputs = [...(activePane?.querySelectorAll('input[type="file"]') ?? [])];
+  if (inputs.length !== expected) throw new Error(`expected ${expected} asset inputs, got ${inputs.length}`);
+  return inputs as HTMLInputElement[];
 }
 
 async function uploadImage(user: ReturnType<typeof userEvent.setup>, input: HTMLInputElement, name: string) {
@@ -82,11 +84,17 @@ function setAdminUser() {
   });
 }
 
+/**
+ * 与高级配置页同构的测试壳：企业信息是一块页面（资料 + 品牌 + 企业标识），
+ * provider 负责共享表单与加载状态。
+ */
 function renderPage() {
   render(
     <MemoryRouter>
       <NebulaProvider>
-        <TenantEnterpriseSettingsPage />
+        <TenantProfileProvider>
+          <Tabs items={[{ key: 'tenant-info', label: '企业信息', children: <TenantInfoTab /> }]} />
+        </TenantProfileProvider>
       </NebulaProvider>
     </MemoryRouter>,
   );
@@ -99,13 +107,14 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  // reset 而不是 clear：mockResolvedValueOnce 的队列会跨用例残留，导致下一个用例拿到上一个的 taskId
+  vi.resetAllMocks();
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL });
   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: originalRevokeObjectURL });
   act(() => useAuthStore.getState().clearUser());
 });
 
-describe('TenantEnterpriseSettingsPage asset uploads', () => {
+describe('企业设置 tab 的资源位上传', () => {
   it('aggregates the four asset slots into uploadTaskIds on save', async () => {
     const user = userEvent.setup();
     const taskIds = ['t1', 't2', 't3', 't4'];
@@ -129,12 +138,13 @@ describe('TenantEnterpriseSettingsPage asset uploads', () => {
 
     expect(await screen.findByDisplayValue('Acme 科技')).toBeInTheDocument();
     setAdminUser();
-    const inputs = getAssetFileInputs();
-    await uploadImage(user, inputs.logo, 'logo.png');
-    await waitFor(() => expect(screen.getByText('待保存生效')).toBeInTheDocument());
-    await uploadImage(user, inputs.loginLogo, 'login-logo.png');
-    await uploadImage(user, inputs.favicon, 'favicon.png');
-    await uploadImage(user, inputs.loginBackground, 'login-background.png');
+
+    // 企业信息一块页面里依次上传四个资源位（资料区 1 个 + 品牌区 3 个）
+    const inputs = getAssetFileInputs(4);
+    await uploadImage(user, inputs[0] as HTMLInputElement, 'logo.png');
+    await uploadImage(user, inputs[1] as HTMLInputElement, 'login-logo.png');
+    await uploadImage(user, inputs[2] as HTMLInputElement, 'favicon.png');
+    await uploadImage(user, inputs[3] as HTMLInputElement, 'login-background.png');
     await waitFor(() => expect(screen.getAllByText('待保存生效')).toHaveLength(4));
 
     await user.click(screen.getByRole('button', { name: /保\s*存/ }));
@@ -173,7 +183,7 @@ describe('TenantEnterpriseSettingsPage asset uploads', () => {
 
     expect(await screen.findByDisplayValue('Acme 科技')).toBeInTheDocument();
     setAdminUser();
-    await uploadImage(user, getAssetFileInputs().logo, 'logo.png');
+    await uploadImage(user, getAssetFileInputs(4)[0] as HTMLInputElement, 'logo.png');
 
     // 上传只产生待提交任务：提示必须写明「保存后生效」，不能宣称已生效
     expect(await screen.findByText('图片已上传，保存后生效')).toBeInTheDocument();

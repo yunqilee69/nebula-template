@@ -144,18 +144,6 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     defaultPath: '/system/config/general',
     loader: () => import('@/pages/system/config/general').then((module) => ({ default: module.GeneralConfigPage })),
   },
-  // 系统管理 - 企业设置（租户内自助维护企业资料与品牌）
-  TenantEnterpriseSettingsPage: {
-    component: 'TenantEnterpriseSettingsPage',
-    defaultName: '企业设置',
-    defaultCode: 'TENANT_ENTERPRISE_SETTINGS',
-    defaultPath: '/system/settings/tenant',
-    defaultIcon: 'ShopOutlined',
-    loader: () =>
-      import('@/pages/tenant/settings/enterprise').then((module) => ({
-        default: module.TenantEnterpriseSettingsPage,
-      })),
-  },
   // 系统管理 - 系统监控
   AuditLogPage: {
     component: 'AuditLogPage',

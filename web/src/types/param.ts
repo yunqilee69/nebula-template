@@ -118,11 +118,6 @@ export interface GeneralConfigDTO {
   auditResponseMaxLength?: number;
   auditRetentionDays?: number;
   // 存储上传策略（单请求传输口径见 application.yml 的 spring.servlet.multipart.*）
-  storageUploadMaxFileSize?: number;
-  storageUploadChunkThreshold?: number;
-  storageUploadChunkSize?: number;
-  storageUploadAllowedExtensions?: string;
-  storageUploadTempRetentionDays?: number;
   notifyEmailSmtpHost?: string;
   notifyEmailSmtpPort?: number;
   notifyEmailSecurity?: string;

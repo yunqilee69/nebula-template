@@ -41,7 +41,11 @@ export function TenantAssetUpload({
   const { message } = App.useApp();
   const { t } = useNebulaI18n();
   const [uploading, setUploading] = useState(false);
-  const [pending, setPending] = useState<PendingAsset>();
+  // 待提交任务以表单值为准：切换 tab 会卸载本组件，重新挂载时用 value 恢复「待保存生效」提示，
+  // 避免刚上传的图在切回后看起来像没传过（本地 blob 预览已随卸载释放，退回已保存地址）
+  const [pending, setPending] = useState<PendingAsset | undefined>(() => (
+    value ? { taskId: value } : undefined
+  ));
   const savedPreviewUrl = useStoragePreviewUrl(savedUrl);
 
   useEffect(() => {

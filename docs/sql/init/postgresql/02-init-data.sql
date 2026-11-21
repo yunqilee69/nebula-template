@@ -229,27 +229,6 @@ INSERT INTO auth_menu (
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
-    -- 企业设置
-    (
-        '0196dbe0a6f17000a000000000000032', current_setting('nebula.default_tenant_id'),
-        '企业设置',
-        '0196dbe0a6f17000a000000000000002',
-        '/system/settings/tenant',
-        5,
-        'TENANT_ENTERPRISE_SETTINGS',
-        'ShopOutlined',
-        'TenantEnterpriseSettingsPage',
-        'MENU',
-        1,
-        FALSE,
-        NULL,
-        TRUE,
-        TRUE,
-        NULL,
-        'Built-in tenant enterprise settings menu',
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP
-    ),
     -- 运营管理 (二级菜单组)
     (
         '0196dbe0a6f17000a000000000000003', current_setting('nebula.default_tenant_id'),
@@ -916,9 +895,11 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000602', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000017', 'SCHEDULER_JOB_TRIGGER', '手动触发任务', 'trigger', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     -- 前端模块按钮
     ('0196dbe0a6f17000a000000000000701', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000026', 'FRONTEND_CACHE_DELETE', '清除前端缓存', 'delete', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    -- 企业设置按钮
-    ('0196dbe0a6f17000a000000000000801', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000032', 'TENANT_PROFILE_QUERY', '查询企业资料', 'query', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a000000000000802', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000032', 'TENANT_PROFILE_UPDATE', '编辑企业资料', 'edit', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    -- 高级配置 → 企业设置（原独立菜单 TENANT_ENTERPRISE_SETTINGS 并入本页）
+    ('0196dbe0a6f17000a000000000000801', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000014', 'TENANT_PROFILE_QUERY', '查询企业资料', 'query', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a000000000000802', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000014', 'TENANT_PROFILE_UPDATE', '编辑企业资料', 'edit', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    -- 高级配置 → 存储（存储后端与上传策略在同一页维护，保存按钮走按钮权限码）
+    ('0196dbe0a6f17000a000000000000803', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000014', 'STORAGE_SETTINGS_UPDATE', '保存存储配置', 'edit', 4, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (tenant_id, code) DO UPDATE SET
     menu_id = EXCLUDED.menu_id,
     name = EXCLUDED.name,
@@ -952,7 +933,8 @@ INSERT INTO auth_api (
     ('0196dbe0a6f17000a00000000000040a', current_setting('nebula.default_tenant_id'), 'FRONTEND_APP_RELEASE_EDIT', '编辑应用版本', 'frontend', 10, '编辑应用版本发布记录；框架内暂无管理端页面，仅做服务端准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a00000000000040b', current_setting('nebula.default_tenant_id'), 'FRONTEND_APP_RELEASE_DELETE', '删除应用版本', 'frontend', 11, '删除应用版本发布记录；框架内暂无管理端页面，仅做服务端准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a00000000000040c', current_setting('nebula.default_tenant_id'), 'NOTIFY_PUSH_DEVICE_QUERY', '查询推送设备', 'notify', 12, '管理端查看全系统推送设备；面向当前用户的设备接口不加权限码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a00000000000040d', current_setting('nebula.default_tenant_id'), 'NOTIFY_PUSH_TEST', '测试推送', 'notify', 13, '向指定用户或设备发起测试推送；会向真实终端下发通知，属运营动作', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('0196dbe0a6f17000a00000000000040d', current_setting('nebula.default_tenant_id'), 'NOTIFY_PUSH_TEST', '测试推送', 'notify', 13, '向指定用户或设备发起测试推送；会向真实终端下发通知，属运营动作', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a00000000000040e', current_setting('nebula.default_tenant_id'), 'STORAGE_SETTINGS_QUERY', '读取存储配置', 'storage', 14, '高级配置 → 存储 tab 读取两层配置；页面上没有独立查询按钮，属列表接口准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (tenant_id, code) DO UPDATE SET
     name = EXCLUDED.name,
     module = EXCLUDED.module,

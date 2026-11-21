@@ -825,7 +825,7 @@ export function NebulaLayout({
                 compact={compactHeader}
                 onOpenProfile={() => openRouteWithLabel('/profile/info', t('layout.headerUser.profile'))}
                 onOpenEnterpriseSettings={() =>
-                  openRouteWithLabel('/system/settings/tenant', t('layout.headerUser.enterpriseSettings'))}
+                  openRouteWithLabel('/system/config/general', t('layout.headerUser.enterpriseSettings'))}
               />
             </div>
           )}

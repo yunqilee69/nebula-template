@@ -51,7 +51,8 @@ export function HeaderUserMenu({ compact = false, onOpenProfile, onOpenEnterpris
   const roles = useAuthStore((state) => state.roles);
   const clearUser = useAuthStore((state) => state.clearUser);
   const canOpenEnterpriseSettings = Boolean(onOpenEnterpriseSettings)
-    && hasPermission(permissions, 'MENU:TENANT_ENTERPRISE_SETTINGS:Allow', { roles });
+    // 企业设置并入高级配置页：入口权限跟高级配置菜单走
+    && hasPermission(permissions, 'MENU:GENERAL_CONFIG:Allow', { roles });
   const displayName = user?.name || user?.username || t('layout.headerUser.anonymous');
   const avatarPreviewUrl = useStoragePreviewUrl(user?.avatarPreview ?? user?.avatar);
   const [preferencesOpen, setPreferencesOpen] = useState(false);

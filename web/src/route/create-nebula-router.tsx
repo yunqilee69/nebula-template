@@ -4,7 +4,7 @@ import { EmptyModule } from '@/layouts/empty-module';
 import { ExceptionResult } from '@/layouts/exception-result';
 import { NebulaLayout } from '@/layouts/nebula-layout';
 import { ForgotPasswordPage } from '@/pages/forgot-password';
-import { TenantOAuthProvidersPage } from '@/pages/tenant/settings/oauth-providers';
+import { TenantOAuthProvidersPage } from '@/pages/system/config/general/tenant-settings/oauth-providers';
 import { BindingPage } from '@/pages/login/binding';
 import { GitHubCallbackPage } from '@/pages/login/github-callback';
 import { LoginPage } from '@/pages/login';

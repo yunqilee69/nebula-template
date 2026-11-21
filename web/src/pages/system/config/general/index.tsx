@@ -7,6 +7,8 @@ import {
 import type { TabsProps } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNotice } from '@/hooks/use-notice';
+import { useAuthStore } from '@/stores/auth-store';
+import { hasPermission } from '@/utils/permissions';
 import { notifyService } from '@/services/notify';
 import { paramService } from '@/services/param';
 import {
@@ -18,6 +20,9 @@ import {
 import type { AdvanceTab } from './advance-config-data';
 import { TabPanel } from './components/config-panels';
 import { TestEmailModal, type TestEmailFormValues } from './components/test-email-modal';
+import { TenantAuthTab } from './auth-tab';
+import { StorageSettingsPanel } from './storage';
+import { TenantInfoTab, TenantProfileProvider } from './tenant-settings';
 
 /* ------------------------------------------------------------------ */
 /*  Main page                                                         */
@@ -33,6 +38,11 @@ export function GeneralConfigPage() {
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailForm] = Form.useForm<TestEmailFormValues>();
   const notice = useNotice();
+  const permissions = useAuthStore((state) => state.permissions);
+  const roles = useAuthStore((state) => state.roles);
+  // 企业资料与存储各有自己的读取接口：没有对应权限就不展示 tab，也不发请求
+  const canReadTenantProfile = hasPermission(permissions, 'BUTTON:TENANT_PROFILE_QUERY:Allow', { roles });
+  const canReadStorageSettings = hasPermission(permissions, 'API:STORAGE_SETTINGS_QUERY:Allow', { roles });
 
   useEffect(() => {
     setLoading(true);
@@ -102,9 +112,12 @@ export function GeneralConfigPage() {
   const hasChanges = Object.keys(dirtyMap).length > 0;
   const visibleTabs = useMemo(() => getVisibleTabs(tabs), [tabs]);
 
-  const tabItems = useMemo<TabsProps['items']>(
-    () =>
-      visibleTabs.map((tab) => ({
+  const tabItems = useMemo<TabsProps['items']>(() => {
+    // 「登录与注册」参数并入「认证」tab，与企业的第三方登录配置同屏
+    const authConfigTab = visibleTabs.find((tab) => tab.tabName === '登录与注册');
+    const otherConfigTabs = visibleTabs
+      .filter((tab) => tab.tabName !== '登录与注册')
+      .map((tab) => ({
         key: tab.tabName,
         label: tab.tabName,
         children: (
@@ -118,9 +131,36 @@ export function GeneralConfigPage() {
             onTestEmail={openTestEmail}
           />
         ),
-      })),
-    [visibleTabs, dirtyMap, hasChanges, batchSaving, handleValueChange, batchSave, openTestEmail],
-  );
+      }));
+
+    // 企业信息：资料 + 品牌 + 企业标识一块页面，共用 `PUT /api/auth/tenant/profile`
+    const tenantTabs = canReadTenantProfile
+      ? [{ key: 'tenant-info', label: '企业信息', children: <TenantInfoTab /> }]
+      : [];
+    // 认证：OAuth2 走自己的接口，登录/注册参数沿用本页批量保存
+    const authTabs = [{
+      key: 'auth',
+      label: '认证',
+      children: (
+        <TenantAuthTab
+          configTab={authConfigTab}
+          dirtyMap={dirtyMap}
+          hasChanges={hasChanges}
+          batchSaving={batchSaving}
+          onDirtyUpdate={handleValueChange}
+          onBatchSave={batchSave}
+          onTestEmail={openTestEmail}
+        />
+      ),
+    }];
+    const storageTabs = canReadStorageSettings
+      ? [{ key: 'storage', label: '存储', children: <StorageSettingsPanel /> }]
+      : [];
+    return [...tenantTabs, ...authTabs, ...otherConfigTabs, ...storageTabs];
+  }, [
+    visibleTabs, dirtyMap, hasChanges, batchSaving, handleValueChange, batchSave, openTestEmail,
+    canReadTenantProfile, canReadStorageSettings,
+  ]);
 
   if (loading) {
     return (
@@ -141,11 +181,13 @@ export function GeneralConfigPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-auto p-6">
-        <Tabs
-          defaultActiveKey={visibleTabs[0]?.tabName}
-          items={tabItems}
-          size="large"
-        />
+        <TenantProfileProvider enabled={canReadTenantProfile}>
+          <Tabs
+            defaultActiveKey={tabItems?.[0]?.key}
+            items={tabItems}
+            size="large"
+          />
+        </TenantProfileProvider>
       </div>
       <TestEmailModal
         open={testEmailOpen}

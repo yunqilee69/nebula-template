@@ -44,39 +44,21 @@ describe('general config helpers', () => {
       'login.phone.enabled': 'true',
       'notify.email.smtp-port': '587',
       'notify.email.security': 'STARTTLS',
-      'storage.upload.max-file-size': '100',
-      'storage.upload.allowed-extensions': 'jpg,png',
     });
 
     expect(patch).toEqual({
       phoneLoginEnabled: true,
       notifyEmailSmtpPort: 587,
       notifyEmailSecurity: 'STARTTLS',
-      storageUploadMaxFileSize: 100,
-      storageUploadAllowedExtensions: 'jpg,png',
     });
   });
 
-  it('renders storage business upload policy fields from the general-config DTO', () => {
-    const builtTabs = buildTabs({
-      storageUploadMaxFileSize: 100,
-      storageUploadChunkThreshold: 10,
-      storageUploadChunkSize: 5,
-      storageUploadAllowedExtensions: 'jpg,png',
-      storageUploadTempRetentionDays: 14,
-    });
+  it('does not render storage parameters: those are maintained by the storage settings page', () => {
+    const builtTabs = buildTabs({});
 
-    const storageTab = builtTabs.find((tab) => tab.tabName === '存储');
-
-    expect(storageTab?.groups[0]?.groupName).toBe('上传配置');
-    expect(storageTab?.groups[0]?.params.map((param) => param.paramKey)).toEqual([
-      'storage.upload.max-file-size',
-      'storage.upload.chunk-threshold',
-      'storage.upload.chunk-size',
-      'storage.upload.allowed-extensions',
-      'storage.upload.temp-retention-days',
-    ]);
-    expect(storageTab?.groups[0]?.params.map((param) => param.paramValue)).toEqual(['100', '10', '5', 'jpg,png', '14']);
+    expect(builtTabs.map((tab) => tab.tabName)).not.toContain('存储');
+    const paramKeys = builtTabs.flatMap((tab) => tab.groups.flatMap((group) => group.params.map((param) => param.paramKey)));
+    expect(paramKeys.some((key) => key.startsWith('storage.'))).toBe(false);
   });
 
   it('updates saved values immutably after unified save', () => {
