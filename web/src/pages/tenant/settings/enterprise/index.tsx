@@ -22,7 +22,12 @@ import { tenantProfileService } from '@/api/tenant-profile';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTenantBrandStore } from '@/stores/tenant-brand-store';
-import type { TenantProfile, UpdateTenantProfileReq } from '@/types/tenant-profile';
+import type {
+  TenantAssetSlot,
+  TenantAssetUploadTaskIds,
+  TenantProfile,
+  UpdateTenantProfileReq,
+} from '@/types/tenant-profile';
 import { hasPermission } from '@/utils/permissions';
 import { TenantOAuthProvidersPage } from '../oauth-providers';
 import { TenantAssetUpload } from './asset-upload';
@@ -41,11 +46,19 @@ function normalizeText(value: string | undefined): string | undefined {
   return normalized ? normalized : undefined;
 }
 
-function toFormValues(profile: TenantProfile): UpdateTenantProfileReq {
+type TenantAssetTaskIds = Partial<Record<TenantAssetSlot, string>>;
+
+/**
+ * 企业设置表单值：图片资源位只存待提交的上传任务 id，图片地址来自保存响应。
+ */
+type TenantProfileFormValues = Omit<UpdateTenantProfileReq, 'uploadTaskIds'> & {
+  assetTaskIds?: TenantAssetTaskIds;
+};
+
+function toFormValues(profile: TenantProfile): TenantProfileFormValues {
   return {
     name: profile.name,
     shortName: profile.shortName,
-    logo: profile.logo,
     contactEmail: profile.contactEmail,
     contactPhone: profile.contactPhone,
     website: profile.website,
@@ -54,16 +67,29 @@ function toFormValues(profile: TenantProfile): UpdateTenantProfileReq {
     description: profile.description,
     locale: profile.locale,
     timezone: profile.timezone,
-    branding: profile.branding ?? {},
+    branding: {
+      loginTitle: profile.branding?.loginTitle,
+      loginSubtitle: profile.branding?.loginSubtitle,
+      themeColor: profile.branding?.themeColor,
+    },
   };
 }
 
-function toRequest(values: UpdateTenantProfileReq): UpdateTenantProfileReq {
+/** 聚合待提交的资源位上传任务：只提交有 taskId 的资源位，单值资源位每个 key 恰好一个元素。 */
+export function toUploadTaskIds(assetTaskIds: TenantAssetTaskIds | undefined): TenantAssetUploadTaskIds | undefined {
+  const entries = Object.entries(assetTaskIds ?? {})
+    .map(([slot, taskId]) => [slot as TenantAssetSlot, normalizeText(taskId)] as const)
+    .filter((entry): entry is readonly [TenantAssetSlot, string] => Boolean(entry[1]));
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries.map(([slot, taskId]) => [slot, [taskId]])) as TenantAssetUploadTaskIds;
+}
+
+function toRequest(values: TenantProfileFormValues): UpdateTenantProfileReq {
   const branding = values.branding ?? {};
+  const uploadTaskIds = toUploadTaskIds(values.assetTaskIds);
   return {
     name: values.name.trim(),
     shortName: normalizeText(values.shortName),
-    logo: normalizeText(values.logo),
     contactEmail: normalizeText(values.contactEmail),
     contactPhone: normalizeText(values.contactPhone),
     website: normalizeText(values.website),
@@ -73,13 +99,11 @@ function toRequest(values: UpdateTenantProfileReq): UpdateTenantProfileReq {
     locale: normalizeText(values.locale),
     timezone: normalizeText(values.timezone),
     branding: {
-      loginLogo: normalizeText(branding.loginLogo),
       loginTitle: normalizeText(branding.loginTitle),
       loginSubtitle: normalizeText(branding.loginSubtitle),
       themeColor: normalizeText(branding.themeColor),
-      favicon: normalizeText(branding.favicon),
-      loginBackground: normalizeText(branding.loginBackground),
     },
+    ...(uploadTaskIds ? { uploadTaskIds } : {}),
   };
 }
 
@@ -91,7 +115,7 @@ function formatDateTime(value: string | undefined) {
 export function TenantEnterpriseSettingsPage() {
   const { message } = App.useApp();
   const { t } = useNebulaI18n();
-  const [form] = Form.useForm<UpdateTenantProfileReq>();
+  const [form] = Form.useForm<TenantProfileFormValues>();
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -119,12 +143,13 @@ export function TenantEnterpriseSettingsPage() {
     void load();
   }, [load]);
 
-  const handleFinish = async (values: UpdateTenantProfileReq) => {
+  const handleFinish = async (values: TenantProfileFormValues) => {
     setSaving(true);
     try {
       const updated = await tenantProfileService.updateProfile(toRequest(values));
       setProfile(updated);
-      form.setFieldsValue(toFormValues(updated));
+      // 保存成功后清空待提交的上传任务：图片地址以保存响应为准
+      form.setFieldsValue({ ...toFormValues(updated), assetTaskIds: undefined });
 
       const authStore = useAuthStore.getState();
       if (authStore.user) {
@@ -238,10 +263,9 @@ export function TenantEnterpriseSettingsPage() {
               </Form.Item>
             </Col>
             <Col xs={24}>
-              <Form.Item name="logo">
+              <Form.Item name={['assetTaskIds', 'logo']}>
                 <TenantAssetUpload
-                  tenantId={profile?.id}
-                  sourceType="logo"
+                  savedUrl={profile?.logo}
                   label={t('tenantSettings.fields.logo')}
                   uploadText={t('tenantSettings.actions.upload')}
                   removeText={t('tenantSettings.actions.remove')}
@@ -263,10 +287,9 @@ export function TenantEnterpriseSettingsPage() {
           <Alert type="info" showIcon title={t('tenantSettings.branding.description')} />
           <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item name={['branding', 'loginLogo']}>
+              <Form.Item name={['assetTaskIds', 'login-logo']}>
                 <TenantAssetUpload
-                  tenantId={profile?.id}
-                  sourceType="login-logo"
+                  savedUrl={profile?.branding?.loginLogo}
                   label={t('tenantSettings.fields.loginLogo')}
                   uploadText={t('tenantSettings.actions.upload')}
                   removeText={t('tenantSettings.actions.remove')}
@@ -276,10 +299,9 @@ export function TenantEnterpriseSettingsPage() {
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item name={['branding', 'favicon']}>
+              <Form.Item name={['assetTaskIds', 'favicon']}>
                 <TenantAssetUpload
-                  tenantId={profile?.id}
-                  sourceType="favicon"
+                  savedUrl={profile?.branding?.favicon}
                   label={t('tenantSettings.fields.favicon')}
                   uploadText={t('tenantSettings.actions.upload')}
                   removeText={t('tenantSettings.actions.remove')}
@@ -304,10 +326,9 @@ export function TenantEnterpriseSettingsPage() {
               </Form.Item>
             </Col>
             <Col xs={24}>
-              <Form.Item name={['branding', 'loginBackground']}>
+              <Form.Item name={['assetTaskIds', 'login-background']}>
                 <TenantAssetUpload
-                  tenantId={profile?.id}
-                  sourceType="login-background"
+                  savedUrl={profile?.branding?.loginBackground}
                   label={t('tenantSettings.fields.loginBackground')}
                   uploadText={t('tenantSettings.actions.upload')}
                   removeText={t('tenantSettings.actions.remove')}

@@ -5,6 +5,8 @@ import type {
   AnnouncementTargetType,
   CreateAnnouncementReq,
 } from '@/types/notify';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import type { NebulaPageReq } from '@/components/nebula-pro-table';
 
 export const ANNOUNCEMENT_STATUS_OPTIONS = [
@@ -33,13 +35,14 @@ export const ANNOUNCEMENT_TARGET_TEXT: Record<AnnouncementTargetType, string> = 
   ORG: '指定组织',
 };
 
+/** 表单内的时间值用 antd DatePicker 的 Dayjs 对象，提交前再按后端契约格式化 */
 export interface AnnouncementFormValues {
   readonly title: string;
   readonly content: string;
   readonly targetType: AnnouncementTargetType;
   readonly targetValues?: readonly string[];
-  readonly publishTime?: string;
-  readonly expireTime?: string;
+  readonly publishTime?: Dayjs | null;
+  readonly expireTime?: Dayjs | null;
   readonly pinned: boolean;
   readonly popup: boolean;
   readonly sort: number;
@@ -63,14 +66,17 @@ export const DEFAULT_ANNOUNCEMENT_VALUES: AnnouncementFormValues = {
   sort: 0,
 };
 
-function normalizeDateTime(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  const normalized = value.replace('T', ' ');
-  return normalized.length === 16 ? `${normalized}:00` : normalized;
+/** 后端统一接收 `yyyy-MM-dd HH:mm:ss`，DatePicker 也按这个格式展示与解析 */
+export const ANNOUNCEMENT_DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
+
+function formatDateTime(value: Dayjs | null | undefined): string | undefined {
+  return value ? value.format(ANNOUNCEMENT_DATE_TIME_FORMAT) : undefined;
 }
 
-function toDateTimeInput(value: string | undefined): string | undefined {
-  return value ? value.replace(' ', 'T') : undefined;
+function parseDateTime(value: string | undefined): Dayjs | undefined {
+  if (!value) return undefined;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : undefined;
 }
 
 function parseStatus(value: AnnouncementPageQuery['status']): AnnouncementStatus | undefined {
@@ -88,17 +94,19 @@ export function toAnnouncementRequest(
   values: AnnouncementFormValues,
   status: AnnouncementStatus,
 ): CreateAnnouncementReq {
+  const publishTime = formatDateTime(values.publishTime);
+  const expireTime = formatDateTime(values.expireTime);
   return {
     title: values.title.trim(),
     content: values.content.trim(),
     status,
     targetType: values.targetType,
-    pinnedFlag: values.pinned,
-    popupFlag: values.popup,
+    pinned: values.pinned,
+    popup: values.popup,
     sortNum: values.sort,
     ...(values.targetType === 'ALL' ? {} : { targetValues: values.targetValues }),
-    ...(values.publishTime ? { publishTime: normalizeDateTime(values.publishTime) } : {}),
-    ...(values.expireTime ? { expireTime: normalizeDateTime(values.expireTime) } : {}),
+    ...(publishTime ? { publishTime } : {}),
+    ...(expireTime ? { expireTime } : {}),
   };
 }
 
@@ -108,18 +116,18 @@ export function toAnnouncementFormValues(detail: AnnouncementDetailResp): Announ
     content: detail.content,
     targetType: detail.targetType,
     targetValues: detail.targetValues ?? [],
-    publishTime: toDateTimeInput(detail.publishTime),
-    expireTime: toDateTimeInput(detail.expireTime),
-    pinned: detail.pinnedFlag,
-    popup: detail.popupFlag,
+    publishTime: parseDateTime(detail.publishTime),
+    expireTime: parseDateTime(detail.expireTime),
+    pinned: detail.pinned,
+    popup: detail.popup,
     sort: detail.sortNum,
   };
 }
 
 export function toAnnouncementPageRequest(params: AnnouncementPageQuery & NebulaPageReq): AnnouncementPageReq {
   const status = parseStatus(params.status);
-  const pinnedFlag = parseBoolean(params.pinned);
-  const popupFlag = parseBoolean(params.popup);
+  const pinned = parseBoolean(params.pinned);
+  const popup = parseBoolean(params.popup);
   return {
     pageNum: params.pageNum,
     pageSize: params.pageSize,
@@ -128,7 +136,7 @@ export function toAnnouncementPageRequest(params: AnnouncementPageQuery & Nebula
     ...(params.title ? { title: params.title.trim() } : {}),
     ...(status === undefined ? {} : { status }),
     ...(params.targetType ? { targetType: params.targetType } : {}),
-    ...(pinnedFlag === undefined ? {} : { pinnedFlag }),
-    ...(popupFlag === undefined ? {} : { popupFlag }),
+    ...(pinned === undefined ? {} : { pinned }),
+    ...(popup === undefined ? {} : { popup }),
   };
 }

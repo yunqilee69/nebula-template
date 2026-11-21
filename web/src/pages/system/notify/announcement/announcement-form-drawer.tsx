@@ -1,4 +1,4 @@
-import { Button, Drawer, Form, Input, InputNumber, Space, Switch } from 'antd';
+import { Button, DatePicker, Drawer, Form, Input, InputNumber, Space, Switch } from 'antd';
 import { useId, useMemo, useRef } from 'react';
 import type { FormInstance } from 'antd';
 import type { OrgTreeResp, RoleOptionResp } from '@/types/auth-management';
@@ -6,6 +6,7 @@ import type { UserSelectProps } from '@/components/user-select';
 import type { AnnouncementStatus } from '@/types/notify';
 import { AnnouncementTargetField } from './announcement-target-field';
 import {
+  ANNOUNCEMENT_DATE_TIME_FORMAT,
   DEFAULT_ANNOUNCEMENT_VALUES,
   type AnnouncementFormValues,
 } from './announcement-shared';
@@ -124,11 +125,23 @@ export function AnnouncementFormDrawer({
           </Form.Item>
 
           <Form.Item name="publishTime" label="发布时间" htmlFor="announcement-drawer-publish-time">
-            <Input id="announcement-drawer-publish-time" type="datetime-local" step="1" />
+            <DatePicker
+              id="announcement-drawer-publish-time"
+              className="w-full"
+              format={ANNOUNCEMENT_DATE_TIME_FORMAT}
+              showTime={{ format: 'HH:mm:ss' }}
+              placeholder="请选择发布时间"
+            />
           </Form.Item>
 
           <Form.Item name="expireTime" label="过期时间" htmlFor="announcement-drawer-expire-time">
-            <Input id="announcement-drawer-expire-time" type="datetime-local" step="1" />
+            <DatePicker
+              id="announcement-drawer-expire-time"
+              className="w-full"
+              format={ANNOUNCEMENT_DATE_TIME_FORMAT}
+              showTime={{ format: 'HH:mm:ss' }}
+              placeholder="请选择过期时间"
+            />
           </Form.Item>
 
           <Form.Item name="pinned" label="置顶" htmlFor="announcement-drawer-pinned" valuePropName="checked">

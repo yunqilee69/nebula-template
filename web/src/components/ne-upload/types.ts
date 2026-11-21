@@ -17,6 +17,11 @@ export interface NeUploadFile {
   thumbUrl?: string;
   hash?: string;
   errorMessage?: string;
+  /**
+   * 用户选择的原始文件。上传后仍保留，用于「有 taskId 无 fileId」的本地未绑定图片预览；
+   * 组件只在内存中使用它生成对象 URL，不会发送到后端。
+   */
+  originFileObj?: File;
 }
 
 export interface NeUploadProps {
@@ -54,7 +59,10 @@ export interface NeUploadProps {
   onChange?: (files: NeUploadFile[]) => void;
   onUploadSuccess?: (file: NeUploadFile, task: UploadTaskDetailResp) => void;
   onUploadError?: (file: NeUploadFile, error: unknown) => void;
-  onRemove?: (file: NeUploadFile) => void;
+  /**
+   * 文件移除后回调。允许返回 Promise：拒绝时组件会提示失败原因，不会静默失败。
+   */
+  onRemove?: (file: NeUploadFile) => void | Promise<void>;
   onLimitExceeded?: (files: File[], maxCount: number) => void;
 }
 

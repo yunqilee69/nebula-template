@@ -46,8 +46,8 @@ export function RecordDetailModal({ state, onClose, onRetry }: RecordDetailModal
         <Alert
           type="error"
           showIcon
-          title="发送记录详情加载失败"
-          description="详情暂时无法获取，请重试。"
+          title="详情加载失败，可重试"
+          description="详情暂时无法获取，请稍后重试。"
           action={(
             <Button
               icon={<ReloadOutlined />}

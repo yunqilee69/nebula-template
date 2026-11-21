@@ -68,6 +68,8 @@ export interface NotifyService {
   readonly testEmailNotify: (data: TestEmailNotifyReq) => Promise<void>;
   readonly getNotifyRecord: (id: string) => Promise<NotifyRecordDetailResp>;
   readonly pageNotifyRecords: (data: NotifyRecordPageReq) => Promise<NebulaPageResp<NotifyRecordResp>>;
+  /** 批量删除通知发送记录，返回实际删除条数 */
+  readonly deleteNotifyRecords: (ids: readonly string[]) => Promise<number>;
   readonly pageSiteMessages: (data: SiteMessagePageReq) => Promise<NebulaPageResp<SiteMessageResp>>;
   readonly listSiteMessageCategories: () => Promise<readonly SiteMessageCategoryResp[]>;
   readonly markAllSiteMessagesRead: (data?: MarkAllSiteMessagesReadReq) => Promise<number>;
@@ -152,6 +154,8 @@ export const notifyService: NotifyService = {
     request<NotifyRecordDetailResp>({ method: 'GET', url: `/api/notify/records/${id}` }),
   pageNotifyRecords: (data) =>
     request<NebulaPageResp<NotifyRecordResp>>({ method: 'POST', url: '/api/notify/records/page', data }),
+  deleteNotifyRecords: (ids) =>
+    request<number>({ method: 'DELETE', url: '/api/notify/records/batch', data: { ids } }),
   pageSiteMessages: (data) =>
     request<NebulaPageResp<SiteMessageResp>>({ method: 'POST', url: '/api/notify/site-messages/page', data }),
   listSiteMessageCategories: () =>

@@ -1,5 +1,5 @@
 import type { CurrentUser } from '@/types/auth';
-import type { ProfileResp, UpdateProfileReq } from '@/types/profile';
+import type { ProfileResp, ProfileUploadTaskIds, UpdateProfileReq } from '@/types/profile';
 import type { ProfileFormValues } from './basic-profile-card';
 
 function normalizeOptionalText(value: string | undefined) {
@@ -7,27 +7,25 @@ function normalizeOptionalText(value: string | undefined) {
   return nextValue ? nextValue : undefined;
 }
 
-export function buildProfilePayload(values: ProfileFormValues, avatarUrl: string | undefined): UpdateProfileReq {
+/** 待提交的头像上传任务：只有存在未提交的 taskId 时才带上，避免覆盖已保存的头像。 */
+export function buildAvatarUploadTaskIds(avatarTaskId: string | undefined): ProfileUploadTaskIds | undefined {
+  const taskId = normalizeOptionalText(avatarTaskId);
+  return taskId ? { avatar: [taskId] } : undefined;
+}
+
+/**
+ * 组装保存个人资料的请求体。
+ *
+ * <p>头像只提交 `uploadTaskIds.avatar`，绑定与最终地址都由后端保存流程产出，前端不再提交头像地址。</p>
+ */
+export function buildProfilePayload(values: ProfileFormValues, avatarTaskId?: string): UpdateProfileReq {
+  const uploadTaskIds = buildAvatarUploadTaskIds(avatarTaskId);
   return {
     nickname: normalizeOptionalText(values.nickname),
-    avatar: normalizeOptionalText(avatarUrl),
     email: normalizeOptionalText(values.email),
     phone: normalizeOptionalText(values.phone),
+    ...(uploadTaskIds ? { uploadTaskIds } : {}),
   };
-}
-
-export function keepSavedAvatar(updatedProfile: ProfileResp, avatarUrl: string | undefined): ProfileResp {
-  const nextAvatarUrl = normalizeOptionalText(avatarUrl);
-  return nextAvatarUrl ? { ...updatedProfile, avatar: nextAvatarUrl } : updatedProfile;
-}
-
-export function createAvatarPreviewUrl(file: File): string | undefined {
-  if (typeof URL.createObjectURL !== 'function') return undefined;
-  return URL.createObjectURL(file);
-}
-
-export function revokeAvatarPreviewUrl(avatarPreviewUrl: string | undefined) {
-  if (avatarPreviewUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(avatarPreviewUrl);
 }
 
 export function mergeProfileIntoCurrentUser(

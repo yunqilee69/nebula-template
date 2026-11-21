@@ -1,11 +1,53 @@
-import { Alert, Button, Card, Form, Space, Table, Tag } from 'antd';
+import { Alert, Button, Card, Form, Space, Table, Tag, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useCallback, useEffect, useState } from 'react';
 import { tenantOAuthService, type TenantOAuth2Provider } from '@/api/tenant-oauth';
 import { OAuthProviderFormModal } from './oauth-provider-form';
-import { toFormValues, toUpsertRequest, type OAuthProviderFormValues } from './oauth-provider-form-helpers';
+import {
+  OAUTH_PROVIDER_OPTIONS,
+  toFormValues,
+  toUpsertRequest,
+  type OAuthProviderFormValues,
+} from './oauth-provider-form-helpers';
 
 const CHANNEL_LABELS: Record<string, string> = { WEB: 'Web', MINI: '小程序' };
+
+/** Provider 名称复用表单里的既有选项文案，避免两处出现不一致的叫法。 */
+const PROVIDER_LABELS: Record<string, string> = Object.fromEntries(
+  OAUTH_PROVIDER_OPTIONS.map(({ label, value }) => [value, label]),
+);
+
+/** 「渠道」列：明确是哪个 Provider 的哪个渠道，如「微信 - 小程序」。 */
+function channelText(providerId: string, channel: string): string {
+  const provider = PROVIDER_LABELS[providerId] ?? providerId;
+  const channelLabel = CHANNEL_LABELS[channel] ?? channel;
+  return `${provider} - ${channelLabel}`;
+}
+
+/** 「凭据状态」列：完整显示绿色标签；不可用显示错误色标签，并用 Tooltip 逐行列出缺失项。 */
+function credentialStatus(value: boolean, row: TenantOAuth2Provider) {
+  if (value) {
+    return <Tag color="green">完整</Tag>;
+  }
+  const missingFields = row.missingFields ?? [];
+  return (
+    <Tooltip
+      title={
+        missingFields.length > 0 ? (
+          <div>
+            {missingFields.map((field) => (
+              <div key={field}>{field}</div>
+            ))}
+          </div>
+        ) : (
+          '-'
+        )
+      }
+    >
+      <Tag color="error">不可用</Tag>
+    </Tooltip>
+  );
+}
 
 /** 企业第三方登录配置：列表与增删改，字段级规则由页面私用弹窗负责。 */
 export function TenantOAuthProvidersPage() {
@@ -59,15 +101,30 @@ export function TenantOAuthProvidersPage() {
 
   const columns: ColumnsType<TenantOAuth2Provider> = [
     { title: 'Provider', dataIndex: 'providerId' },
-    { title: '渠道', dataIndex: 'channel', render: (value: string) => CHANNEL_LABELS[value] ?? value },
+    {
+      title: '渠道',
+      dataIndex: 'channel',
+      render: (value: string, row) => channelText(row.providerId, value),
+    },
     { title: '启用', dataIndex: 'enabled', render: (value: boolean) => <Tag color={value ? 'green' : 'default'}>{value ? '已启用' : '未启用'}</Tag> },
+    {
+      title: '凭据状态',
+      dataIndex: 'credentialComplete',
+      render: (value: boolean, row) => credentialStatus(value, row),
+    },
     { title: 'Client ID', dataIndex: 'clientId' },
     {
       title: 'Client Secret',
       dataIndex: 'hasClientSecret',
       render: (value: boolean) => (value ? <Tag color="blue">已配置</Tag> : <Tag>未配置</Tag>),
     },
-    { title: '回调地址', dataIndex: 'redirectUri', ellipsis: true },
+    {
+      title: '回调地址',
+      dataIndex: 'redirectUri',
+      ellipsis: true,
+      // 小程序走 code2session 直连式登录，不使用 Web 的 OAuth 回调地址
+      render: (value: string | undefined, row) => (row.channel === 'MINI' ? '-' : value),
+    },
     {
       title: '操作',
       render: (_, row) => (

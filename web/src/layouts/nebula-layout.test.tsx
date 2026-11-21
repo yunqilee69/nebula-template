@@ -256,9 +256,9 @@ describe('NebulaLayout', () => {
       title: '布局公告',
       content: '布局公告内容',
       publishTime: '2026-08-10 10:00:00',
-      pinnedFlag: false,
+      pinned: false,
       sortNum: 1,
-      popupFlag: true,
+      popup: true,
       readStatus: false,
     };
     notifyMocks.listCurrentPopupAnnouncements.mockResolvedValueOnce([popupAnnouncement]);

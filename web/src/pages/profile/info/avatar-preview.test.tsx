@@ -9,7 +9,7 @@ import { request } from '@/request/request';
 import { useAuthStore } from '@/stores/auth-store';
 import type { CurrentUser } from '@/types/auth';
 import type { LoginRecordResp, PageResp, ProfileResp } from '@/types/profile';
-import type { AvatarUploadResult } from './avatar-upload';
+import type { AvatarUploadOutcome } from './avatar-upload';
 import { ProfileInfoPage } from './index';
 
 vi.mock('@/request/request', () => ({
@@ -45,7 +45,7 @@ const profile: ProfileResp = {
 
 const loginRecords: PageResp<LoginRecordResp> = { data: [], total: 0 };
 
-const uploadedAvatarTask: AvatarUploadResult['task'] = {
+const uploadedAvatarTask: AvatarUploadOutcome['task'] = {
   id: 'task-avatar-1',
   taskMode: 'simple',
   fileName: 'new-avatar.png',
@@ -81,7 +81,7 @@ function setStoredUser(overrides: Partial<CurrentUser> = {}) {
   });
 }
 
-function renderProfileWithHeader(service: ProfileService, uploadAvatar: (file: File) => Promise<AvatarUploadResult>) {
+function renderProfileWithHeader(service: ProfileService, uploadAvatar: (file: File) => Promise<AvatarUploadOutcome>) {
   render(
     <MemoryRouter>
       <NebulaProvider>
@@ -104,10 +104,14 @@ describe('ProfileInfoPage avatar previews', () => {
   it('keeps uploaded avatar images visible on the page and Header when protected preview loading fails', async () => {
     const user = userEvent.setup();
     const uploadedAvatarUrl = '/api/storage/download?fileId=new-avatar&filename=new-avatar.png';
-    const service = createService();
-    const uploadAvatar = vi.fn<(file: File) => Promise<AvatarUploadResult>>().mockResolvedValue({
+    const service = createService({
+      // 保存接口返回头像最终地址：绑定在保存流程内完成，前端不再自己拼地址
+      updateProfile: vi.fn().mockResolvedValue({ ...profile, avatar: uploadedAvatarUrl }),
+    });
+    const uploadAvatar = vi.fn<(file: File) => Promise<AvatarUploadOutcome>>().mockResolvedValue({
       task: uploadedAvatarTask,
-      avatarUrl: uploadedAvatarUrl,
+      taskId: 'task-avatar-1',
+      previewUrl: 'blob:page-avatar',
     });
     // 位置解析成功（走代理），但随后的鉴权 blob 下载失败：预览应退回占位图而不报错
     vi.mocked(request).mockImplementation((config) => {
@@ -116,7 +120,7 @@ describe('ProfileInfoPage avatar previews', () => {
       }
       return Promise.reject(new Error('download failed'));
     });
-    mockObjectUrls('blob:selected-avatar', 'blob:header-avatar');
+    mockObjectUrls('blob:selected-avatar');
 
     renderProfileWithHeader(service, uploadAvatar);
 
@@ -130,9 +134,9 @@ describe('ProfileInfoPage avatar previews', () => {
 
     await waitFor(() => expect(service.updateProfile).toHaveBeenCalledWith({
       nickname: '云起',
-      avatar: uploadedAvatarUrl,
       email: 'yunqilee69@gmail.com',
       phone: '13800000001',
+      uploadTaskIds: { avatar: ['task-avatar-1'] },
     }));
     await waitFor(() => expect(request).toHaveBeenCalledWith({
       url: uploadedAvatarUrl,
@@ -142,10 +146,10 @@ describe('ProfileInfoPage avatar previews', () => {
 
     expect(screen.getByAltText('头像')).toHaveAttribute('src', 'blob:selected-avatar');
     const headerButton = screen.getByRole('button', { name: '云起' });
-    expect(within(headerButton).getByAltText('云起')).toHaveAttribute('src', 'blob:header-avatar');
+    expect(within(headerButton).getByAltText('云起')).toHaveAttribute('src', 'blob:page-avatar');
     expect(useAuthStore.getState().user).toMatchObject({
       avatar: uploadedAvatarUrl,
-      avatarPreview: 'blob:header-avatar',
+      avatarPreview: 'blob:page-avatar',
     });
   });
 });

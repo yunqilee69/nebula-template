@@ -10,7 +10,7 @@
 
 ## Storage Flow
 
-The components upload files to temporary storage and return upload task metadata. They do not bind files automatically. Business pages should call `bindUploadTask` after their own save succeeds.
+The components upload files to temporary storage and return upload task metadata. They never bind files. Binding is done by the backend business save API, and the frontend only submits the `taskId` (e.g. `uploadTaskIds: { avatar: [taskId] }`) together with the business payload.
 
 ## Source Backfill
 
@@ -19,6 +19,17 @@ Pass `sourceEntity` and `sourceId` with `listBySource` to load existing formal f
 Backfill merges the server list with local files that have not been bound yet (files with a `taskId` but no `fileId`). An upload that finishes while the backfill request is still in flight therefore stays in the list instead of being dropped by the backfill response.
 
 Use `onBackfillComplete` when the page must wait for backfill before saving: the callback fires once per backfill query with the merged list and a `success` flag. It is not called when no query runs (no `listBySource`, or `sourceEntity`/`sourceId` missing), so consumers that always pass a source can treat "not called yet" as "not loaded". On failure the list is left as-is and `success` is `false`; pages can then save basic fields without submitting the file list.
+
+## Interaction States
+
+Attachment rows and image thumbnails share the same state model:
+
+- `status: 'uploading'` renders a progress bar fed by the `onProgress` callback of `uploadRequest`. Without progress callbacks the bar stays indeterminate instead of pretending to be finished.
+- `status: 'error'` renders `errorMessage` as an alert so a failed upload is visible in place.
+
+Uploaded files keep the picked `File` in `originFileObj`. Until the backend binds them (`fileId` missing, no `url`/`thumbUrl` yet) the component previews them through `URL.createObjectURL(originFileObj)` and revokes that URL on removal or unmount — no download request is issued for a file the server does not own yet.
+
+Removing an item only calls `deleteFile` when the item is a bound formal file (`fileId` present). Unbound upload tasks are cleared locally; the backend cleans their temporary files up on its own schedule.
 
 ## Thumbnails
 
@@ -54,11 +65,11 @@ are never cached.
 | `uploadRequest` | `(file: File) => Promise<UploadTaskDetailResp>` | Upload function called for each selected file. If omitted, attempts to upload will fail with an error. |
 | `listBySource` | `(req: ListStorageFilesBySourceReq) => Promise<StorageFileDetailResp[]>` | Backfill query function. When provided together with `sourceEntity` and `sourceId`, existing files are loaded on mount. |
 | `onBackfillComplete` | `(files: NeUploadFile[], success: boolean) => void` | Called once after each backfill query settles. `files` is the merged list; `success` is `false` when the query failed. Not called when no query runs. |
-| `deleteFile` | `(file: NeUploadFile) => Promise<void>` | Called before removing a file from the list. Use to trigger server-side deletion. |
+| `deleteFile` | `(file: NeUploadFile) => Promise<void>` | Called before removing a file from the list. Use to trigger server-side deletion. Only files that already have a `fileId` (bound formal files) go through it; unbound upload tasks are cleared locally. A rejection keeps the item and shows the error message. |
 | `onChange` | `(files: NeUploadFile[]) => void` | Called with the updated file list after uploads, removals, and backfills. Always receives at most `maxCount` files. |
 | `onUploadSuccess` | `(file: NeUploadFile, task: UploadTaskDetailResp) => void` | Called after a file uploads successfully, with the normalized file value and the raw task response. |
 | `onUploadError` | `(file: NeUploadFile, error: unknown) => void` | Called when a file upload fails, with the error file value and the thrown error. |
-| `onRemove` | `(file: NeUploadFile) => void` | Called after a file is removed from the list. |
+| `onRemove` | `(file: NeUploadFile) => void \| Promise<void>` | Called after a file is removed from the list. A rejected promise is never swallowed: the component shows the error message so the user knows the removal did not take effect. |
 | `onLimitExceeded` | `(files: File[], maxCount: number) => void` | Called when a user selects more files than remaining slots. When not provided, a default warning message is shown. |
 
 ### NeImageUpload

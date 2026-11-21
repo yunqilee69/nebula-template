@@ -5,9 +5,10 @@ import { createStyles } from 'antd-style';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import type { ProfileResp, UpdateProfileReq } from '@/types/profile';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createAvatarPreviewUrl } from './avatar-upload';
 import type { AvatarUploadResult } from './avatar-upload';
 
-export type ProfileFormValues = Omit<UpdateProfileReq, 'avatar'>;
+export type ProfileFormValues = Omit<UpdateProfileReq, 'uploadTaskIds'>;
 
 const useStyles = createStyles(({ token }) => ({
   avatar: {
@@ -86,8 +87,8 @@ function getAvatarUploadErrorMessage(error: unknown, fallback: string) {
 }
 
 function createLocalAvatarPreview(file: File): LocalAvatarPreview | undefined {
-  if (typeof URL.createObjectURL !== 'function') return undefined;
-  return { url: URL.createObjectURL(file) };
+  const url = createAvatarPreviewUrl(file);
+  return url ? { url } : undefined;
 }
 
 export function BasicProfileCard({
@@ -136,9 +137,12 @@ export function BasicProfileCard({
       setAvatarUploading(true);
       void uploadAvatarFile(file, setAvatarPercent)
         .then((result) => {
-          if (preview) setLocalAvatarPreview({ ...preview, avatarUrl: result.avatarUrl });
+          // 保存未完成时保留本地预览：图片和待提交的 taskId 一起等下一次保存
+          if (!result.saved || !preview || !result.avatarUrl) return;
+          setLocalAvatarPreview({ ...preview, avatarUrl: result.avatarUrl });
         })
         .catch((error: unknown) => {
+          // 上传本身失败：撤掉预览，此时不存在任何存储任务
           setLocalAvatarPreview(undefined);
           void message.error(getAvatarUploadErrorMessage(error, t('auth.profileInfo.feedback.avatarUploadFailed')));
         })

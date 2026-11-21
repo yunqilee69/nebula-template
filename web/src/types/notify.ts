@@ -41,9 +41,9 @@ export interface AnnouncementDto {
   readonly status: AnnouncementStatus;
   readonly publishTime: string;
   readonly expireTime?: string;
-  readonly pinnedFlag: boolean;
+  readonly pinned: boolean;
   readonly sortNum: number;
-  readonly popupFlag: boolean;
+  readonly popup: boolean;
   readonly targetType: AnnouncementTargetType;
   readonly targetValues: readonly string[];
   readonly createTime?: string;
@@ -60,9 +60,9 @@ export interface CurrentAnnouncementDto {
   readonly content: string;
   readonly publishTime: string;
   readonly expireTime?: string;
-  readonly pinnedFlag: boolean;
+  readonly pinned: boolean;
   readonly sortNum: number;
-  readonly popupFlag: boolean;
+  readonly popup: boolean;
   readonly readStatus: boolean;
   readonly readTime?: string;
   readonly createTime?: string;
@@ -73,13 +73,13 @@ export interface AnnouncementPageReq extends NebulaPageReq {
   readonly title?: string;
   readonly status?: AnnouncementStatus;
   readonly targetType?: AnnouncementTargetType;
-  readonly popupFlag?: boolean;
-  readonly pinnedFlag?: boolean;
+  readonly popup?: boolean;
+  readonly pinned?: boolean;
 }
 
 export interface CurrentAnnouncementPageReq extends NebulaPageReq {
   readonly readStatus?: boolean;
-  readonly popupFlag?: boolean;
+  readonly popup?: boolean;
 }
 
 export interface CreateAnnouncementReq {
@@ -88,9 +88,9 @@ export interface CreateAnnouncementReq {
   readonly status?: AnnouncementStatus;
   readonly publishTime?: string;
   readonly expireTime?: string;
-  readonly pinnedFlag?: boolean;
+  readonly pinned?: boolean;
   readonly sortNum?: number;
-  readonly popupFlag?: boolean;
+  readonly popup?: boolean;
   readonly targetType: AnnouncementTargetType;
   readonly targetValues?: readonly string[];
 }

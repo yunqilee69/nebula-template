@@ -443,6 +443,9 @@ nebula:
 
 - `minio`：`endpoint`、`access-key`、`secret-key`、`bucket`。
 - `tencent-cos`：额外需要 `region`（如 `ap-guangzhou`）；bucket 必须是 `<桶名>-<APPID>` 形式。
+  可选 `nebula.storage.content.tencent-cos.endpoint`（env `NEBULA_STORAGE_TENCENT_COS_ENDPOINT`）：
+  留空按 `region` 推导官方域名；非空时正式区读写与直链都走该地址，固定 https，须与该桶一一绑定。
+  租户级复用既有的 `storage.backend.endpoint`。
 - `aliyun-oss`：只需 `endpoint`，地域由 SDK 从 endpoint 推导，不需要填 region。
 - `filesystem` / `db` 的键见 5.1。
 
@@ -458,6 +461,11 @@ nebula:
 7. 对象存储凭据优先从当前租户 `sys_param` 读取（`storage.backend.access-key` / `secret-key`），
    启动期 `nebula.storage.*` 只作为该租户未保存参数时的回退。凭据必须加密落库、只写不回显，禁止写入
    仓库、日志或审计快照。
+8. 腾讯云 COS 配置 `endpoint` 后，正式区写入 / 读取 / 删除 / 桶探测与预签名直链共用同一个 client 与该地址；
+   上传与分片只写本地临时区，不受影响。
+9. 该地址是主机名或 `https://` 主机名，服务端拒绝 `http://`、端口、路径与查询参数，输出固定 https。
+10. 自定义 endpoint 与桶一一绑定，换桶需同步改地址或清空；把 `storage.backend.type` 切到 `tencent-cos` 时，
+    需核对该租户已有的 `storage.backend.endpoint` 值（该键此前只对 MinIO / 阿里云 OSS 有意义）。
 
 存储后端参数（各租户自己的 `sys_param`，模块编码 `storage`）：
 
@@ -465,7 +473,7 @@ nebula:
 |---|---|
 | `storage.backend.type` | 后端类型；**该行不存在时沿用 `nebula.storage.content.type`** |
 | `storage.backend.filesystem.base-dir` | 文件系统后端根目录 |
-| `storage.backend.endpoint` | MinIO / 阿里云 OSS 服务地址 |
+| `storage.backend.endpoint` | MinIO / 阿里云 OSS / 腾讯云 COS 的服务地址或自定义域名地址 |
 | `storage.backend.region` | 腾讯云 COS 地域 |
 | `storage.backend.bucket` | 桶名称 |
 | `storage.backend.access-key` | Access Key（加密存储、只写） |

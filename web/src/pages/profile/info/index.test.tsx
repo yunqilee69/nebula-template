@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useLocaleStore } from '@/stores/locale-store';
 import type { CurrentUser } from '@/types/auth';
 import type { LoginRecordResp, PageResp, ProfileResp } from '@/types/profile';
-import type { AvatarUploadResult } from './avatar-upload';
+import type { AvatarUploadOutcome } from './avatar-upload';
 import { redirectToAuthorizeUrl } from '@/pages/login/wechat-redirect-navigation';
 import { ProfileInfoPage } from './index';
 
@@ -87,7 +87,7 @@ const loginRecords: PageResp<LoginRecordResp> = {
   total: 2,
 };
 
-const uploadedAvatarTask: AvatarUploadResult['task'] = {
+const uploadedAvatarTask: AvatarUploadOutcome['task'] = {
   id: 'task-avatar-1',
   taskMode: 'simple',
   fileName: 'new-avatar.png',
@@ -208,9 +208,9 @@ describe('ProfileInfoPage', () => {
     await user.click(screen.getByRole('button', { name: /保存资料/ }));
 
     await waitFor(() => {
+      // 没有待提交的上传任务时只提交可编辑字段，不再提交头像地址
       expect(service.updateProfile).toHaveBeenCalledWith({
         nickname: '新昵称',
-        avatar: 'https://example.com/avatar.png',
         email: 'yunqilee69@gmail.com',
         phone: '13800000001',
       });
@@ -250,9 +250,12 @@ describe('ProfileInfoPage', () => {
 
   it('auto-saves the profile after uploading an avatar', async () => {
     const user = userEvent.setup();
-    const service = createService();
-    let resolveUpload: (value: AvatarUploadResult) => void;
-    const uploadAvatar = vi.fn<(file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadResult>>().mockImplementation(
+    const savedAvatarUrl = 'https://example.com/new-avatar.png';
+    const service = createService({
+      updateProfile: vi.fn().mockResolvedValue({ ...profile, avatar: savedAvatarUrl }),
+    });
+    let resolveUpload: (value: AvatarUploadOutcome) => void;
+    const uploadAvatar = vi.fn<(file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadOutcome>>().mockImplementation(
       () => new Promise((resolve) => {
         resolveUpload = resolve;
       }),
@@ -281,7 +284,8 @@ describe('ProfileInfoPage', () => {
     act(() => {
       resolveUpload({
         task: uploadedAvatarTask,
-        avatarUrl: 'https://example.com/new-avatar.png',
+        taskId: 'task-avatar-1',
+        previewUrl: 'blob:page-avatar',
       });
     });
 
@@ -289,11 +293,12 @@ describe('ProfileInfoPage', () => {
       expect(screen.getByAltText('头像')).toHaveAttribute('src', 'blob:selected-avatar');
     });
     await waitFor(() => {
+      // 头像只提交上传任务 id，绑定与最终地址都由保存接口产出
       expect(service.updateProfile).toHaveBeenCalledWith({
         nickname: '云起',
-        avatar: 'https://example.com/new-avatar.png',
         email: 'yunqilee69@gmail.com',
         phone: '13800000001',
+        uploadTaskIds: { avatar: ['task-avatar-1'] },
       });
     });
     await waitFor(() => {
@@ -301,11 +306,67 @@ describe('ProfileInfoPage', () => {
         id: 'user-1',
         name: '云起',
         username: 'yunqi',
-        avatar: 'https://example.com/new-avatar.png',
+        avatar: savedAvatarUrl,
+        avatarPreview: 'blob:page-avatar',
         roles: ['admin'],
         permissions: ['profile:update'],
       });
     });
+  });
+
+  it('keeps the pending avatar task and local preview when the profile save fails, then retries it', async () => {
+    const user = userEvent.setup();
+    const savedAvatarUrl = 'https://example.com/new-avatar.png';
+    const rejectedUpdate = vi.fn().mockRejectedValueOnce(new Error('save failed'));
+    const service = createService({
+      updateProfile: rejectedUpdate.mockResolvedValue({ ...profile, avatar: savedAvatarUrl }),
+    });
+    const uploadAvatar = vi.fn<(file: File) => Promise<AvatarUploadOutcome>>().mockResolvedValue({
+      task: uploadedAvatarTask,
+      taskId: 'task-avatar-1',
+      previewUrl: 'blob:page-avatar',
+    });
+    mockObjectUrl('blob:selected-avatar');
+    renderPage(service, { uploadAvatar });
+
+    const avatarButton = await screen.findByRole('button', { name: '上传头像' });
+    setStoredUser();
+    expect(avatarButton).toBeInTheDocument();
+    const fileInput = document.querySelector('input[type="file"]');
+    if (!(fileInput instanceof HTMLInputElement)) throw new Error('avatar file input was not rendered');
+
+    const file = new File(['avatar'], 'new-avatar.png', { type: 'image/png' });
+    await user.upload(fileInput, file);
+
+    // 保存失败：请求里只带 taskId，不产生任何绑定请求
+    await waitFor(() => {
+      expect(service.updateProfile).toHaveBeenCalledWith({
+        nickname: '云起',
+        email: 'yunqilee69@gmail.com',
+        phone: '13800000001',
+        uploadTaskIds: { avatar: ['task-avatar-1'] },
+      });
+    });
+    expect(await screen.findByText('个人资料更新失败')).toBeInTheDocument();
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining('/bind') }));
+    // 本地预览仍在：所选图片与待提交的 taskId 一起等下一次保存
+    expect(screen.getByAltText('头像')).toHaveAttribute('src', 'blob:selected-avatar');
+
+    // 再次保存资料：重试沿用同一个未提交的 taskId
+    await user.click(screen.getByRole('button', { name: /保存资料/ }));
+    await waitFor(() => {
+      expect(service.updateProfile).toHaveBeenCalledTimes(2);
+    });
+    expect(vi.mocked(service.updateProfile).mock.calls[1][0]).toMatchObject({
+      uploadTaskIds: { avatar: ['task-avatar-1'] },
+    });
+
+    // 保存成功后清空待提交状态：再保存不再携带 uploadTaskIds
+    await user.click(screen.getByRole('button', { name: /保存资料/ }));
+    await waitFor(() => {
+      expect(service.updateProfile).toHaveBeenCalledTimes(3);
+    });
+    expect(vi.mocked(service.updateProfile).mock.calls[2][0]).not.toHaveProperty('uploadTaskIds');
   });
 
   it('does not render an avatar delete action', async () => {
@@ -323,6 +384,8 @@ describe('ProfileInfoPage', () => {
     let resolveNewPreview: (value: Blob) => void = () => {};
     const service = createService({
       getProfile: vi.fn().mockResolvedValue({ ...profile, avatar: oldAvatarUrl }),
+      // 保存接口返回头像最终地址：页面据此加载该地址的鉴权预览
+      updateProfile: vi.fn().mockResolvedValue({ ...profile, avatar: newAvatarUrl }),
     });
     vi.mocked(request)
       .mockResolvedValueOnce([{ mode: 'PROXY', url: oldAvatarUrl }])
@@ -331,9 +394,10 @@ describe('ProfileInfoPage', () => {
       .mockImplementationOnce(() => new Promise((resolve) => {
         resolveNewPreview = resolve;
       }));
-    const uploadAvatar = vi.fn<(file: File) => Promise<AvatarUploadResult>>().mockResolvedValue({
+    const uploadAvatar = vi.fn<(file: File) => Promise<AvatarUploadOutcome>>().mockResolvedValue({
       task: uploadedAvatarTask,
-      avatarUrl: newAvatarUrl,
+      taskId: 'task-avatar-1',
+      previewUrl: 'blob:page-avatar',
     });
     mockObjectUrls('blob:old-avatar-preview', 'blob:selected-avatar-preview', 'blob:new-avatar-preview');
 

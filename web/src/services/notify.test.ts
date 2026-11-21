@@ -222,6 +222,15 @@ describe('notifyService', () => {
       },
     },
     {
+      name: 'batch deletes notification records by ID list',
+      execute: () => notifyService.deleteNotifyRecords(['record-1', 'record-2']),
+      expected: {
+        method: 'DELETE',
+        url: '/api/notify/records/batch',
+        data: { ids: ['record-1', 'record-2'] },
+      },
+    },
+    {
       name: 'pages site messages in the request body',
       execute: () => notifyService.pageSiteMessages({ pageNum: 1, pageSize: 20, readStatus: false }),
       expected: {

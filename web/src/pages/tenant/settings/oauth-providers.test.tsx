@@ -26,6 +26,8 @@ const githubRow: TenantOAuth2Provider = {
   enabled: true,
   clientId: 'Iv1.existing',
   hasClientSecret: true,
+  credentialComplete: true,
+  missingFields: [],
   redirectUri: 'https://api.example.com/api/auth/github/callback',
   frontendCallbackUri: '/login/github-callback',
 };
@@ -38,11 +40,27 @@ const wechatWebRow: TenantOAuth2Provider = {
   enabled: true,
   clientId: 'wx-open-app',
   hasClientSecret: true,
+  credentialComplete: true,
+  missingFields: [],
   redirectUri: 'https://api.example.com/api/auth/wechat/web/callback',
   scope: 'snsapi_login',
   authorizeUrl: 'https://open.weixin.qq.com/connect/qrconnect',
   tokenUrl: 'https://api.weixin.qq.com/sns/oauth2/access_token',
   frontendCallbackUri: '/login/wechat-callback',
+};
+
+/** 凭据不完整的微信小程序记录：列表应显示「不可用」并说明缺什么。 */
+const wechatMiniRow: TenantOAuth2Provider = {
+  id: 'cfg-mini',
+  tenantId: 'tenant-1',
+  providerId: 'wechat',
+  channel: 'MINI',
+  enabled: true,
+  clientId: 'wx-mini-app',
+  hasClientSecret: true,
+  credentialComplete: false,
+  missingFields: ['授权码换会话地址（jscode2session）', '手机号接口地址'],
+  tokenUrl: 'https://api.weixin.qq.com/cgi-bin/token',
 };
 
 const GITHUB_CLIENT_ID_PLACEHOLDER = '如 Iv1.1a2b3c4d5e6f7g8h';
@@ -352,5 +370,67 @@ describe('TenantOAuthProvidersPage OAuth2 form', () => {
     await waitFor(() =>
       expect(within(dialog).getByRole('button', { name: /保\s*存/ })).not.toHaveClass('ant-btn-loading'),
     );
+  });
+});
+
+describe('TenantOAuthProvidersPage OAuth2 list', () => {
+  it('renders the wechat mini channel explicitly and hides the web-only callback address', async () => {
+    renderPage([wechatMiniRow]);
+
+    const channelCell = await screen.findByText('微信 - 小程序');
+    const row = channelCell.closest('tr');
+    if (!(row instanceof HTMLElement)) throw new Error('未找到数据行');
+
+    // 渠道列明确到「Provider - 渠道」，仍复用 CHANNEL_LABELS 的渠道文案
+    expect(within(row).getByText('不可用')).toBeInTheDocument();
+    // 回调地址对小程序渠道无意义，显示占位符
+    expect(within(row).getByText('-')).toBeInTheDocument();
+  });
+
+  it('lists the missing fields in a tooltip when the credential is incomplete', async () => {
+    const user = userEvent.setup();
+    renderPage([wechatMiniRow]);
+
+    const tag = await screen.findByText('不可用');
+    // 悬浮前页面里没有缺失项文案，说明下面的断言来自 Tooltip 而不是列表列
+    expect(screen.queryByText('手机号接口地址')).not.toBeInTheDocument();
+    await user.hover(tag);
+
+    expect(await screen.findByText('授权码换会话地址（jscode2session）')).toBeInTheDocument();
+    expect(screen.getByText('手机号接口地址')).toBeInTheDocument();
+  });
+
+  it('shows a complete credential tag for complete rows and keeps the existing columns', async () => {
+    renderPage([githubRow]);
+
+    expect(await screen.findByText('完整')).toBeInTheDocument();
+    const channelCell = screen.getByText('GitHub - Web');
+    const row = channelCell.closest('tr');
+    if (!(row instanceof HTMLElement)) throw new Error('未找到数据行');
+    // 既有「启用」列与编辑/删除按钮逻辑不受影响
+    expect(within(row).getByText('已启用')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: '编辑' })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: '删除' })).toBeInTheDocument();
+    expect(within(row).getByText('https://api.example.com/api/auth/github/callback')).toBeInTheDocument();
+  });
+});
+
+describe('TenantOAuthProvidersPage OAuth2 list empty missing fields', () => {
+  it('falls back to a dash in the tooltip when the backend returns no labels', async () => {
+    const user = userEvent.setup();
+    renderPage([
+      {
+        ...githubRow,
+        id: 'cfg-disabled',
+        enabled: false,
+        credentialComplete: false,
+        missingFields: [],
+      },
+    ]);
+
+    const tag = await screen.findByText('不可用');
+    await user.hover(tag);
+
+    expect(await screen.findByText('-')).toBeInTheDocument();
   });
 });

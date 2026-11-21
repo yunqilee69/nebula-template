@@ -359,7 +359,7 @@ Req 类字段必须添加校验注解，配合 `@Valid` 触发校验。
 | 非空校验 | `@NotNull` | 对象不能为 null |
 | 非空校验 | `@NotEmpty` | 集合、数组不能为 null 或空 |
 | 长度校验 | `@Size(min, max)` | 字符串、集合长度范围 |
-| 数值范围 | `@Min`, `@Max` | 数值最小/最大值 |
+| 数值范围 | `@Min`, `@Max` | 数值最小/最大值（**仅限数值字段**，见 4.2） |
 | 正则校验 | `@Pattern(regexp)` | 正则表达式匹配 |
 | 邮箱校验 | `@Email` | 邮箱格式 |
 | 枚举校验 | 自定义注解 | 枚举值校验 |
@@ -395,6 +395,29 @@ public ApiResult<UserDetailResp> createUser(@Valid @RequestBody CreateUserReq re
     // ...
 }
 ```
+
+---
+
+### 4.2 时间字段契约
+
+**字段类型**：请求与响应统一使用 `java.time.LocalDateTime` / `LocalDate`，禁止用 `String` 传递日期时间。
+
+**入参解析（已全局统一，无需逐字段标注）**：`nebula-base-web` 的 `NebulaJacksonAutoConfiguration` 注册了宽松的 `LocalDateTime` 反序列化器，以下写法都合法：
+
+| 写法 | 示例 | 说明 |
+|---|---|---|
+| 空格分隔 | `2026-11-21 10:50:58` | 前端 `DatePicker`、移动端与 SQL 脚本的既有契约 |
+| ISO-8601 | `2026-11-21T10:50:58` | 第三方接入方常用 |
+| 纯日期 | `2026-11-21` | 按当天 `00:00:00` 处理 |
+| 空串 / `null` | `""`、`null` | 按 `null` 处理 |
+
+> Spring Boot 4 使用 Jackson 3（`tools.jackson`），其内置 `LocalDateTime` 反序列化**只接受 ISO-8601**；且 `spring.jackson.date-format` 只作用于 `java.util.Date`，对 `java.time` 无效。因此时间格式必须靠上述全局定制统一，**新增时间字段不要再逐个加 `@JsonFormat`**，漏标即 400。
+
+**出参序列化**：保持 ISO-8601（带 `T`），前端展示时自行把 `T` 替换为空格。禁止在响应 DTO 上用 `@JsonFormat` 改变输出格式，否则会同时破坏 web、移动端与已发布的客户端。
+
+**布尔字段禁止数值约束**：`Boolean` 字段上加 `@Min` / `@Max`（或 `@Size`、`@Digits` 等）会让 Hibernate Validator 在参数校验阶段直接抛 `UnexpectedTypeException: HV000030`，接口 500。布尔字段只需默认值，必要时用 `@NotNull`。
+
+**必须覆盖契约测试**：新增或修改时间字段时，必须有一条 MockMvc 用例提交 `yyyy-MM-dd HH:mm:ss` 格式并断言绑定结果（参见 `AnnouncementDateTimeBindingTest`），仅测 service 层无法发现 Jackson 绑定问题。
 
 ---
 
@@ -491,6 +514,8 @@ public ApiResult<PageResp<UserResp>> pageUsers(@Valid @RequestBody UserPageReq r
 - ❌ 必填字段缺少校验注解（如 `@NotBlank`）
 - ❌ Controller 方法参数缺少 `@Valid` 注解
 - ❌ 校验注解缺少 `message` 属性
+- ❌ 在 `Boolean` 等非数值字段上使用 `@Min` / `@Max`
+- ❌ 在响应 DTO 上用 `@JsonFormat` 改变时间字段的输出格式（响应固定 ISO-8601）
 
 ---
 

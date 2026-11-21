@@ -52,7 +52,6 @@ function createFakeRequest(options?: { failPartsOnce?: number[] }) {
     if (config.url.endsWith('/complete')) {
       return { id: 'task-1', taskMode: 'CHUNKED' } as T;
     }
-    if (config.url.endsWith('/bind')) return 'file-1' as T;
     return {} as T;
   };
   return { request: request as <T>(config: RequestConfig) => Promise<T>, calls };
@@ -86,30 +85,17 @@ test('UploadPolicyTest.testPartRetry', async () => {
   assert.equal(ratios.at(-1), 1);
 });
 
-test('UploadPolicyTest.testBindProducesFileId', async () => {
+test('UploadPolicyTest.testUploadOnlyReturnsTemporaryTask', async () => {
   const { request, calls } = createFakeRequest();
   const service = createStorageService({ request, policy: POLICY });
 
   const task = await service.upload(makeFile('small.jpg', 1 * MB_BYTES));
-  // 上传结束只拿到临时 task，没有正式 fileId
+
+  // 上传只产出临时 task：正式文件由后端业务保存接口按 taskId 绑定，端上不再发起绑定请求
   assert.equal(task.id, 'task-1');
   assert.equal((task as { fileId?: string }).fileId, undefined);
-
-  const fileId = await service.bind('task-1', {
-    sourceEntity: 'wms_order',
-    sourceId: 'order-1',
-    sourceType: 'signature-photo',
-  });
-  assert.equal(fileId, 'file-1');
-
-  const bindCall = calls.at(-1)!;
-  assert.equal(bindCall.method, 'POST');
-  assert.equal(bindCall.url, '/api/storage/upload-tasks/task-1/bind');
-  assert.deepEqual(bindCall.data, {
-    sourceEntity: 'wms_order',
-    sourceId: 'order-1',
-    sourceType: 'signature-photo',
-  });
+  assert.deepEqual(calls.map((call) => call.url), ['/api/storage/upload']);
+  assert.equal('bind' in service, false);
 });
 
 test('UploadPolicyTest.testSimpleRouteWhenBelowThreshold', async () => {

@@ -1,5 +1,10 @@
 export type UploadTaskStatus = 'INIT' | 'UPLOADING' | 'COMPLETED' | 'FAILED';
 
+/**
+ * 临时上传任务详情。
+ *
+ * <p>上传只产生临时任务：正式文件由后端业务保存接口按 `taskId` 绑定，前端只提交 taskId。</p>
+ */
 export interface UploadTaskDetailResp {
   id: string;
   taskMode: string;
@@ -26,12 +31,6 @@ export interface CreateUploadTaskReq {
   chunkSize: number;
   /** 分片总数，服务端会按配置重算并覆盖 */
   chunkCount: number;
-}
-
-export interface BindUploadTaskReq {
-  sourceEntity: string;
-  sourceId: string;
-  sourceType?: string;
 }
 
 export interface ListStorageFilesBySourceReq {

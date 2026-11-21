@@ -95,7 +95,7 @@ nebula:
 
 ### 2.3 生成与去重
 
-- 生成时机：`bindUploadTask` 保存正式文件后调用 `generateVariants`；已存在 `thumb` 派生则跳过。
+- 生成时机：绑定（`bindUploadTasks`）保存正式文件后调用 `generateVariants`；已存在 `thumb` 派生则跳过。
 - 内容按 `(fileHash, variant)` 寻址去重：多个业务引用同一张图只存一份缩略图，`contentKey` 形如 `variant/thumb/<fileHash>.jpg`。
 
 ### 2.4 防解压炸弹
@@ -137,7 +137,7 @@ nebula:
 
 ### 3.2 迁移期间拒写
 
-`StorageMigrationGuard` 在迁移进行中拒绝**正式写入**（`bindUploadTask` 开头 `requireWritable()`，命中抛 `MIGRATION_IN_PROGRESS`，`24024`）。上传到临时区（简单上传 / 分片 / complete）不经过该闸门，只有正式写入被拒。守卫是**进程内状态**（`AtomicBoolean`），不跨实例共享——迁移的前提是迁移期间应用单实例运行；多实例部署需自行安排整体停写。
+`StorageMigrationGuard` 在迁移进行中拒绝**正式写入**（`bindUploadTasks` 开头 `requireWritable()`，命中抛 `MIGRATION_IN_PROGRESS`，`24024`）。上传到临时区（简单上传 / 分片 / complete）不经过该闸门，只有正式写入被拒。守卫是**进程内状态**（`AtomicBoolean`），不跨实例共享——迁移的前提是迁移期间应用单实例运行；多实例部署需自行安排整体停写。
 
 ### 3.3 分阶段步骤
 
@@ -180,8 +180,8 @@ nebula:
 | `fileName` | 文件名，供列表页直接展示 |
 | `fileMimeType` | 文件 MIME；请求派生版本时为该派生内容的类型 |
 | `fileSize` | 文件字节数 |
-| `mode` | `DIRECT`（`url` 是对象存储预签名直链）或 `PROXY`（`url` 指回 `/api/storage/download`） |
-| `url` | `DIRECT` 为临时直链；`PROXY` 为带好 `fileId`/`variant` 的服务端下载地址 |
+| `mode` | `DIRECT`（`url` 是对象存储预签名直链）或 `PROXY`（`url` 是同源相对路径 `/api/storage/download?...`） |
+| `url` | `DIRECT` 为临时直链（绝对地址）；`PROXY` 为带好 `fileId`/`variant` 的同源相对路径，调用方按自身 origin 请求 |
 | `expiresAtEpochSecond` | 仅 `DIRECT` 有值，直链过期时间 |
 
 `filename` 有值 ⇒ 附件下载（`attachment`）；为空 ⇒ 内联预览（`inline`）。预览场景不传 `filename`。

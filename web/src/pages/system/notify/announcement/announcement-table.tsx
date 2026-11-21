@@ -1,5 +1,5 @@
 import { Button, Popconfirm, Space, Tag } from 'antd';
-import { EditOutlined, PlusOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import type { RefObject } from 'react';
 import { Access } from '@/components/access';
 import { NebulaProTable } from '@/components/nebula-pro-table';
@@ -79,21 +79,21 @@ export function AnnouncementTable({
     },
     {
       title: '置顶',
-      dataIndex: 'pinnedFlag',
+      dataIndex: 'pinned',
       width: 90,
       valueType: 'select',
       valueEnum: BOOLEAN_VALUE_ENUM,
       fieldProps: { 'aria-label': '置顶' },
-      render: (_, record) => record.pinnedFlag ? '是' : '否',
+      render: (_, record) => record.pinned ? '是' : '否',
     },
     {
       title: '弹窗展示',
-      dataIndex: 'popupFlag',
+      dataIndex: 'popup',
       width: 90,
       valueType: 'select',
       valueEnum: BOOLEAN_VALUE_ENUM,
       fieldProps: { 'aria-label': '弹窗展示' },
-      render: (_, record) => record.popupFlag ? '是' : '否',
+      render: (_, record) => record.popup ? '是' : '否',
     },
     {
       title: '排序',
@@ -174,14 +174,6 @@ export function AnnouncementTable({
       options={{ density: false, fullScreen: true, reload: true, setting: true }}
       onRequestError={onLoadError}
       toolBarRender={() => [
-        <Button
-          key="reload"
-          icon={<ReloadOutlined />}
-          aria-label="刷新"
-          onClick={() => actionRef.current?.reload()}
-        >
-          刷新
-        </Button>,
         <Access key="create" permission="NOTIFY_ANNOUNCEMENT_MANAGE" fallback={null}>
           <Button
             type="primary"

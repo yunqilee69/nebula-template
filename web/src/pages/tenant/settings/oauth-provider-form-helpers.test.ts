@@ -176,6 +176,8 @@ describe('oauth provider form helpers', () => {
       enabled: false,
       clientId: 'wx-mini',
       hasClientSecret: true,
+      credentialComplete: false,
+      missingFields: ['未启用'],
       userinfoUrl: 'https://api.weixin.qq.com/sns/jscode2session',
       configJson: 'https://api.weixin.qq.com/wxa/business/getuserphonenumber',
     };

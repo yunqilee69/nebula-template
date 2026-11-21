@@ -166,17 +166,20 @@ storage 模块最关键的实现设计，是把上传拆成两个阶段。
 
 ### 4.4 绑定正式文件
 
-`StorageServiceImpl#bindUploadTask` 的核心逻辑是：
+`StorageServiceImpl#bindUploadTasks`（批量，业务保存流程实际调用的入口）的核心逻辑是：
 
-1. 读取上传任务并确认状态为 `COMPLETED`
-2. 校验 `sourceEntity` 和 `sourceId`
-3. 检查该任务是否已经绑定过正式文件
-4. 按 `fileHash + fileSize` 查询是否已有可复用正式文件
-5. 若可复用，则复用已有 `storageKey`
-6. 若不可复用，则将 temp 内容 promote 到 formal 区
-7. 创建 `storage_file` 记录
-8. 回填上传任务的业务归属与结果文件 ID
-9. 发布 `StorageUploadTaskBoundEvent`
+1. 归一化并去重 `taskIds`（保持入参顺序，超过 10 个抛 `24030`）
+2. 按 `sourceScope` 派生 `sourceId`（`USER → operatorUserId`、`TENANT → tenantId`），命令里没有 `sourceId` 字段
+3. 逐个 `taskId` 判定幂等：先查正式文件——命中且 `(sourceEntity, sourceId, sourceType)` 一致则返回既有 `fileId`；三元组不一致抛 `24003`
+4. 未命中才读取上传任务，确认状态为 `COMPLETED` 且上传人与操作人一致（否则 `24029`）
+5. 按 `fileHash + fileSize` 查询是否已有可复用正式文件
+6. 若可复用，则复用已有 `storageKey`
+7. 若不可复用，则将 temp 内容 promote 到 formal 区
+8. 创建 `storage_file` 记录
+9. 回填上传任务的业务归属与结果文件 ID
+10. 发布 `StorageUploadTaskBoundEvent`
+
+整批在同一事务内：任一任务失败即整批回滚，且**不把任务置 `FAILED`**（任务保持 `COMPLETED` 可重试），残留临时内容交给上传临时区保留期清理。对外不再暴露公共绑定端点，服务间通过签名保护的 `POST /api/storage-internal/upload-tasks/bind` 调用。
 
 其中一个很重要的实现点是：
 
@@ -349,7 +352,9 @@ storage 模块把二进制内容存储抽象为两层。
 1. 查询正式文件并调用 `StoragePermissionChecker`；
 2. 解析内容键（`variant` 缺省或派生缺失时回退原图）；
 3. `StorageContentRepository.supportsDirectAccess()` 为真时调用 `presignFormal(...)` 签发直链，返回 `mode=DIRECT`；
-4. 否则返回 `mode=PROXY`，由控制层按当前请求上下文补全 `/api/storage/download` 地址（带好 `fileId`/`variant`）。
+4. 否则返回 `mode=PROXY`，由控制层补全为**同源相对路径** `/api/storage/download?...`（带好 `fileId`/`variant`）。
+   理由：服务端不知道客户端看到的 origin（网关 / 反向代理会终结 TLS 并改写 host+port），且 remote 模式下
+   请求上下文是服务间调用的内网地址，按它拼绝对地址客户端必然访问不到。
 
 接口**恒返回数组**：按 `fileId` 解析是单元素数组，按业务归属解析是全部附件；每项带上 `fileId` / `fileName` / `fileMimeType` / `fileSize`，客户端列表页可直接渲染。按业务归属解析时按预览语义处理，不把 `filename` 套到批量结果上。两个定位方式都不给时抛 `DOWNLOAD_LOCATION_PARAM_INVALID`（24027）。
 

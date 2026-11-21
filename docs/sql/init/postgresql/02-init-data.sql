@@ -904,6 +904,7 @@ INSERT INTO auth_button (
     ('0196dbe0a6f17000a000000000000109', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000021', 'NOTIFY_SEND', '发送通知', 'send', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a00000000000010a', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000022', 'NOTIFY_ANNOUNCEMENT_MANAGE', '管理公告', 'edit', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a00000000000010b', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000024', 'NOTIFY_RECORD_VIEW', '查看通知记录', 'query', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a00000000000010d', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000024', 'NOTIFY_RECORD_DELETE', '删除通知记录', 'delete', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a00000000000010c', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000028', 'NOTIFY_CHANNEL_TARGET_QUERY', '查询渠道目标', 'query', 4, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     -- 参数模块按钮
     ('0196dbe0a6f17000a000000000000501', current_setting('nebula.default_tenant_id'), '0196dbe0a6f17000a000000000000013', 'PARAM_CREATE', '新增参数', 'add', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),

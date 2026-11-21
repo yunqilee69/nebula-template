@@ -58,17 +58,21 @@ const FAILED_DETAIL = {
   extJson: '{"attempt":3}',
 } as const satisfies NotifyRecordDetailResp;
 
+type RecordPageService = Pick<NotifyService, 'pageNotifyRecords' | 'getNotifyRecord' | 'deleteNotifyRecords'>;
+
 function createService(
   getNotifyRecord: Pick<NotifyService, 'getNotifyRecord'>['getNotifyRecord'],
-): Pick<NotifyService, 'pageNotifyRecords' | 'getNotifyRecord'> {
+  deleteNotifyRecords: NotifyService['deleteNotifyRecords'] = vi.fn().mockResolvedValue(0),
+): RecordPageService {
   return {
     pageNotifyRecords: vi.fn().mockResolvedValue({ data: [SUCCESS_RECORD, FAILED_RECORD], total: 2 }),
     getNotifyRecord,
+    deleteNotifyRecords,
   };
 }
 
 function renderPage(
-  service: Pick<NotifyService, 'pageNotifyRecords' | 'getNotifyRecord'>,
+  service: RecordPageService,
   permissions: readonly string[] = ['NOTIFY_RECORD_VIEW'],
 ) {
   render(
@@ -84,6 +88,12 @@ function renderPage(
       permissions: [...permissions],
     });
   });
+}
+
+/** 表格首列的复选框是「全选当前页」，勾上即选中本页全部记录 */
+function selectAllRows(): HTMLElement {
+  const [selectAll] = screen.getAllByRole('checkbox');
+  return selectAll;
 }
 
 function getDetailDialog(): HTMLElement {
@@ -129,6 +139,51 @@ describe('NotifyRecordPage details', () => {
     expect(within(dialog).getByText('{"traceId":"trace-1"}')).toBeInTheDocument();
   });
 
+  it('batch deletes the selected records after confirmation', async () => {
+    const user = userEvent.setup();
+    const deleteNotifyRecords = vi.fn().mockResolvedValue(2);
+    const service = createService(vi.fn(), deleteNotifyRecords);
+    renderPage(service, ['NOTIFY_RECORD_VIEW', 'NOTIFY_RECORD_DELETE']);
+
+    await screen.findByText('ORDER_PAID');
+    const batchDelete = screen.getByRole('button', { name: '批量删除发送记录' });
+    expect(batchDelete).toBeDisabled();
+
+    await user.click(selectAllRows());
+    expect(batchDelete).toBeEnabled();
+    await user.click(batchDelete);
+    await user.click(await screen.findByRole('button', { name: '确认删除' }));
+
+    await waitFor(() => expect(deleteNotifyRecords).toHaveBeenCalledWith(
+      expect.arrayContaining(['record-success', 'record-failed']),
+    ));
+    await waitFor(() => expect(screen.getByRole('button', { name: '批量删除发送记录' })).toBeDisabled());
+    expect(service.pageNotifyRecords).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the selection and surfaces a failure when batch delete fails', async () => {
+    const user = userEvent.setup();
+    const deleteNotifyRecords = vi.fn().mockRejectedValue(new Error('delete unavailable'));
+    renderPage(createService(vi.fn(), deleteNotifyRecords), ['NOTIFY_RECORD_VIEW', 'NOTIFY_RECORD_DELETE']);
+
+    await screen.findByText('ORDER_PAID');
+    await user.click(selectAllRows());
+    await user.click(screen.getByRole('button', { name: '批量删除发送记录' }));
+    await user.click(await screen.findByRole('button', { name: '确认删除' }));
+
+    await waitFor(() => expect(deleteNotifyRecords).toHaveBeenCalledOnce());
+    expect(await screen.findByText('发送记录删除失败')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '批量删除发送记录' })).toBeEnabled();
+  });
+
+  it('hides batch delete when the user lacks the delete permission', async () => {
+    renderPage(createService(vi.fn()), ['NOTIFY_RECORD_VIEW']);
+
+    await screen.findByText('ORDER_PAID');
+
+    expect(screen.queryByRole('button', { name: '批量删除发送记录' })).not.toBeInTheDocument();
+  });
+
   it('visibly presents the failure status and reason for a failed delivery', async () => {
     const user = userEvent.setup();
     renderPage(createService(vi.fn().mockResolvedValue(FAILED_DETAIL)));
@@ -153,7 +208,7 @@ describe('NotifyRecordPage details', () => {
     await user.click(screen.getByRole('button', { name: '查看详情 record-success' }));
 
     const dialog = getDetailDialog();
-    expect(await within(dialog).findByText('发送记录详情加载失败')).toBeInTheDocument();
+    expect(await within(dialog).findByText('详情加载失败，可重试')).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: '重试' }));
 
     await waitFor(() => expect(getNotifyRecord).toHaveBeenCalledTimes(2));

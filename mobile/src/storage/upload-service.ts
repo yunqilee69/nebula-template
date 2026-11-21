@@ -1,6 +1,5 @@
 import {
   STORAGE_ENDPOINTS,
-  type BindUploadTaskReq,
   type UploadTaskDetailResp,
 } from '../../../packages/client-sdk/index.ts';
 import type { RequestConfig } from '../request/types.ts';
@@ -44,9 +43,8 @@ export interface StorageServiceDeps {
 }
 
 export interface StorageService {
+  /** 上传到临时任务；正式文件由后端业务保存接口按 taskId 绑定。 */
   upload(file: UploadFileSource, handlers?: UploadHandlers): Promise<UploadTaskDetailResp>;
-  /** 绑定到业务实体；只有 bind 之后才产生正式 fileId。 */
-  bind(taskId: string, request: BindUploadTaskReq): Promise<string>;
 }
 
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -101,9 +99,10 @@ async function withRetry<T>(
 }
 
 /**
- * 文件服务：策略路由（简单/分片）、分片重试、聚合进度、bind 产出正式 fileId。
+ * 文件服务：策略路由（简单/分片）、分片重试、聚合进度，只产出临时上传任务。
  *
- * <p>幂等/重放由上层 `offline` 队列负责，本服务只负责单次上传的可靠性。</p>
+ * <p>绑定不再由端上发起：业务保存时把 taskId 交给后端业务接口，由后端在同一业务流程内完成绑定。
+ * 幂等/重放由上层 `offline` 队列负责，本服务只负责单次上传的可靠性。</p>
  */
 export function createStorageService(deps: StorageServiceDeps): StorageService {
   const policy = deps.policy ?? normalizeUploadPolicy(null);
@@ -180,17 +179,6 @@ export function createStorageService(deps: StorageServiceDeps): StorageService {
       }
       const route = routeUpload(file.size, policy);
       return route === 'CHUNKED' ? uploadChunked(file, handlers) : uploadSimple(file, handlers);
-    },
-    bind(taskId, request) {
-      return deps.request<string>({
-        method: 'POST',
-        url: STORAGE_ENDPOINTS.bindUploadTask(taskId),
-        data: {
-          sourceEntity: request.sourceEntity,
-          sourceId: request.sourceId,
-          sourceType: request.sourceType ?? 'default',
-        },
-      });
     },
   };
 }

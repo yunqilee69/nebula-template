@@ -138,6 +138,9 @@ nebula:
         access-key: ${NEBULA_STORAGE_TENCENT_COS_ACCESS_KEY:}
         secret-key: ${NEBULA_STORAGE_TENCENT_COS_SECRET_KEY:}
         bucket: ${NEBULA_STORAGE_TENCENT_COS_BUCKET:}
+        # 自定义服务地址：留空按 region 推导官方域名；非空时正式区读写与直链都走它（固定 https）
+        # 可写裸域名或 https:// 域名；该域名必须与该桶一一绑定，生产建议把 create-bucket-if-missing 设为 false 并预建桶
+        endpoint: ${NEBULA_STORAGE_TENCENT_COS_ENDPOINT:}
         direct-download-enabled: ${NEBULA_STORAGE_TENCENT_COS_DIRECT_DOWNLOAD_ENABLED:false}
       minio:
         endpoint: ${NEBULA_STORAGE_MINIO_ENDPOINT:}

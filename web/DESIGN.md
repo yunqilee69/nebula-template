@@ -116,6 +116,14 @@ All spacing follows Ant Design's 4px-derived token scale (`paddingXXS` through `
 - **Motion**: Ant Design component motion only.
 - **Layout**: fills the remaining shell content height with `min-height: 0`; the table body owns vertical scrolling while pagination stays fixed at the bottom of the table region.
 
+### Form Controls
+- **Structure**: antd 组件是唯一表单控件来源；日期时间字段用 `DatePicker`（含时间用 `showTime`）/ `TimePicker`，**不要用原生 `<input type="date|datetime-local|time">`**。
+- **Variants**: 日期时间统一 `format="YYYY-MM-DD HH:mm:ss"` 与后端 `yyyy-MM-dd HH:mm:ss` 契约对齐，`showTime={{ format: 'HH:mm:ss' }}`。
+- **Spacing**: `className="w-full"` 跟随表单栅格；不要在控件上写死像素宽。
+- **States**: 可选字段保持 `allowClear` 默认可清除，清空后表单值为 `null`/`undefined`，提交前判空而不是拼空串。
+- **Accessibility**: `Form.Item` 的 `htmlFor` 与控件 `id` 成对，标签可被 `getByLabelText` 命中。
+- **Layout**: 表单内值是 Dayjs 对象，只在提交/回显边界与字符串互转（参考 `announcement-shared.ts`）。
+
 ## 6. Motion & Interaction
 
 ### Timing

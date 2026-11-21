@@ -1714,6 +1714,7 @@ export interface NebulaTenantSettingsMessages {
     saveFailed: string;
     uploadFailed: string;
     uploadSuccess: string;
+    pendingSave: string;
     nameRequired: string;
     websiteInvalid: string;
     imageOnly: string;

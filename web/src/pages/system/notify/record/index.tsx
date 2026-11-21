@@ -6,7 +6,7 @@ import { RecordDetailModal } from './record-detail-modal';
 import type { RecordDetailState } from './record-detail-modal';
 import { NotifyRecordTable } from './record-table';
 
-type NotifyRecordPageService = Pick<NotifyService, 'pageNotifyRecords' | 'getNotifyRecord'>;
+type NotifyRecordPageService = Pick<NotifyService, 'pageNotifyRecords' | 'getNotifyRecord' | 'deleteNotifyRecords'>;
 
 export interface NotifyRecordPageProps {
   readonly service?: NotifyRecordPageService;

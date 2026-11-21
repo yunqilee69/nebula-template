@@ -1,9 +1,10 @@
-import { EyeOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Alert, Button, Empty } from 'antd';
+import { DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Alert, Button, Empty, Popconfirm } from 'antd';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Access } from '@/components/access';
 import { DictLabel, DictSelect } from '@/components/dict-select';
 import { NebulaProTable } from '@/components/nebula-pro-table';
+import { useNotice } from '@/hooks/use-notice';
 import type { NebulaPageReq, NebulaProColumns, NebulaProTableAction } from '@/components/nebula-pro-table';
 import type { NotifyService } from '@/services/notify';
 import type {
@@ -33,7 +34,7 @@ export interface NotifyRecordQuery {
 }
 
 interface NotifyRecordTableProps {
-  readonly service: Pick<NotifyService, 'pageNotifyRecords'>;
+  readonly service: Pick<NotifyService, 'pageNotifyRecords' | 'deleteNotifyRecords'>;
   readonly onDetail: (record: NotifyRecordResp) => void;
 }
 
@@ -63,8 +64,11 @@ export function buildNotifyRecordPageReq(
 }
 
 export function NotifyRecordTable({ service, onDetail }: NotifyRecordTableProps) {
+  const notice = useNotice();
   const actionRef = useRef<NebulaProTableAction | undefined>(undefined);
   const [requestFailed, setRequestFailed] = useState(false);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<readonly string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   const requestRecords = useCallback(
     (params: NotifyRecordQuery & NebulaPageReq) => {
@@ -73,6 +77,26 @@ export function NotifyRecordTable({ service, onDetail }: NotifyRecordTableProps)
     },
     [service],
   );
+
+  const removeSelectedRecords = async () => {
+    if (selectedRecordIds.length === 0) return;
+    setDeleting(true);
+    try {
+      const deleted = await service.deleteNotifyRecords(selectedRecordIds);
+      if (deleted > 0) {
+        notice.success(`已删除 ${deleted} 条发送记录`);
+      } else {
+        notice.warning('所选发送记录已不存在');
+      }
+      setSelectedRecordIds([]);
+      await actionRef.current?.reload();
+    } catch (error: unknown) {
+      if (!(error instanceof Error)) throw error;
+      notice.error('发送记录删除失败');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const columns = useMemo<NebulaProColumns<NotifyRecordResp>[]>(() => [
     {
@@ -180,6 +204,35 @@ export function NotifyRecordTable({ service, onDetail }: NotifyRecordTableProps)
       search={{ defaultCollapsed: false }}
       size="middle"
       scroll={{ x: 1580 }}
+      rowSelection={{
+        selectedRowKeys: [...selectedRecordIds],
+        onChange: (selectedKeys) => {
+          setSelectedRecordIds(selectedKeys.filter((key): key is string => typeof key === 'string'));
+        },
+      }}
+      tableAlertRender={false}
+      toolBarRender={() => [
+        <Access key="batch-delete" permission="NOTIFY_RECORD_DELETE" fallback={null}>
+          <Popconfirm
+            title={`确定删除选中的 ${selectedRecordIds.length} 条发送记录吗？`}
+            description="删除后不可恢复；已投递的站内信仍在接收人的收件箱中。"
+            okText="确认删除"
+            cancelText="取消"
+            disabled={selectedRecordIds.length === 0}
+            onConfirm={() => void removeSelectedRecords()}
+          >
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              aria-label="批量删除发送记录"
+              disabled={selectedRecordIds.length === 0}
+              loading={deleting}
+            >
+              批量删除
+            </Button>
+          </Popconfirm>
+        </Access>,
+      ]}
       onRequestError={() => setRequestFailed(true)}
       tableExtraRender={() => requestFailed ? (
         <Alert

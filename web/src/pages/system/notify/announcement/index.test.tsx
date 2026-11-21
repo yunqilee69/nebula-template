@@ -17,9 +17,9 @@ const ANNOUNCEMENT: AnnouncementResp = {
   status: 1,
   publishTime: '2026-08-09 20:00:00',
   expireTime: '2026-08-10 06:00:00',
-  pinnedFlag: true,
+  pinned: true,
   sortNum: 10,
-  popupFlag: false,
+  popup: false,
   targetType: 'ALL',
   targetValues: [],
 };
@@ -78,6 +78,7 @@ function createNotifyService(overrides: Partial<NotifyService> = {}): NotifyServ
     testEmailNotify: vi.fn(),
     getNotifyRecord: vi.fn(),
     pageNotifyRecords: vi.fn(),
+    deleteNotifyRecords: vi.fn(),
     pageSiteMessages: vi.fn(),
     getUnreadSiteMessageCount: vi.fn(),
     markSiteMessageRead: vi.fn(),
@@ -180,7 +181,10 @@ describe('AnnouncementManagementPage', () => {
     const dialog = screen.getByRole('dialog', { name: '新建公告' });
     await user.type(within(dialog).getByLabelText('公告标题'), '版本发布');
     await user.type(within(dialog).getByLabelText('公告内容'), '新版本已经发布');
-    await user.type(within(dialog).getByLabelText('发布时间'), '2026-08-11T09:30:00');
+    const publishTime = within(dialog).getByLabelText('发布时间');
+    expect(publishTime).not.toHaveAttribute('type', 'datetime-local');
+    await user.type(publishTime, '2026-08-11 09:30:00');
+    await user.keyboard('{Enter}');
     await user.click(within(dialog).getByRole('button', { name: '保存并发布' }));
 
     await waitFor(() => expect(service.createAnnouncement).toHaveBeenCalledWith({
@@ -188,9 +192,9 @@ describe('AnnouncementManagementPage', () => {
       content: '新版本已经发布',
       status: 1,
       publishTime: '2026-08-11 09:30:00',
-      pinnedFlag: false,
+      pinned: false,
       sortNum: 0,
-      popupFlag: false,
+      popup: false,
       targetType: 'ALL',
     }));
     expect(NOTICE.success).toHaveBeenCalledWith('公告创建成功');
@@ -212,7 +216,13 @@ describe('AnnouncementManagementPage', () => {
 
     await waitFor(() => expect(service.updateAnnouncement).toHaveBeenCalledWith(
       'announcement-1',
-      expect.objectContaining({ targetType: 'ROLE', targetValues: ['role-1'] }),
+      expect.objectContaining({
+        targetType: 'ROLE',
+        targetValues: ['role-1'],
+        // 日期字段走 DatePicker + Dayjs，回显再提交必须原样回到后端契约格式
+        publishTime: '2026-08-09 20:00:00',
+        expireTime: '2026-08-10 06:00:00',
+      }),
     ));
     expect(NOTICE.success).toHaveBeenCalledWith('公告更新成功');
   });

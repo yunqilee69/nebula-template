@@ -50,8 +50,6 @@ export const STORAGE_ENDPOINTS = {
     `/api/storage/upload-tasks/${encodeURIComponent(taskId)}/parts/${partNo}`,
   completeUploadTask: (taskId: string) =>
     `/api/storage/upload-tasks/${encodeURIComponent(taskId)}/complete`,
-  bindUploadTask: (taskId: string) =>
-    `/api/storage/upload-tasks/${encodeURIComponent(taskId)}/bind`,
   uploadTask: (taskId: string) => `/api/storage/upload-tasks/${encodeURIComponent(taskId)}`,
   file: (fileId: string) => `/api/storage/files/${encodeURIComponent(fileId)}`,
   filesPage: '/api/storage/files/page',

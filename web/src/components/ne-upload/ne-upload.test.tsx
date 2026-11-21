@@ -1,5 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { App } from 'antd';
+import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { request } from '@/request/request';
@@ -14,6 +16,15 @@ vi.mock('@/request/request', () => ({
 
 const originalCreateObjectURL = URL.createObjectURL;
 const originalRevokeObjectURL = URL.revokeObjectURL;
+
+/** 组件通过 `App.useApp()` 拿消息实例，测试必须落在 antd App 上下文里。 */
+function wrapInApp(ui: ReactElement) {
+  return <App>{ui}</App>;
+}
+
+function renderWithApp(ui: ReactElement) {
+  return render(wrapInApp(ui));
+}
 
 /** 上传策略来自 init 缓存，测试里直接落缓存，避免触发补拉。 */
 function seedUploadPolicy(overrides: Partial<FrontendUploadConfig> = {}) {
@@ -64,7 +75,7 @@ describe('NeUpload', () => {
       status: 'COMPLETED',
     });
 
-    render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
+    renderWithApp(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
 
     await userEvent.upload(getFileInput(), createFile('a.txt'));
 
@@ -83,13 +94,13 @@ describe('NeUpload', () => {
       .mockResolvedValueOnce({ id: 'task-1', taskMode: 'simple', fileName: 'a.txt', status: 'COMPLETED' })
       .mockResolvedValueOnce({ id: 'task-2', taskMode: 'simple', fileName: 'b.txt', status: 'COMPLETED' });
 
-    const { rerender } = render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} value={[]} maxCount={1} />);
+    const { rerender } = renderWithApp(<NeUpload uploadRequest={uploadRequest} onChange={onChange} value={[]} maxCount={1} />);
 
     await userEvent.upload(getFileInput(), createFile('a.txt'));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ taskId: 'task-1' })]));
 
     const firstValue = onChange.mock.calls.at(-1)?.[0] as NeUploadFile[];
-    rerender(<NeUpload uploadRequest={uploadRequest} onChange={onChange} value={firstValue} maxCount={1} />);
+    rerender(wrapInApp(<NeUpload uploadRequest={uploadRequest} onChange={onChange} value={firstValue} maxCount={1} />));
 
     await userEvent.upload(getFileInput(), createFile('b.txt'));
 
@@ -101,7 +112,7 @@ describe('NeUpload', () => {
     const uploadRequest = vi.fn();
     const onLimitExceeded = vi.fn();
 
-    render(
+    renderWithApp(
       <NeUpload
         maxCount={1}
         value={[{ uid: 'existing', name: 'existing.txt', status: 'done' }]}
@@ -124,7 +135,7 @@ describe('NeUpload', () => {
       .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
       .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
 
-    render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} maxCount={3} />);
+    renderWithApp(<NeUpload uploadRequest={uploadRequest} onChange={onChange} maxCount={3} />);
 
     const fileInput = getFileInput();
     await userEvent.upload(fileInput, [createFile('a.txt'), createFile('b.txt')]);
@@ -145,10 +156,14 @@ describe('NeUpload', () => {
     const deleteFile = vi.fn().mockResolvedValue(undefined);
     const onChange = vi.fn();
 
-    render(
+    // 只有已绑定正式文件（有 fileId）的条目才走服务端删除；未绑定任务只清本地状态
+    renderWithApp(
       <NeUpload
         maxCount={3}
-        value={[{ uid: 'f1', name: 'keep.txt', status: 'done' }, { uid: 'f2', name: 'remove.txt', status: 'done' }]}
+        value={[
+          { uid: 'f1', fileId: 'file-1', name: 'keep.txt', status: 'done' },
+          { uid: 'f2', fileId: 'file-2', name: 'remove.txt', status: 'done' },
+        ]}
         deleteFile={deleteFile}
         onChange={onChange}
       />,
@@ -166,7 +181,7 @@ describe('NeUpload', () => {
     const onChange = vi.fn();
     const uploadRequest = vi.fn().mockRejectedValue(new Error('网络错误'));
 
-    render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
+    renderWithApp(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
 
     await userEvent.upload(getFileInput(), createFile('bad.txt'));
 
@@ -180,7 +195,7 @@ describe('NeUpload', () => {
     const deleteFile = vi.fn().mockResolvedValue(undefined);
     const onChange = vi.fn();
 
-    render(
+    renderWithApp(
       <NeUpload
         disabled
         maxCount={3}
@@ -201,7 +216,7 @@ describe('NeUpload', () => {
     const onLimitExceeded = vi.fn();
     const uploadRequest = vi.fn().mockResolvedValue({ id: 't-1', taskMode: 'simple', fileName: 'a.txt', status: 'COMPLETED' });
 
-    render(
+    renderWithApp(
       <NeUpload
         maxCount={2}
         uploadRequest={uploadRequest}
@@ -220,7 +235,7 @@ describe('NeUpload', () => {
   });
 
   it('renders 未配置上传方法 error with role=alert when uploadRequest is missing', async () => {
-    render(<NeUpload />);
+    renderWithApp(<NeUpload />);
 
     await userEvent.upload(getFileInput(), createFile('nope.txt'));
 
@@ -237,7 +252,7 @@ describe('NeUpload', () => {
     ]);
     const onChange = vi.fn();
 
-    render(
+    renderWithApp(
       <NeUpload
         sourceEntity="contract"
         sourceId="c-1"
@@ -257,7 +272,7 @@ describe('NeUpload', () => {
   it('backfills files by a specific sourceType when provided', async () => {
     const listBySource = vi.fn().mockResolvedValue([{ id: 'file-1', fileName: 'main.pdf' }]);
 
-    render(<NeUpload sourceEntity="contract" sourceId="c-1" sourceType="main" listBySource={listBySource} />);
+    renderWithApp(<NeUpload sourceEntity="contract" sourceId="c-1" sourceType="main" listBySource={listBySource} />);
 
     await waitFor(() => expect(listBySource).toHaveBeenCalledWith({ sourceEntity: 'contract', sourceId: 'c-1', sourceType: 'main' }));
   });
@@ -266,7 +281,7 @@ describe('NeUpload', () => {
     const listBySource = vi.fn().mockResolvedValue([{ id: 'file-1', fileName: 'one.pdf' }]);
     const onBackfillComplete = vi.fn();
 
-    render(
+    renderWithApp(
       <NeUpload
         sourceEntity="contract"
         sourceId="c-1"
@@ -284,7 +299,7 @@ describe('NeUpload', () => {
     const listBySource = vi.fn().mockRejectedValue(new Error('网络错误'));
     const onBackfillComplete = vi.fn();
 
-    render(
+    renderWithApp(
       <NeUpload
         value={[{ uid: 'local', name: 'local.txt', status: 'done', taskId: 'task-1' }]}
         sourceEntity="contract"
@@ -312,7 +327,7 @@ describe('NeUpload', () => {
     });
     const onChange = vi.fn();
 
-    render(
+    renderWithApp(
       <NeUpload
         maxCount={3}
         sourceEntity="contract"
@@ -343,7 +358,7 @@ describe('NeUpload', () => {
     const onBackfillComplete = vi.fn();
     const listBySource = vi.fn();
 
-    render(<NeUpload onBackfillComplete={onBackfillComplete} listBySource={listBySource} />);
+    renderWithApp(<NeUpload onBackfillComplete={onBackfillComplete} listBySource={listBySource} />);
 
     await act(async () => {});
     expect(listBySource).not.toHaveBeenCalled();
@@ -361,7 +376,7 @@ describe('NeUpload', () => {
       });
     });
 
-    render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
+    renderWithApp(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
 
     await userEvent.upload(getFileInput(), createFile('a.txt'));
     await waitFor(() => expect(uploadRequest).toHaveBeenCalledTimes(1));
@@ -382,7 +397,7 @@ describe('NeUpload', () => {
   it('derives the accept attribute from the cached storage.upload whitelist', () => {
     seedUploadPolicy({ allowedExtensions: 'jpg,.PNG' });
 
-    render(<NeUpload />);
+    renderWithApp(<NeUpload />);
 
     expect(getFileInput()).toHaveAttribute('accept', '.jpg,.png');
   });
@@ -390,7 +405,7 @@ describe('NeUpload', () => {
   it('prefers an explicit accept prop over the cached whitelist', () => {
     seedUploadPolicy({ allowedExtensions: 'jpg,png' });
 
-    render(<NeUpload accept=".pdf" />);
+    renderWithApp(<NeUpload accept=".pdf" />);
 
     expect(getFileInput()).toHaveAttribute('accept', '.pdf');
   });
@@ -400,7 +415,7 @@ describe('NeUpload', () => {
     const uploadRequest = vi.fn();
     const onChange = vi.fn();
 
-    render(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
+    renderWithApp(<NeUpload uploadRequest={uploadRequest} onChange={onChange} />);
 
     // applyAccept: false 模拟拖拽/改后缀绕过 accept 提示的场景，此时只能靠组件内校验兜住
     await userEvent.setup({ applyAccept: false }).upload(getFileInput(), createFile('a.gif', 'x', 'image/gif'));
@@ -423,7 +438,7 @@ describe('NeUpload', () => {
     ]);
     const onChange = vi.fn();
 
-    render(
+    renderWithApp(
       <NeImageUpload sourceEntity="user-profile" sourceId="u-1" listBySource={listBySource} onChange={onChange} />,
     );
 
@@ -444,7 +459,7 @@ describe('NeUpload', () => {
     ]);
     const onChange = vi.fn();
 
-    render(
+    renderWithApp(
       <NeImageUpload sourceEntity="user-profile" sourceId="u-1" listBySource={listBySource} onChange={onChange} />,
     );
 
@@ -460,7 +475,7 @@ describe('NeUpload', () => {
     ]);
     const onChange = vi.fn();
 
-    render(<NeUpload sourceEntity="contract" sourceId="c-1" listBySource={listBySource} onChange={onChange} />);
+    renderWithApp(<NeUpload sourceEntity="contract" sourceId="c-1" listBySource={listBySource} onChange={onChange} />);
 
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ thumbUrl: undefined })]);
@@ -477,19 +492,19 @@ describe('NeImageUpload', () => {
   });
 
   it('renders a single image upload control by default', () => {
-    render(<NeImageUpload />);
+    renderWithApp(<NeImageUpload />);
 
     expect(screen.getByLabelText('上传图片')).toBeInTheDocument();
   });
 
   it('falls back to image/* when no extension whitelist is configured', () => {
-    render(<NeImageUpload />);
+    renderWithApp(<NeImageUpload />);
 
     expect(getFileInput()).toHaveAttribute('accept', 'image/*');
   });
 
   it('renders a thumbnail and hides add control at the max count', () => {
-    render(
+    renderWithApp(
       <NeImageUpload
         maxCount={1}
         value={[{ uid: 'img-1', name: 'avatar.png', status: 'done', thumbUrl: '/avatar.png' }]}
@@ -506,7 +521,7 @@ describe('NeImageUpload', () => {
     vi.mocked(request).mockResolvedValue(avatarBlob);
     const { createObjectURL } = mockObjectUrl('blob:storage-avatar');
 
-    render(
+    renderWithApp(
       <NeImageUpload
         maxCount={1}
         value={[{ uid: 'img-1', name: 'avatar.png', status: 'done', thumbUrl: storageUrl }]}
@@ -525,19 +540,19 @@ describe('NeImageUpload', () => {
 
   it('removes the latest controlled image value after parent rerender', async () => {
     const onChange = vi.fn();
-    const { rerender } = render(
+    const { rerender } = renderWithApp(
       <NeImageUpload
         value={[{ uid: 'local-upload', name: 'local-avatar.png', status: 'done' }]}
         onChange={onChange}
       />,
     );
 
-    rerender(
+    rerender(wrapInApp(
       <NeImageUpload
         value={[{ uid: 'server-avatar', name: 'server-avatar.png', status: 'done', thumbUrl: '/server-avatar.png' }]}
         onChange={onChange}
       />,
-    );
+    ));
 
     await userEvent.click(screen.getByLabelText('删除 server-avatar.png'));
 

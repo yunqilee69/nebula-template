@@ -1,6 +1,7 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Flex, Typography, Upload, message, theme as antdTheme } from 'antd';
+import { App, Button, Typography, Upload } from 'antd';
 import type { UploadProps } from 'antd';
+import { createStyles } from 'antd-style';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { buildAcceptAttribute, buildStorageDownloadUrl, isExtensionAllowed, parseAllowedExtensions } from '@/api/storage';
@@ -14,12 +15,20 @@ const defaultMaxCount = 1;
 /** 缩略图派生标识，与后端 `variant` 参数取值一致。 */
 const thumbnailVariant = 'thumb';
 
+const useStyles = createStyles(({ token }) => ({
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: token.marginSM,
+  },
+}));
+
 function createLocalUid(file: File) {
   return `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`;
 }
 
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : '上传失败，请重试';
+function getErrorMessage(error: unknown, fallback = '上传失败，请重试') {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function mapTaskToFile(current: NeUploadFile, task: UploadTaskDetailResp): NeUploadFile {
@@ -109,7 +118,8 @@ function NeUploadView({
   thumbnailSize = 96,
   preview = false,
 }: NeUploadViewProps) {
-  const { token } = antdTheme.useToken();
+  const { message } = App.useApp();
+  const { styles, cx } = useStyles();
   const uploadPolicy = useUploadPolicyStore((state) => state.policy);
   const controlled = value !== undefined;
   const [internalFiles, setInternalFiles] = useState<NeUploadFile[]>(defaultValue ?? []);
@@ -172,15 +182,29 @@ function NeUploadView({
     return () => {
       active = false;
     };
-  }, [controlled, listBySource, maxCount, sourceEntity, sourceId, sourceType]);
+  }, [controlled, listBySource, maxCount, message, sourceEntity, sourceId, sourceType]);
 
   const removeFile = useCallback(
     async (file: NeUploadFile) => {
-      if (deleteFile) await deleteFile(file);
+      // 只有已有正式文件 id 的才是服务端文件；未绑定的上传任务只清本地状态，不触发正式删除
+      if (deleteFile && file.fileId) {
+        try {
+          await deleteFile(file);
+        } catch (error) {
+          void message.error(getErrorMessage(error, '删除失败，请重试'));
+          return;
+        }
+      }
       applyUpdate((prev) => prev.filter((item) => item.uid !== file.uid));
-      onRemove?.(file);
+      if (!onRemove) return;
+      try {
+        await onRemove(file);
+      } catch (error) {
+        // 外部移除钩子失败不得静默：至少要让用户知道这次移除没生效
+        void message.error(getErrorMessage(error, '移除失败，请重试'));
+      }
     },
-    [applyUpdate, deleteFile, onRemove],
+    [applyUpdate, deleteFile, message, onRemove],
   );
 
   const uploadOne = useCallback(
@@ -190,6 +214,8 @@ function NeUploadView({
         name: file.name,
         size: file.size,
         mimeType: file.type,
+        // 保留原始文件，未绑定正式文件时用它生成本地预览
+        originFileObj: file,
         status: 'uploading',
         percent: 0,
       };
@@ -221,6 +247,17 @@ function NeUploadView({
     [applyUpdate, maxCount, onUploadError, onUploadSuccess, uploadRequest],
   );
 
+  const retryFile = useCallback(
+    (file: NeUploadFile) => {
+      const originFile = file.originFileObj;
+      if (!originFile) return;
+      // 先摘掉失败的旧条目，避免重试成功后列表里同时存在两条同名记录
+      applyUpdate((prev) => prev.filter((item) => item.uid !== file.uid));
+      void uploadOne(originFile);
+    },
+    [applyUpdate, uploadOne],
+  );
+
   const visibleFilesRef = useRef(visibleFiles);
   visibleFilesRef.current = visibleFiles;
 
@@ -249,18 +286,23 @@ function NeUploadView({
     return Upload.LIST_IGNORE;
   };
 
+  // 按钮文案可自定义，无障碍名称必须与可见文案一致，否则读屏读到的和看到的不一样
+  const defaultUploadText = variant === 'image' ? '上传图片' : '上传附件';
+  const uploadLabel = uploadText ?? defaultUploadText;
+  const uploadAriaLabel = typeof uploadLabel === 'string' ? uploadLabel : defaultUploadText;
+
   const uploadButton = (
     <Upload accept={effectiveAccept} disabled={disabled} showUploadList={false} beforeUpload={beforeUpload} multiple={maxCount > 1}>
       {canReplaceSingleFile || !atLimit ? (
-        <Button aria-label={variant === 'image' ? '上传图片' : '上传附件'} icon={<PlusOutlined />} disabled={disabled}>
-          {uploadText ?? (variant === 'image' ? '上传图片' : '上传附件')}
+        <Button aria-label={uploadAriaLabel} icon={<PlusOutlined />} disabled={disabled}>
+          {uploadLabel}
         </Button>
       ) : null}
     </Upload>
   );
 
   return (
-    <Flex vertical gap={token.marginSM} className={className} style={style}>
+    <div className={cx(styles.root, className)} style={style}>
       {variant === 'image' ? (
         <ImageUploadList
           files={visibleFiles}
@@ -269,13 +311,20 @@ function NeUploadView({
           preview={preview}
           uploadButton={uploadButton}
           onRemove={removeFile}
+          onRetry={retryFile}
           disabled={disabled}
         />
       ) : (
-        <FileUploadList files={visibleFiles} uploadButton={uploadButton} onRemove={removeFile} disabled={disabled} />
+        <FileUploadList
+          files={visibleFiles}
+          uploadButton={uploadButton}
+          onRemove={removeFile}
+          onRetry={retryFile}
+          disabled={disabled}
+        />
       )}
       {helperText ? <Typography.Text type="secondary">{helperText}</Typography.Text> : null}
-    </Flex>
+    </div>
   );
 }
 

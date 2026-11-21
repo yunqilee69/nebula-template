@@ -189,17 +189,10 @@ describe('createStorageService', () => {
     expect(parseStorageDownloadUrl('https://cdn.example.com/avatar.png')).toBeUndefined();
   });
 
-  it('binds an upload task to a source', async () => {
-    const request = vi.fn().mockResolvedValue('ok');
-    const service = createStorageService(request);
+  it('exposes no bind step: binding is done by the backend business save API', () => {
+    const service = createStorageService(vi.fn());
 
-    await service.bindUploadTask('task-1', { sourceEntity: 'contract', sourceId: 'c-1' });
-
-    expect(request).toHaveBeenCalledWith({
-      url: '/api/storage/upload-tasks/task-1/bind',
-      method: 'post',
-      data: { sourceEntity: 'contract', sourceId: 'c-1' },
-    });
+    expect(Object.keys(service).filter((method) => method.toLowerCase().includes('bind'))).toEqual([]);
   });
 
   it('gets file detail by id', async () => {

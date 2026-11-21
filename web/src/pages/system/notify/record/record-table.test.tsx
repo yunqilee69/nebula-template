@@ -58,15 +58,44 @@ const RECORDS = [
   },
 ] as const satisfies readonly NotifyRecordResp[];
 
-function createService(): Pick<NotifyService, 'pageNotifyRecords' | 'getNotifyRecord'> {
+const ROBOT_RECORD_WITHOUT_TARGET_NAME = {
+  id: 'record-dingtalk',
+  channelType: 'DINGTALK_GROUP_WEBHOOK',
+  templateCode: 'ORDER_DINGTALK_FAILED',
+  targetId: 'target-dingtalk',
+  receiver: 'https://oapi.dingtalk.com/robot/send?access_token=***',
+  sendStatus: 'FAILED',
+  sendTime: '2026-08-09T10:10:00',
+  createTime: '2026-08-09T10:09:59',
+} as const satisfies NotifyRecordResp;
+
+function createService(): Pick<
+  NotifyService,
+  'pageNotifyRecords' | 'getNotifyRecord' | 'deleteNotifyRecords'
+> {
   return {
     pageNotifyRecords: vi.fn().mockResolvedValue({ data: RECORDS, total: RECORDS.length }),
     getNotifyRecord: vi.fn(),
+    deleteNotifyRecords: vi.fn().mockResolvedValue(0),
   };
 }
 
 function renderPage() {
   const service = createService();
+  render(
+    <NebulaProvider>
+      <NotifyRecordPage service={service} />
+    </NebulaProvider>,
+  );
+  return service;
+}
+
+function renderPageWithRecords(records: readonly NotifyRecordResp[]) {
+  const service: Pick<NotifyService, 'pageNotifyRecords' | 'getNotifyRecord' | 'deleteNotifyRecords'> = {
+    pageNotifyRecords: vi.fn().mockResolvedValue({ data: records, total: records.length }),
+    getNotifyRecord: vi.fn(),
+    deleteNotifyRecords: vi.fn().mockResolvedValue(0),
+  };
   render(
     <NebulaProvider>
       <NotifyRecordPage service={service} />
@@ -113,6 +142,17 @@ describe('NotifyRecordPage filters', () => {
     expect(screen.queryByText('user-buyer-id')).not.toBeInTheDocument();
     expect(screen.queryByText('variant-site')).not.toBeInTheDocument();
     expect(screen.queryByText('target-ops')).not.toBeInTheDocument();
+  });
+
+  it('never renders the webhook address when a robot record has no target name', async () => {
+    renderPageWithRecords([ROBOT_RECORD_WITHOUT_TARGET_NAME]);
+
+    const templateCell = await screen.findByText('ORDER_DINGTALK_FAILED');
+    const rowText = templateCell.closest('tr')?.textContent ?? '';
+
+    expect(rowText).not.toContain('http');
+    expect(rowText).not.toContain('access_token');
+    expect(rowText).toContain('-');
   });
 
   it('submits channel, template, status, receiver, and receiver user filters', async () => {

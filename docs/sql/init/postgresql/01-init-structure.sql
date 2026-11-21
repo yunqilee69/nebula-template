@@ -750,6 +750,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
     endpoint_url VARCHAR(1000) NOT NULL,
     config_json TEXT,
     remark VARCHAR(500),
+    sign_secret_cipher VARCHAR(1024) DEFAULT NULL,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -763,13 +764,14 @@ COMMENT ON COLUMN sys_notify_channel_target.channel_type IS '渠道类型';
 COMMENT ON COLUMN sys_notify_channel_target.endpoint_url IS '投递端点地址';
 COMMENT ON COLUMN sys_notify_channel_target.config_json IS '渠道扩展配置';
 COMMENT ON COLUMN sys_notify_channel_target.remark IS '备注';
+COMMENT ON COLUMN sys_notify_channel_target.sign_secret_cipher IS '加签密钥密文（enc: 前缀）';
 COMMENT ON COLUMN sys_notify_channel_target.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_channel_target.update_time IS '更新时间';
 
 CREATE TABLE IF NOT EXISTS sys_notify_record (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
-    channel_type VARCHAR(20) NOT NULL,
+    channel_type VARCHAR(32) NOT NULL,
     template_code VARCHAR(100),
     template_variant_id VARCHAR(64),
     target_id VARCHAR(64),

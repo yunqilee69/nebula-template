@@ -13,9 +13,9 @@ const baseAnnouncement: CurrentAnnouncementResp = {
   title: '系统公告',
   content: '第一行\n第二行',
   publishTime: '2026-08-10 10:00:00',
-  pinnedFlag: false,
+  pinned: false,
   sortNum: 1,
-  popupFlag: true,
+  popup: true,
   readStatus: false,
 };
 

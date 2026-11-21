@@ -15,6 +15,13 @@ export interface TenantOAuth2Provider {
   enabled: boolean;
   clientId?: string;
   hasClientSecret?: boolean;
+  /**
+   * 凭据是否完整：`enabled=true` 且该渠道必填项齐全。
+   * 单租户下存在记录即以记录为准、不回退 YAML，因此 `false` 表示该渠道当前不可用。
+   */
+  credentialComplete: boolean;
+  /** 缺失项中文标签，与保存期校验报错文案同源；完整时为空数组（后端保证不返回 null）。 */
+  missingFields: string[];
   redirectUri?: string;
   frontendCallbackUri?: string;
   authorizeUrl?: string;

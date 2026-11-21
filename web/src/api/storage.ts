@@ -1,5 +1,4 @@
 import type {
-  BindUploadTaskReq,
   CreateUploadTaskReq,
   ListStorageFilesBySourceReq,
   StorageFileDetailResp,
@@ -67,7 +66,6 @@ export interface StorageService {
     onUploadProgress?: (event: UploadProgressEvent) => void,
   ) => Promise<UploadTaskDetailResp>;
   completeUploadTask: (taskId: string) => Promise<UploadTaskDetailResp>;
-  bindUploadTask: (taskId: string, req: BindUploadTaskReq) => Promise<string>;
   getFileDetail: (fileId: string) => Promise<StorageFileDetailResp>;
   listFilesBySource: (req: ListStorageFilesBySourceReq) => Promise<StorageFileDetailResp[]>;
   deleteFile: (fileId: string) => Promise<void>;
@@ -167,14 +165,6 @@ export function createStorageService(request: StorageRequestFn): StorageService 
       return request<UploadTaskDetailResp>({
         url: `/api/storage/upload-tasks/${encodeURIComponent(taskId)}/complete`,
         method: 'post',
-      });
-    },
-
-    bindUploadTask(taskId, req) {
-      return request<string>({
-        url: `/api/storage/upload-tasks/${encodeURIComponent(taskId)}/bind`,
-        method: 'post',
-        data: req,
       });
     },
 
@@ -336,7 +326,7 @@ async function withRetry<T>(action: () => Promise<T>, retryTimes: number): Promi
  *
  * 分片串行上传（顺序可控、进度单调），单片失败按需重试——
  * 同序号重传在服务端幂等（内容一致直接返回，内容不一致报 PART_HASH_MISMATCH）。
- * 仅返回临时任务详情，bind 仍由调用方决定（与整文件上传保持同一契约）。
+ * 仅返回临时任务详情：绑定由后端业务保存接口按 taskId 完成，前端不绑定。
  */
 export async function uploadFileWithPolicy(
   service: PolicyUploadService,

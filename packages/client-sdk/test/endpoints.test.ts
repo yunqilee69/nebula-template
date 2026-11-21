@@ -28,7 +28,7 @@ test('EndpointsTest.pathsMatchServerContracts', () => {
 
 test('EndpointsTest.pathParamsAreEncoded', () => {
   assert.equal(STORAGE_ENDPOINTS.uploadTaskPart('t/1', 3), '/api/storage/upload-tasks/t%2F1/parts/3');
-  assert.equal(STORAGE_ENDPOINTS.bindUploadTask('abc'), '/api/storage/upload-tasks/abc/bind');
+  assert.equal(STORAGE_ENDPOINTS.completeUploadTask('abc'), '/api/storage/upload-tasks/abc/complete');
   assert.equal(STORAGE_ENDPOINTS.file('f 1'), '/api/storage/files/f%201');
   assert.equal(DICT_ENDPOINTS.itemsByCode('order/status'), '/api/dict/items/dict/order%2Fstatus');
   assert.equal(PARAM_ENDPOINTS.boolean('a.b'), '/api/param/key/a.b/boolean');

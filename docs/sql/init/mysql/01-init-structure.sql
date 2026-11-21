@@ -505,6 +505,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
     endpoint_url VARCHAR(1000) NOT NULL COMMENT '投递端点地址',
     config_json TEXT COMMENT '渠道扩展配置',
     remark VARCHAR(500) COMMENT '备注',
+    sign_secret_cipher VARCHAR(1024) NULL COMMENT '加签密钥密文（enc: 前缀）',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
@@ -514,7 +515,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
 CREATE TABLE IF NOT EXISTS sys_notify_record (
     id VARCHAR(64) NOT NULL,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
-    channel_type VARCHAR(20) NOT NULL COMMENT '渠道类型',
+    channel_type VARCHAR(32) NOT NULL COMMENT '渠道类型',
     template_code VARCHAR(100) COMMENT '模板编码',
     template_variant_id VARCHAR(64) COMMENT '模板渠道变体ID',
     target_id VARCHAR(64) COMMENT '渠道目标ID',

@@ -11,7 +11,7 @@ const GROUP_WEBHOOK_CHANNEL_TYPES: readonly ChannelType[] = [
 
 type NotifyRecordDisplayFields = Pick<
   NotifyRecordResp,
-  'channelType' | 'receiver' | 'receiverUserName' | 'targetName'
+  'channelType' | 'receiverUserName' | 'receiverUserId' | 'targetName'
 >;
 
 const SEND_STATUS_PRESENTATION = {
@@ -43,11 +43,18 @@ function isGroupWebhookChannel(channelType: ChannelType): boolean {
   return GROUP_WEBHOOK_CHANNEL_TYPES.includes(channelType);
 }
 
+/**
+ * 接收人展示文本。
+ *
+ * `receiver` 是落库用的接收标识：群机器人渠道写入的是渠道地址（历史上是带 access_token 的
+ * webhook URL），用户型渠道也可能是内部标识，因此它一律不参与展示，缺失时由调用方显示 `-`。
+ * 群机器人渠道只认渠道目标名称，用户型渠道只认用户名，缺失时降级到用户 ID。
+ */
 export function getRecordRecipientDisplay(record: NotifyRecordDisplayFields): string | undefined {
   if (isGroupWebhookChannel(record.channelType)) {
-    return firstPresentText([record.targetName, record.receiver]);
+    return firstPresentText([record.targetName]);
   }
-  return firstPresentText([record.receiverUserName, record.receiver]);
+  return firstPresentText([record.receiverUserName, record.receiverUserId]);
 }
 
 export function getRecordTemplateVariantDisplay(

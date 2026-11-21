@@ -2,10 +2,11 @@
  * 文件存储契约，对应后端 `nebula-storage` 的 Req/Resp。
  *
  * <p>来源：`UploadTaskDetailResp`、`StorageFileResp`、`StorageFileDetailResp`、
- * `StorageUploadPolicyResp`、`CreateUploadTaskReq`、`BindUploadTaskReq`、
+ * `StorageUploadPolicyResp`、`CreateUploadTaskReq`、
  * `GenerateSignedDownloadUrlReq`、`StorageSignedDownloadResp`。</p>
  *
- * <p>关键约束：简单上传与分片上传返回的都是<b>临时 task</b>，只有 bind 之后才产生正式 fileId。</p>
+ * <p>关键约束：简单上传与分片上传返回的都是<b>临时 task</b>；正式文件由后端业务保存接口按 taskId 绑定，
+ * 端上不再调用任何 bind 接口。</p>
  */
 
 /** 上传任务模式。 */
@@ -73,14 +74,6 @@ export interface CreateUploadTaskReq {
   /** 字节。 */
   chunkSize?: number;
   chunkCount?: number;
-}
-
-/** 绑定上传任务到业务实体请求。 */
-export interface BindUploadTaskReq {
-  sourceEntity: string;
-  sourceId: string;
-  /** 默认 `default`。 */
-  sourceType?: string;
 }
 
 /** 生成签名分享链接请求（默认关闭能力）。 */

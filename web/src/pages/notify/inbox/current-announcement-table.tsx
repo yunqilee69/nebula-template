@@ -77,11 +77,11 @@ export function CurrentAnnouncementTable({ service }: CurrentAnnouncementTablePr
     },
     {
       title: '置顶',
-      dataIndex: 'pinnedFlag',
+      dataIndex: 'pinned',
       width: 80,
       search: false,
       render: (_, record) => (
-        record.pinnedFlag ? <Tag color="red">置顶</Tag> : null
+        record.pinned ? <Tag color="red">置顶</Tag> : null
       ),
     },
     {
@@ -151,7 +151,7 @@ export function CurrentAnnouncementTable({ service }: CurrentAnnouncementTablePr
                     </Typography.Text>
                   ) : null}
                 </div>
-                {selectedAnnouncement.pinnedFlag ? (
+                {selectedAnnouncement.pinned ? (
                   <Tag color="red" className="mt-2">置顶</Tag>
                 ) : null}
               </div>

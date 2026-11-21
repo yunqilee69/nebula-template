@@ -46,11 +46,11 @@ describe('profileService', () => {
   it('updateProfile calls PUT /api/auth/profile with editable profile fields', async () => {
     const data: UpdateProfileReq = {
       nickname: '新昵称',
-      avatar: 'https://example.com/new.png',
       email: 'new@cloudomni.cn',
       phone: '13900000001',
+      uploadTaskIds: { avatar: ['task-avatar-1'] },
     };
-    const updated: ProfileResp = { id: 'user-1', username: 'yunqi', status: 1, ...data };
+    const updated: ProfileResp = { id: 'user-1', username: 'yunqi', status: 1, nickname: data.nickname };
     mockedRequest.mockResolvedValueOnce(updated);
 
     const result = await profileService.updateProfile(data);
