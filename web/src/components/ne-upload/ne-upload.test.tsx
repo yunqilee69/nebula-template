@@ -4,6 +4,7 @@ import { App } from 'antd';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { appStorageService } from '@/api/storage-service';
 import { request } from '@/request/request';
 import { DEFAULT_UPLOAD_POLICY, useUploadPolicyStore } from '@/stores/upload-policy-store';
 import type { FrontendUploadConfig } from '@/types/auth';
@@ -12,6 +13,13 @@ import type { NeUploadFile } from './types';
 
 vi.mock('@/request/request', () => ({
   request: vi.fn(),
+}));
+
+vi.mock('@/api/storage-service', () => ({
+  appStorageService: {
+    getDownloadLocationsBySource: vi.fn(),
+    getDownloadLocation: vi.fn(),
+  },
 }));
 
 const originalCreateObjectURL = URL.createObjectURL;
@@ -245,58 +253,65 @@ describe('NeUpload', () => {
     });
   });
 
-  it('backfills files by source without sourceType when sourceType is empty', async () => {
-    const listBySource = vi.fn().mockResolvedValue([
-      { id: 'file-1', fileName: 'one.pdf', fileMimeType: 'application/pdf', fileSize: 10 },
-      { id: 'file-2', fileName: 'two.pdf', fileMimeType: 'application/pdf', fileSize: 20 },
+  it('loads files from download-location by source without sourceType when sourceType is empty', async () => {
+    vi.mocked(appStorageService.getDownloadLocationsBySource).mockResolvedValue([
+      { fileId: 'file-1', fileName: 'one.pdf', fileMimeType: 'application/pdf', fileSize: 10, mode: 'PROXY', url: '/api/storage/download?fileId=file-1' },
+      { fileId: 'file-2', fileName: 'two.pdf', fileMimeType: 'application/pdf', fileSize: 20, mode: 'PROXY', url: '/api/storage/download?fileId=file-2' },
     ]);
     const onChange = vi.fn();
 
     renderWithApp(
-      <NeUpload
-        sourceEntity="contract"
-        sourceId="c-1"
-        sourceType=""
-        maxCount={1}
-        listBySource={listBySource}
-        onChange={onChange}
-      />,
+      <NeUpload sourceEntity="contract" sourceId="c-1" sourceType="" maxCount={1} onChange={onChange} />,
     );
 
-    await waitFor(() => expect(listBySource).toHaveBeenCalledWith({ sourceEntity: 'contract', sourceId: 'c-1' }));
+    await waitFor(() => {
+      expect(appStorageService.getDownloadLocationsBySource).toHaveBeenCalledWith({
+        sourceEntity: 'contract',
+        sourceId: 'c-1',
+      });
+    });
+    // maxCount 截断：服务端按 create_time DESC 返回，首条即最新
     await waitFor(() => expect(screen.getByText('one.pdf')).toBeInTheDocument());
     expect(screen.queryByText('two.pdf')).not.toBeInTheDocument();
     expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ fileId: 'file-1', name: 'one.pdf' })]);
   });
 
-  it('backfills files by a specific sourceType when provided', async () => {
-    const listBySource = vi.fn().mockResolvedValue([{ id: 'file-1', fileName: 'main.pdf' }]);
+  it('loads files by a specific sourceType when provided', async () => {
+    vi.mocked(appStorageService.getDownloadLocationsBySource).mockResolvedValue([
+      { fileId: 'file-1', fileName: 'main.pdf', mode: 'PROXY', url: '/api/storage/download?fileId=file-1' },
+    ]);
 
-    renderWithApp(<NeUpload sourceEntity="contract" sourceId="c-1" sourceType="main" listBySource={listBySource} />);
-
-    await waitFor(() => expect(listBySource).toHaveBeenCalledWith({ sourceEntity: 'contract', sourceId: 'c-1', sourceType: 'main' }));
-  });
-
-  it('reports a successful backfill with the merged file list', async () => {
-    const listBySource = vi.fn().mockResolvedValue([{ id: 'file-1', fileName: 'one.pdf' }]);
-    const onBackfillComplete = vi.fn();
-
-    renderWithApp(
-      <NeUpload
-        sourceEntity="contract"
-        sourceId="c-1"
-        listBySource={listBySource}
-        onBackfillComplete={onBackfillComplete}
-      />,
-    );
+    renderWithApp(<NeUpload sourceEntity="contract" sourceId="c-1" sourceType="main" />);
 
     await waitFor(() => {
-      expect(onBackfillComplete).toHaveBeenCalledWith([expect.objectContaining({ fileId: 'file-1', name: 'one.pdf' })], true);
+      expect(appStorageService.getDownloadLocationsBySource).toHaveBeenCalledWith({
+        sourceEntity: 'contract',
+        sourceId: 'c-1',
+        sourceType: 'main',
+      });
     });
   });
 
-  it('reports a failed backfill and keeps the current files', async () => {
-    const listBySource = vi.fn().mockRejectedValue(new Error('网络错误'));
+  it('reports a successful load with the merged file list', async () => {
+    vi.mocked(appStorageService.getDownloadLocationsBySource).mockResolvedValue([
+      { fileId: 'file-1', fileName: 'one.pdf', mode: 'PROXY', url: '/api/storage/download?fileId=file-1' },
+    ]);
+    const onBackfillComplete = vi.fn();
+
+    renderWithApp(
+      <NeUpload sourceEntity="contract" sourceId="c-1" onBackfillComplete={onBackfillComplete} />,
+    );
+
+    await waitFor(() => {
+      expect(onBackfillComplete).toHaveBeenCalledWith(
+        [expect.objectContaining({ fileId: 'file-1', name: 'one.pdf' })],
+        true,
+      );
+    });
+  });
+
+  it('reports a failed load and keeps the current files', async () => {
+    vi.mocked(appStorageService.getDownloadLocationsBySource).mockRejectedValue(new Error('网络错误'));
     const onBackfillComplete = vi.fn();
 
     renderWithApp(
@@ -304,7 +319,6 @@ describe('NeUpload', () => {
         value={[{ uid: 'local', name: 'local.txt', status: 'done', taskId: 'task-1' }]}
         sourceEntity="contract"
         sourceId="c-1"
-        listBySource={listBySource}
         onBackfillComplete={onBackfillComplete}
       />,
     );
@@ -314,10 +328,10 @@ describe('NeUpload', () => {
     });
   });
 
-  it('keeps an upload that finishes while the backfill request is still in flight', async () => {
-    let resolveBackfill: ((items: unknown[]) => void) | undefined;
-    const listBySource = vi.fn().mockImplementation(
-      () => new Promise((resolve) => { resolveBackfill = resolve; }),
+  it('keeps an upload that finishes while the load request is still in flight', async () => {
+    let resolveLocations: ((items: unknown[]) => void) | undefined;
+    vi.mocked(appStorageService.getDownloadLocationsBySource).mockImplementation(
+      () => new Promise((resolve) => { resolveLocations = resolve; }) as never,
     );
     const uploadRequest = vi.fn().mockResolvedValue({
       id: 'task-local',
@@ -332,7 +346,6 @@ describe('NeUpload', () => {
         maxCount={3}
         sourceEntity="contract"
         sourceId="c-1"
-        listBySource={listBySource}
         uploadRequest={uploadRequest}
         onChange={onChange}
       />,
@@ -343,9 +356,9 @@ describe('NeUpload', () => {
       expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ taskId: 'task-local', status: 'done' })]);
     });
 
-    act(() => resolveBackfill?.([{ id: 'file-1', fileName: 'server.txt' }]));
+    act(() => resolveLocations?.([{ fileId: 'file-1', fileName: 'server.txt', mode: 'PROXY', url: '/api/storage/download?fileId=file-1' }]));
 
-    // 有 taskId、无 fileId 表示上传完成但还没 bind，回填不能把它当成待删除项丢掉
+    // 有 taskId、无 fileId 表示上传完成但还没 bind，装载结果不能把它当成旧数据丢掉
     await waitFor(() => {
       const merged = onChange.mock.calls.at(-1)?.[0] as NeUploadFile[];
       expect(merged.map((file) => file.fileId ?? file.taskId)).toEqual(
@@ -354,15 +367,148 @@ describe('NeUpload', () => {
     });
   });
 
-  it('does not report backfill when no source backfill is configured', async () => {
-    const onBackfillComplete = vi.fn();
-    const listBySource = vi.fn();
+  it('uses the supplied download locations without querying the server', async () => {
+    const onChange = vi.fn();
 
-    renderWithApp(<NeUpload onBackfillComplete={onBackfillComplete} listBySource={listBySource} />);
+    renderWithApp(
+      <NeUpload
+        sourceEntity="contract"
+        sourceId="c-1"
+        downloadLocations={[
+          { fileId: 'file-9', fileName: 'given.pdf', mode: 'DIRECT', url: 'https://oss.example.com/a.pdf?sig=1' },
+        ]}
+        onChange={onChange}
+      />,
+    );
 
     await act(async () => {});
-    expect(listBySource).not.toHaveBeenCalled();
+    // 业务直传优先：即使给了业务归属也不发请求
+    expect(appStorageService.getDownloadLocationsBySource).not.toHaveBeenCalled();
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ fileId: 'file-9' })]));
+  });
+
+  it('reports nothing when neither download locations nor a source are configured', async () => {
+    const onBackfillComplete = vi.fn();
+
+    renderWithApp(<NeUpload onBackfillComplete={onBackfillComplete} />);
+
+    await act(async () => {});
+    expect(appStorageService.getDownloadLocationsBySource).not.toHaveBeenCalled();
     expect(onBackfillComplete).not.toHaveBeenCalled();
+  });
+
+  it('defers removal: reports the fileId without calling the delete API', async () => {
+    const deleteFile = vi.fn();
+    const onRemovalChange = vi.fn();
+    const onChange = vi.fn();
+
+    renderWithApp(
+      <NeUpload
+        removalMode="deferred"
+        deleteFile={deleteFile}
+        onRemovalChange={onRemovalChange}
+        onChange={onChange}
+        value={[
+          { uid: 'file-1', name: 'saved.pdf', status: 'done', fileId: 'file-1', url: '/api/storage/download?fileId=file-1' },
+        ]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '删除 saved.pdf' }));
+
+    await waitFor(() => expect(onRemovalChange).toHaveBeenLastCalledWith(['file-1']));
+    // 延迟删除：不调接口，由业务保存时统一释放
+    expect(deleteFile).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(await screen.findByText(/已标记删除 1 个文件/)).toBeInTheDocument();
+  });
+
+  it('restores deferred removals when the user undoes', async () => {
+    const onRemovalChange = vi.fn();
+    const onChange = vi.fn();
+
+    renderWithApp(
+      <NeUpload
+        removalMode="deferred"
+        onRemovalChange={onRemovalChange}
+        onChange={onChange}
+        value={[
+          { uid: 'file-1', name: 'saved.pdf', status: 'done', fileId: 'file-1', url: '/api/storage/download?fileId=file-1' },
+        ]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '删除 saved.pdf' }));
+    await waitFor(() => expect(screen.getByText(/已标记删除/)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: '撤销' }));
+
+    await waitFor(() => expect(onRemovalChange).toHaveBeenLastCalledWith([]));
+    expect(screen.getByText('saved.pdf')).toBeInTheDocument();
+    expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ fileId: 'file-1' })]);
+  });
+
+  it('records the displaced saved file when a single-value slot is replaced', async () => {
+    const uploadRequest = vi.fn().mockResolvedValue({
+      id: 'task-new', taskMode: 'simple', fileName: 'new.png', status: 'COMPLETED',
+    });
+    const onRemovalChange = vi.fn();
+    // 已保存图片的预览走位置决议（直连时直接用裸 URL）
+    vi.mocked(request).mockResolvedValue([
+      { mode: 'DIRECT', url: 'https://oss.example.com/old.png?sig=1' },
+    ]);
+
+    renderWithApp(
+      <NeImageUpload
+        removalMode="deferred"
+        maxCount={1}
+        replaceable
+        uploadRequest={uploadRequest}
+        onRemovalChange={onRemovalChange}
+        downloadLocations={[
+          { fileId: 'file-old', fileName: 'old.png', mode: 'PROXY', url: '/api/storage/download?fileId=file-old' },
+        ]}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('img', { name: 'old.png' })).toBeInTheDocument());
+
+    await userEvent.upload(getFileInput(), createFile('new.png', 'data', 'image/png'));
+
+    // 换图 = 删旧 + 加新：旧文件必须进待删除列表，否则旧记录永久残留
+    await waitFor(() => expect(onRemovalChange).toHaveBeenLastCalledWith(['file-old']));
+  });
+
+  it('clears deferred removals once the source is reloaded', async () => {
+    const onRemovalChange = vi.fn();
+    const { rerender } = renderWithApp(
+      <NeUpload
+        removalMode="deferred"
+        onRemovalChange={onRemovalChange}
+        value={[
+          { uid: 'file-1', name: 'saved.pdf', status: 'done', fileId: 'file-1', url: '/api/storage/download?fileId=file-1' },
+        ]}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '删除 saved.pdf' }));
+    await waitFor(() => expect(onRemovalChange).toHaveBeenLastCalledWith(['file-1']));
+
+    rerender(
+      wrapInApp(
+        <NeUpload
+          removalMode="deferred"
+          onRemovalChange={onRemovalChange}
+          value={[]}
+          downloadLocations={[
+            { fileId: 'file-9', fileName: 'fresh.pdf', mode: 'PROXY', url: '/api/storage/download?fileId=file-9' },
+          ]}
+        />,
+      ),
+    );
+
+    // 重新装载说明服务端已刷新（通常是保存成功）：待删除列表必须清空，防止重复提交
+    await waitFor(() => expect(onRemovalChange).toHaveBeenLastCalledWith([]));
   });
 
   it('renders the real progress reported by the upload implementation', async () => {
@@ -425,60 +571,23 @@ describe('NeUpload', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('requests the thumb variant for backfilled images that actually have a thumb derivation', async () => {
-    // 受保护 URL 会走位置决议；这里只需断言回填出的 URL，不关心渲染结果
-    vi.mocked(request).mockResolvedValue([{ mode: 'PROXY', url: '/api/storage/download?fileId=file-img' }]);
-    const listBySource = vi.fn().mockResolvedValue([
-      {
-        id: 'file-img',
-        fileName: 'avatar.png',
-        fileMimeType: 'image/png',
-        variants: [{ variant: 'thumb', width: 320, height: 320, fileSize: 2048 }],
-      },
-    ]);
+  it('uses a DIRECT download location as-is instead of re-resolving it', async () => {
     const onChange = vi.fn();
 
     renderWithApp(
-      <NeImageUpload sourceEntity="user-profile" sourceId="u-1" listBySource={listBySource} onChange={onChange} />,
+      <NeImageUpload
+        downloadLocations={[
+          { fileId: 'file-img', fileName: 'avatar.png', fileMimeType: 'image/png', mode: 'DIRECT', url: 'https://oss.example.com/a.png?sig=1' },
+        ]}
+        onChange={onChange}
+      />,
     );
 
     await waitFor(() => expect(onChange).toHaveBeenCalled());
-    // 有 thumb 派生才带 variant：否则每个缩略图位都在拉原图
+    // 直链即凭据：客户端原样使用，不再走一次位置决议
     expect(onChange).toHaveBeenLastCalledWith([
-      expect.objectContaining({
-        thumbUrl: '/api/storage/download?fileId=file-img&filename=avatar.png&variant=thumb',
-      }),
+      expect.objectContaining({ fileId: 'file-img', url: 'https://oss.example.com/a.png?sig=1' }),
     ]);
-  });
-
-  it('keeps the origin URL when the image has no thumb derivation', async () => {
-    vi.mocked(request).mockResolvedValue([{ mode: 'PROXY', url: '/api/storage/download?fileId=file-img' }]);
-    const listBySource = vi.fn().mockResolvedValue([
-      // 未开启图片处理时服务端不会产出派生行；此时带 variant 只会让后端每次都回退原图并打 WARN
-      { id: 'file-img', fileName: 'avatar.png', fileMimeType: 'image/png', variants: [] },
-    ]);
-    const onChange = vi.fn();
-
-    renderWithApp(
-      <NeImageUpload sourceEntity="user-profile" sourceId="u-1" listBySource={listBySource} onChange={onChange} />,
-    );
-
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
-    expect(onChange).toHaveBeenLastCalledWith([
-      expect.objectContaining({ thumbUrl: '/api/storage/download?fileId=file-img&filename=avatar.png' }),
-    ]);
-  });
-
-  it('never marks non-image files as having a thumbnail', async () => {
-    const listBySource = vi.fn().mockResolvedValue([
-      { id: 'file-1', fileName: 'a.pdf', fileMimeType: 'application/pdf', variants: [{ variant: 'thumb' }] },
-    ]);
-    const onChange = vi.fn();
-
-    renderWithApp(<NeUpload sourceEntity="contract" sourceId="c-1" listBySource={listBySource} onChange={onChange} />);
-
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
-    expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ thumbUrl: undefined })]);
   });
 });
 

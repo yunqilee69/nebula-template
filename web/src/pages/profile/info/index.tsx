@@ -10,7 +10,8 @@ import { redirectToAuthorizeUrl } from '@/pages/login/wechat-redirect-navigation
 import { useAuthStore } from '@/stores/auth-store';
 import type { OAuth2BindingResp, ProfileResp } from '@/types/profile';
 import { createAvatarPreviewUrl, createAvatarUploadAdapter, revokeAvatarPreviewUrl } from './avatar-upload';
-import type { AvatarUploadOutcome, AvatarUploadResult } from './avatar-upload';
+import type { AvatarUploadOutcome } from './avatar-upload';
+import type { UploadTaskDetailResp } from '@/types/storage';
 import { BasicProfileCard } from './basic-profile-card';
 import type { ProfileFormValues } from './basic-profile-card';
 import { buildProfilePayload, mergeProfileIntoCurrentUser } from './profile-save';
@@ -25,6 +26,8 @@ interface ProfileSaveOptions {
   readonly avatarTaskId?: string;
   /** 保存成功后写入全局用户态的本地预览地址。 */
   readonly avatarPreviewUrl?: string;
+  /** 换头像时被顶掉的旧头像文件：随同一次保存提交，由后端释放引用。 */
+  readonly deletedFileIds?: readonly string[];
 }
 
 export interface ProfileInfoPageProps {
@@ -124,7 +127,10 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
   const saveProfile = useCallback(
     async (values: ProfileFormValues, options: ProfileSaveOptions = {}) => {
       const avatarTaskId = options.avatarTaskId ?? pendingAvatarTaskId;
-      const updatedProfile = await service.updateProfile(buildProfilePayload(values, avatarTaskId));
+      // 换头像 = 删旧 + 加新：删除集合由上传组件在回调里回吐（见 handleAvatarUploaded）
+      const updatedProfile = await service.updateProfile(
+        buildProfilePayload(values, avatarTaskId, options.deletedFileIds),
+      );
       // 头像地址以保存响应为准：绑定在保存流程内完成，响应里是最终地址
       setProfile(updatedProfile);
       setAvatarUrl(updatedProfile.avatar);
@@ -164,31 +170,48 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
     return createAvatarUploadAdapter(profileStorageService).uploadAvatar;
   }, [profile?.id, uploadAvatar]);
 
-  const uploadAvatarFile = useCallback(
-    async (file: File, onProgress?: (percent: number) => void): Promise<AvatarUploadResult> => {
+  /** 本次上传产出的本地预览地址：保存时交给页面同步到全局用户态（Header 头像） */
+  const pendingAvatarPreviewRef = useRef<string>();
+
+  /** 只负责上传：把文件传成临时任务，同时留一份本地预览地址给 Header 用。 */
+  const uploadAvatarTask = useCallback(
+    async (file: File, onProgress?: (percent: number) => void): Promise<UploadTaskDetailResp> => {
       if (!avatarUpload) throw new Error(t('auth.profileInfo.feedback.profileLoadFailed'));
       const outcome = await avatarUpload(file, onProgress);
-      const localPreviewUrl = outcome.previewUrl ?? createAvatarPreviewUrl(file);
-      setPendingAvatarTaskId(outcome.taskId);
+      const previewUrl = outcome.previewUrl ?? createAvatarPreviewUrl(file);
+      const previousPreview = pendingAvatarPreviewRef.current;
+      pendingAvatarPreviewRef.current = previewUrl;
+      if (previousPreview && previousPreview !== previewUrl) revokeAvatarPreviewUrl(previousPreview);
+      return outcome.task;
+    },
+    [avatarUpload, t],
+  );
+
+  /**
+   * 上传成功后的保存：组件回吐"新增 taskId + 被顶掉的旧 fileId"，两者一次提交。
+   *
+   * <p>保存失败时 taskId 与本地预览都保留（绑定尚未发生），用户可再次保存重试。</p>
+   */
+  const handleAvatarUploaded = useCallback(
+    async (task: UploadTaskDetailResp, removedFileIds: string[]) => {
+      setPendingAvatarTaskId(task.id);
       setSaving(true);
       try {
-        const savedProfile = await saveProfile(form.getFieldsValue(), {
-          avatarTaskId: outcome.taskId,
-          avatarPreviewUrl: localPreviewUrl,
+        await saveProfile(form.getFieldsValue(), {
+          avatarTaskId: task.id,
+          avatarPreviewUrl: pendingAvatarPreviewRef.current,
+          deletedFileIds: removedFileIds,
         });
         notice.success(t('auth.profileInfo.feedback.profileUpdateSuccess'));
-        return { ...outcome, saved: true, avatarUrl: savedProfile.avatar };
       } catch (error: unknown) {
-        // 保存失败：taskId 与本地预览都保留，绑定尚未发生，用户可再次保存重试
         notice.error(t('auth.profileInfo.feedback.profileUpdateFailed'));
         const message = error instanceof Error ? error.message : String(error);
         console.error('Profile avatar auto-save failed', message);
-        return { ...outcome, saved: false };
       } finally {
         setSaving(false);
       }
     },
-    [avatarUpload, form, notice, saveProfile, t],
+    [form, notice, saveProfile, t],
   );
 
   const unbindOAuth2 = useCallback(
@@ -258,7 +281,8 @@ export function ProfileInfoPage({ service: serviceProp, uploadAvatar }: ProfileI
         uploadDisabled={saving || profileLoading || !profile?.id}
         onRefresh={loadProfile}
         onSubmit={submitProfile}
-        uploadAvatarFile={uploadAvatarFile}
+        uploadAvatarTask={uploadAvatarTask}
+        onAvatarUploaded={handleAvatarUploaded}
       />
 
       <PasswordCard form={passwordForm} saving={passwordSaving} onSubmit={submitPassword} />

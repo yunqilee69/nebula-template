@@ -24,6 +24,8 @@ vi.mock('@/api/storage-service', () => ({
     createUploadTask: vi.fn(),
     uploadTaskPart: vi.fn(),
     completeUploadTask: vi.fn(),
+    getDownloadLocationsBySource: vi.fn(),
+    getDownloadLocation: vi.fn(),
   },
 }));
 
@@ -103,6 +105,8 @@ function renderPage() {
 beforeEach(() => {
   useUploadPolicyStore.setState({ policy: DEFAULT_UPLOAD_POLICY, loaded: true });
   vi.mocked(tenantProfileService.getProfile).mockResolvedValue(profile);
+  // 资源位组件挂载时会按业务归属解析下载地址；默认没有已保存图片
+  vi.mocked(appStorageService.getDownloadLocationsBySource).mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -114,7 +118,7 @@ afterEach(() => {
   act(() => useAuthStore.getState().clearUser());
 });
 
-describe('企业设置 tab 的资源位上传', () => {
+describe('企业信息 tab 的资源位上传', () => {
   it('aggregates the four asset slots into uploadTaskIds on save', async () => {
     const user = userEvent.setup();
     const taskIds = ['t1', 't2', 't3', 't4'];
@@ -128,10 +132,14 @@ describe('企业设置 tab 的资源位上传', () => {
         status: 'COMPLETED',
       });
     });
-    vi.mocked(tenantProfileService.updateProfile).mockResolvedValue({
-      ...profile,
-      logo: 'https://cdn.example.com/logo.png',
-    });
+    vi.mocked(tenantProfileService.updateProfile).mockResolvedValue(profile);
+    // 保存成功后组件重新解析下载地址：这里给出服务端最新的一张 Logo
+    const reloadedLogo = 'https://cdn.example.com/logo.png';
+    vi.mocked(appStorageService.getDownloadLocationsBySource)
+      .mockResolvedValueOnce([])  // 首次挂载：还没有图
+      .mockResolvedValue([
+        { fileId: 'file-logo', fileName: 'logo.png', mode: 'DIRECT', url: reloadedLogo },
+      ]);
     mockObjectUrls('blob:logo', 'blob:login-logo', 'blob:favicon', 'blob:login-background');
 
     renderPage();
@@ -163,8 +171,48 @@ describe('企业设置 tab 的资源位上传', () => {
     expect(payload.branding).not.toHaveProperty('favicon');
     expect(payload.branding).not.toHaveProperty('loginBackground');
 
+    // 保存成功后按业务归属重新解析：图片地址来自下载位置，不再依赖资料响应
+    await waitFor(() => {
+      expect(appStorageService.getDownloadLocationsBySource).toHaveBeenCalledWith({
+        sourceEntity: 'tenant-profile',
+        sourceId: 'tenant-1',
+        sourceType: 'logo',
+      });
+    });
     await waitFor(() => expect(screen.getByAltText('企业 Logo')).toHaveAttribute('src', 'https://cdn.example.com/logo.png'));
     expect(screen.queryByText('待保存生效')).not.toBeInTheDocument();
+  });
+
+  it('submits the replaced asset file id so the backend can release it', async () => {
+    const user = userEvent.setup();
+    vi.mocked(appStorageService.uploadSimpleFile).mockResolvedValueOnce({
+      id: 'task-logo',
+      taskMode: 'simple',
+      fileName: 'logo.png',
+      fileMimeType: 'image/png',
+      status: 'COMPLETED',
+    });
+    // 该资源位已有一张保存过的图：换图时它必须进 deletedFileIds
+    vi.mocked(appStorageService.getDownloadLocationsBySource).mockResolvedValue([
+      { fileId: 'file-saved-logo', fileName: 'old-logo.png', mode: 'PROXY', url: '/api/storage/download?fileId=file-saved-logo' },
+    ]);
+    vi.mocked(tenantProfileService.updateProfile).mockResolvedValue(profile);
+    mockObjectUrls('blob:new-logo');
+
+    renderPage();
+
+    expect(await screen.findByDisplayValue('Acme 科技')).toBeInTheDocument();
+    setAdminUser();
+    await uploadImage(user, getAssetFileInputs(4)[0] as HTMLInputElement, 'logo.png');
+    await waitFor(() => expect(screen.getAllByText('待保存生效')).toHaveLength(1));
+
+    await user.click(screen.getByRole('button', { name: /保\s*存/ }));
+
+    await waitFor(() => expect(tenantProfileService.updateProfile).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(tenantProfileService.updateProfile).mock.calls[0][0];
+    expect(payload.uploadTaskIds).toEqual({ logo: ['task-logo'] });
+    // 换图 = 删旧 + 加新：旧文件随同一次保存提交释放
+    expect(payload.deletedFileIds).toEqual(['file-saved-logo']);
   });
 
   it('keeps the pending task and local preview when the save fails', async () => {
@@ -202,6 +250,8 @@ describe('企业设置 tab 的资源位上传', () => {
     expect(Object.keys(appStorageService).sort()).toEqual([
       'completeUploadTask',
       'createUploadTask',
+      'getDownloadLocation',
+      'getDownloadLocationsBySource',
       'uploadSimpleFile',
       'uploadTaskPart',
     ]);

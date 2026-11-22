@@ -45,7 +45,7 @@
     初始化 SQL 中只创建全局平台账号 `auth_person.username=superadmin`、`platform_admin=1`；它不绑定默认租户，也不在默认租户内创建同名 `auth_user`、角色或关联记录。超级管理员只存在于控制平面。后端能力标记仍保留字段名 `platform_admin`。
 
 13. **企业资料由租户自助维护，平台保留兜底编辑能力。**
-    数据平面「系统管理 → 企业设置」由租户管理员维护企业名称、简称、Logo、对外联系方式、官网、地址、行业、简介、默认语言/时区与登录页品牌；企业代码、域名、状态仍由平台持有，租户只读。企业设置使用 `TENANT_PROFILE_QUERY` / `TENANT_PROFILE_UPDATE` 权限码，内置 `ADMIN` 默认授权，自定义角色可按需授予。控制平面仍可编辑同样字段，但属于排障/交付手段，不写租户审计、不通知租户。移动端只读展示企业资料，不提供编辑入口。
+    数据平面「系统管理 → 高级配置 → 企业信息」页签由租户管理员维护企业名称、简称、Logo、对外联系方式、官网、地址、行业、简介、默认语言/时区与登录页品牌；企业代码、域名、状态仍由平台持有，租户只读。企业资料读取使用 `TENANT_PROFILE_QUERY`，保存使用 `TENANT_PROFILE_UPDATE`，内置 `ADMIN` 默认授权，自定义角色可按需授予。控制平面仍可编辑同样字段，但属于排障/交付手段，不写租户审计、不通知租户。移动端只读展示企业资料，不提供编辑入口。
 
 ---
 
@@ -963,7 +963,7 @@ UNIQUE (tenant_id, provider_config_id, provider_user_id)
 - 默认租户保留内置 `admin` 账号（`ADMIN` 角色、`ROOT` 组织），是普通租户管理员；`admin` 首次登录会进入绑定页，绑定后仍不能登录控制平面；
 - 新建租户的模板管理员没有平台账号关联，首次登录仍需按第 5 章完成绑定；
 - provider 目录：GitHub、微信 web/mini；
-- 新增菜单/按钮/API：企业设置（`TENANT_ENTERPRISE_SETTINGS`，按钮 `TENANT_PROFILE_QUERY` / `TENANT_PROFILE_UPDATE`）、租户 OAuth 配置、成员邀请；`ADMIN` 默认获得企业设置全部按钮权限，自定义角色可由租户管理员授予；数据平面不再种下「租户配置」菜单组，控制平面 `control/` 不依赖租户菜单。
+- 新增菜单/按钮/API：租户 OAuth 配置、成员邀请；企业资料相关按钮 `TENANT_PROFILE_QUERY` / `TENANT_PROFILE_UPDATE` 与存储配置按钮 `STORAGE_SETTINGS_UPDATE`、接口码 `STORAGE_SETTINGS_QUERY` 都挂在既有「高级配置」（`GENERAL_CONFIG`）菜单下——企业资料、登录方式、存储参数同属运行期可调的管理面配置，不各自占一个菜单。`ADMIN` 默认获得上述全部权限，自定义角色可由租户管理员授予；数据平面不再种下「租户配置」菜单组，控制平面 `control/` 不依赖租户菜单。
 
 ---
 
@@ -1125,14 +1125,18 @@ PUT    /api/auth/oauth2-providers/{id}
 - 租户登录页支持绑定挑战，展示“设置平台账号”表单；
 - 多租户下登录页额外提供独立的「平台账号登录」方式（仅用户名 + 密码），与租户账号登录并列；租户账号自身仍支持手机/邮箱/OAuth；
 - 个人详情页 `/profile/info` 在多租户模式下显示「企业个人信息 / 平台个人信息」页签；
-- 「系统管理 → 企业设置」(`/system/settings/tenant`) 是租户管理员自助维护企业资料的唯一入口，包含「基础信息 / 品牌与登录页 / 登录与安全 / 企业标识」四个页签；企业代码、域名、状态只读；保存后写回品牌 store，布局与登录页品牌即时生效；
+- 「系统管理 → 高级配置」(`/system/config/general`) 是租户管理员自助维护运行期配置的唯一入口，页签依次为「企业信息 / 认证 / 审计、通知等参数页签 / 存储」；
+  - 「企业信息」把企业资料、登录页品牌与企业标识合到一块，企业代码、域名、状态只读；保存走 `PUT /api/auth/tenant/profile`，成功后写回品牌 store，布局与登录页品牌即时生效；
+  - 「认证」同屏放企业第三方登录（`/api/auth/tenant/oauth2-providers`）与登录/注册策略参数；
+  - 「存储」放正式内容后端的在线配置与上传策略（`/api/storage/settings`）；
+  - 各页签按权限显隐：无 `TENANT_PROFILE_QUERY` 不显示「企业信息」，无 `STORAGE_SETTINGS_QUERY` 不显示「存储」；
 - 登录页与布局从 `/api/frontend/init` 的 `tenant` 节点读取名称、Logo、登录页标题/欢迎语/背景、主题色与 favicon；未配置时回落到企业名称与默认品牌；
 - 切换企业菜单只展示已关联租户，点击导航；
 - 切换后清空权限/字典/参数/菜单缓存，重建 SSE；
 - 页面位置：
   - `web/src/pages/profile/info/**`：租户个人资料与平台账号页签；
-  - `web/src/pages/tenant/settings/enterprise/**`：企业设置（资料与品牌）；
-  - `web/src/pages/tenant/settings/oauth-providers.tsx`：租户 OAuth 配置；
+  - `web/src/pages/system/config/general/**`：高级配置页（企业信息、认证、存储与参数页签）；
+  - `web/src/pages/system/config/general/tenant-settings/**`：企业资料/品牌/企业标识与租户 OAuth 配置；
   - `web/src/pages/tenant-config/tenant-management/**`：默认租户的租户管理（过渡入口）；
   - `web/src/pages/tenant-config/person-management/**`：默认租户的平台用户管理（过渡入口）；
   - `web/src/pages/login/binding.tsx`：平台账号绑定；

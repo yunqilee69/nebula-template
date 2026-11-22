@@ -1,5 +1,5 @@
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createRequestClient } from './create-request-client';
 
 function mockAdapter(
@@ -28,5 +28,28 @@ describe('createRequestClient blob downloads', () => {
 
     await expect(client.get('/api/storage/download', { responseType: 'blob' })).resolves.toBe(blob);
     expect(capturedConfig?.headers.get('Authorization')).toBe('Bearer download-token');
+  });
+
+  it('rejects when a blob download actually carries a business error envelope', async () => {
+    const onBusinessError = vi.fn();
+    const client = createRequestClient({ getToken: () => 'token', onBusinessError });
+    const errorEnvelope = new Blob(
+      [JSON.stringify({ code: '24008', message: '当前用户无权下载该文件' })],
+      { type: 'application/json' },
+    );
+    client.defaults.adapter = mockAdapter((config) => makeResponse(config, errorEnvelope));
+
+    // 下载失败时服务端返回 HTTP 200 + ApiResult；responseType=blob 不能把这份 JSON 当成文件交出去
+    await expect(client.get('/api/storage/download', { responseType: 'blob' }))
+      .rejects.toMatchObject({ name: 'NebulaBusinessError', code: '24008' });
+    expect(onBusinessError).toHaveBeenCalledWith('当前用户无权下载该文件');
+  });
+
+  it('keeps non-JSON blobs untouched when the body is not a business envelope', async () => {
+    const client = createRequestClient({ getToken: () => 'token' });
+    const jsonButNotEnvelope = new Blob([JSON.stringify({ detail: 'x' })], { type: 'application/json' });
+    client.defaults.adapter = mockAdapter((config) => makeResponse(config, jsonButNotEnvelope));
+
+    await expect(client.get('/api/storage/download', { responseType: 'blob' })).resolves.toBe(jsonButNotEnvelope);
   });
 });

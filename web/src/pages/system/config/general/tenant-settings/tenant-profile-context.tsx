@@ -16,10 +16,14 @@ import { hasPermission } from '@/utils/permissions';
 /** 企业资料的保存按钮权限码：与后端 `TenantProfileController#updateProfile` 对应。 */
 const profileUpdatePermission = 'BUTTON:TENANT_PROFILE_UPDATE:Allow';
 
+/** 表单里的资源位值：只存待提交的上传任务 id（图片地址由上传组件自行解析，不进表单）。 */
 type TenantAssetTaskIds = Partial<Record<TenantAssetSlot, string>>;
 
 /**
- * 企业资料表单值：图片资源位只存待提交的上传任务 id，图片地址来自保存响应。
+ * 企业资料表单值：图片资源位只记待提交的上传任务 id。
+ *
+ * <p>图片列表由 `NeImageUpload` 按业务归属（`tenant-profile` + 资源位）自行解析下载地址，
+ * 保存成功后组件通过 `refreshToken` 重新解析，不依赖资料响应回传地址。</p>
  */
 export type TenantProfileFormValues = Omit<UpdateTenantProfileReq, 'uploadTaskIds'> & {
   assetTaskIds?: TenantAssetTaskIds;
@@ -50,7 +54,9 @@ export function toFormValues(profile: TenantProfile): TenantProfileFormValues {
   };
 }
 
-/** 聚合待提交的资源位上传任务：只提交有 taskId 的资源位，单值资源位每个 key 恰好一个元素。 */
+/**
+ * 聚合待提交的资源位上传任务：只提交有 taskId 的资源位，单值资源位每个 key 恰好一个元素。
+ */
 export function toUploadTaskIds(assetTaskIds: TenantAssetTaskIds | undefined): TenantAssetUploadTaskIds | undefined {
   const entries = Object.entries(assetTaskIds ?? {})
     .map(([slot, taskId]) => [slot as TenantAssetSlot, normalizeText(taskId)] as const)
@@ -59,7 +65,7 @@ export function toUploadTaskIds(assetTaskIds: TenantAssetTaskIds | undefined): T
   return Object.fromEntries(entries.map(([slot, taskId]) => [slot, [taskId]])) as TenantAssetUploadTaskIds;
 }
 
-function toRequest(values: TenantProfileFormValues): UpdateTenantProfileReq {
+function toRequest(values: TenantProfileFormValues, deletedFileIds: string[]): UpdateTenantProfileReq {
   const branding = values.branding ?? {};
   const uploadTaskIds = toUploadTaskIds(values.assetTaskIds);
   return {
@@ -79,6 +85,8 @@ function toRequest(values: TenantProfileFormValues): UpdateTenantProfileReq {
       themeColor: normalizeText(branding.themeColor),
     },
     ...(uploadTaskIds ? { uploadTaskIds } : {}),
+    // 换图时被顶掉的旧图：与 uploadTaskIds 同批提交，后端先绑定新的、再释放这些
+    ...(deletedFileIds.length > 0 ? { deletedFileIds } : {}),
   };
 }
 
@@ -89,6 +97,10 @@ interface TenantProfileContextValue {
   readonly loading: boolean;
   readonly saving: boolean;
   readonly canUpdate: boolean;
+  /** 资源位数据版本：保存成功后自增，上传组件据此重新解析下载地址。 */
+  readonly assetVersion: number;
+  /** 上报某个资源位被顶掉/删除的正式文件 ID（随保存一并提交）。 */
+  readonly reportRemovedFileIds: (slot: TenantAssetSlot, fileIds: string[]) => void;
   /** 重新拉取企业资料。 */
   readonly reload: () => Promise<void>;
   /** 校验当前表单并保存；基础信息与品牌两个 tab 的保存按钮都调它。 */
@@ -114,6 +126,9 @@ export function TenantProfileProvider({ enabled = true, children }: {
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [assetVersion, setAssetVersion] = useState(0);
+  /** 各资源位待释放的旧文件：key 为资源位，value 为文件 ID 列表。 */
+  const [removedFileIds, setRemovedFileIds] = useState<Partial<Record<TenantAssetSlot, string[]>>>({});
 
   const permissions = useAuthStore((state) => state.permissions);
   const roles = useAuthStore((state) => state.roles);
@@ -142,39 +157,32 @@ export function TenantProfileProvider({ enabled = true, children }: {
   const save = useCallback(async () => {
     let values: TenantProfileFormValues;
     try {
-      values = await form.validateFields();
+      // `assetTaskIds` 不是受控 Form.Item（图片资源位由上传组件自己解析地址），
+      // validateFields 不会带出它，这里显式补一次
+      values = { ...(await form.validateFields()), assetTaskIds: form.getFieldValue('assetTaskIds') };
     } catch {
       // 校验失败由 Form.Item 就地提示，不再弹全局错误
       return;
     }
     setSaving(true);
     try {
-      const updated = await tenantProfileService.updateProfile(toRequest(values));
+      const updated = await tenantProfileService.updateProfile(
+        toRequest(values, Object.values(removedFileIds).flat()),
+      );
       setProfile(updated);
-      // 保存成功后清空待提交的上传任务：图片地址以保存响应为准
-      form.setFieldsValue({ ...toFormValues(updated), assetTaskIds: undefined });
+      // 保存成功：清空待提交的 taskId，并让资源位组件重新解析一次下载地址（三元组没变但文件变了）
+      form.setFieldsValue(toFormValues(updated));
+      form.setFieldsValue({ assetTaskIds: undefined });
+      setAssetVersion((version) => version + 1);
+      // 旧的已被释放：清空待删除集合，避免下一次保存重复提交
+      setRemovedFileIds({});
 
       const authStore = useAuthStore.getState();
       if (authStore.user) {
         authStore.setUser({ ...authStore.user, tenantName: updated.name });
       }
-      useTenantBrandStore.getState().setTenant({
-        tenantId: updated.id,
-        code: updated.code,
-        name: updated.name,
-        shortName: updated.shortName,
-        logo: updated.logo,
-        contactEmail: updated.contactEmail,
-        contactPhone: updated.contactPhone,
-        website: updated.website,
-        address: updated.address,
-        industry: updated.industry,
-        description: updated.description,
-        locale: updated.locale,
-        timezone: updated.timezone,
-        branding: updated.branding,
-        status: updated.status,
-      });
+      // 资料响应不再回传图片地址：品牌（登录页 Logo / 背景图）改从 /api/frontend/init 重新拉取
+      void useTenantBrandStore.getState().load();
 
       void message.success(t('tenantSettings.feedback.saveSuccess'));
     } catch {
@@ -182,11 +190,17 @@ export function TenantProfileProvider({ enabled = true, children }: {
     } finally {
       setSaving(false);
     }
-  }, [form, message, t]);
+    // 依赖 removedFileIds：save 是 useCallback，闭包里的待删除集合必须跟着状态更新
+  }, [form, message, removedFileIds, t]);
 
   const value = useMemo<TenantProfileContextValue>(
-    () => ({ form, profile, loading, saving, canUpdate, reload, save }),
-    [form, profile, loading, saving, canUpdate, reload, save],
+    () => ({
+      form, profile, loading, saving, canUpdate, assetVersion,
+      reportRemovedFileIds: (slot: TenantAssetSlot, fileIds: string[]) =>
+        setRemovedFileIds((previous) => ({ ...previous, [slot]: fileIds })),
+      reload, save,
+    }),
+    [form, profile, loading, saving, canUpdate, assetVersion, reload, save],
   );
 
   return <TenantProfileContext.Provider value={value}>{children}</TenantProfileContext.Provider>;

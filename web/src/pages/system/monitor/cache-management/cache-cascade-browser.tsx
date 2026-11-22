@@ -112,6 +112,15 @@ export function getCacheEntryId(item: CacheEntryItem): string {
   return `${item.cacheName}:${item.entry.cacheKey}`;
 }
 
+/**
+ * 分组条目数文案。后端在无法枚举条目的命名缓存上返回空值，此时展示「条目数未知」而不是 0——
+ * 把未知说成 0 会让人误判缓存是空的。
+ */
+export function formatEntryCount(cache: CacheResp): string {
+  const count = cache.entryCount ?? (cache.protectedCache ? undefined : cache.entries.length);
+  return count === undefined ? '条目数未知' : `${count} 个 Key`;
+}
+
 export function flattenCaches(caches: readonly CacheResp[]): readonly CacheEntryItem[] {
   return caches.flatMap((cache) => cache.entries.map((entry) => ({
     cacheName: cache.cacheName,
@@ -142,6 +151,7 @@ export function CacheCascadeBrowser({
 }: CacheCascadeBrowserProps) {
   const { styles } = useStyles();
   const [remainingTtlSeconds, setRemainingTtlSeconds] = useState<number | undefined>();
+  const selectedCache = filteredCaches.find((cache) => cache.cacheName === selectedCacheName);
 
   useEffect(() => {
     setRemainingTtlSeconds(selectedEntry?.entry.remainingTtlSeconds);
@@ -182,8 +192,11 @@ export function CacheCascadeBrowser({
                       onClick={() => onSelectCache(cache.cacheName)}
                     >
                       <span className={styles.cascadeItemText}>
-                        <Typography.Text ellipsis>{cache.cacheName}</Typography.Text>
-                        <Typography.Text type="secondary">{cache.entries.length} 个 Key</Typography.Text>
+                        <Space size={4}>
+                          <Typography.Text ellipsis>{cache.cacheName}</Typography.Text>
+                          {cache.protectedCache ? <Tag color="orange">受保护</Tag> : null}
+                        </Space>
+                        <Typography.Text type="secondary">{formatEntryCount(cache)}</Typography.Text>
                       </span>
                     </Button>
                   );
@@ -198,11 +211,13 @@ export function CacheCascadeBrowser({
         <section className={styles.cascadeColumn} aria-label="缓存 Key 列表">
           <div className={styles.cascadeHeader}>
             <Typography.Text strong>缓存 Key</Typography.Text>
-            <Tag>{selectedCacheEntries.length}</Tag>
+            <Tag>{selectedCache?.entryCount ?? selectedCacheEntries.length}</Tag>
           </div>
           <div className={styles.cascadeBody}>
             {selectedCacheName ? (
-              selectedCacheEntries.length > 0 ? (
+              selectedCache?.protectedCache ? (
+                <Empty description="受保护缓存不提供 Key 列表，可整组清空" />
+              ) : selectedCacheEntries.length > 0 ? (
                 <div className={styles.cascadeStack}>
                   {selectedCacheEntries.map((item) => {
                     const itemId = getCacheEntryId(item);

@@ -286,7 +286,17 @@ export function StorageSettingsPanel() {
             type="error"
             showIcon
             title="存储配置加载失败"
-            description={`${loadError}。若刚升级过版本，请确认已执行 docs/sql/unreleased 下的权限脚本，并检查当前账号是否具备 STORAGE_SETTINGS_QUERY 权限。`}
+            description={(
+              <span>
+                {`${loadError}。常见原因：`}
+                <br />
+                ① 当前账号没有 <Typography.Text code>STORAGE_SETTINGS_QUERY</Typography.Text> 权限（从旧版本升级的库需执行
+                <Typography.Text code>docs/sql/unreleased</Typography.Text> 下的权限脚本）；
+                <br />
+                ② 库里的对象存储凭据密文与当前环境密钥不匹配（跨环境拷贝过数据或换过
+                <Typography.Text code>nebula.crypto</Typography.Text> 密钥）——这种情况按“未配置”重新保存一次凭据即可。
+              </span>
+            )}
             action={(
               <Button size="small" onClick={() => void load()} loading={loading}>
                 重试

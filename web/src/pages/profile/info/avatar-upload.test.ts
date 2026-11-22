@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NeUploadFile } from '@/components/ne-upload';
 import { DEFAULT_UPLOAD_POLICY, useUploadPolicyStore } from '@/stores/upload-policy-store';
 import type { FrontendUploadConfig } from '@/types/auth';
-import { createAvatarUploadAdapter, avatarUrlToFiles, filesToAvatarUrl } from './avatar-upload';
+import { createAvatarUploadAdapter } from './avatar-upload';
 
 const uploadTask = {
   id: 'task-1',
@@ -44,53 +43,6 @@ afterEach(() => {
 });
 
 describe('avatar upload helpers', () => {
-  it('maps a stored avatar URL to a single image upload file', () => {
-    expect(avatarUrlToFiles('  https://example.com/avatar.png  ')).toEqual([
-      {
-        uid: 'profile-avatar',
-        name: 'avatar.png',
-        status: 'done',
-        url: 'https://example.com/avatar.png',
-        thumbUrl: 'https://example.com/avatar.png',
-      },
-    ]);
-  });
-
-  it('keeps protected storage avatar URLs out of image thumbnail src values until a preview is available', () => {
-    const files = avatarUrlToFiles('/api/storage/download?fileId=file-avatar&filename=avatar.png');
-
-    expect(files).toEqual([
-      {
-        uid: 'profile-avatar',
-        name: 'avatar.png',
-        status: 'done',
-        url: '/api/storage/download?fileId=file-avatar&filename=avatar.png',
-        thumbUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
-      },
-    ]);
-  });
-
-  it('uses the authenticated blob preview as the protected storage avatar thumbnail when available', () => {
-    const files = avatarUrlToFiles('/api/storage/download?fileId=file-avatar&filename=avatar.png', 'blob:avatar-preview');
-
-    expect(files[0]?.url).toBe('/api/storage/download?fileId=file-avatar&filename=avatar.png');
-    expect(files[0]?.thumbUrl).toBe('blob:avatar-preview');
-  });
-
-  it('returns the first image URL and clears it when no image remains', () => {
-    const files: NeUploadFile[] = [
-      {
-        uid: 'profile-avatar',
-        name: 'avatar.png',
-        status: 'done',
-        url: 'https://example.com/avatar.png',
-      },
-    ];
-
-    expect(filesToAvatarUrl(files)).toBe('https://example.com/avatar.png');
-    expect(filesToAvatarUrl([])).toBeUndefined();
-  });
-
   it('uploads the avatar and only returns the temporary task id with a local preview', async () => {
     mockObjectUrl('blob:selected-avatar');
     const storageService = createStorageServiceStub();

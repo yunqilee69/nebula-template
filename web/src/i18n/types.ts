@@ -1635,8 +1635,6 @@ export interface NebulaSiteMessageMessages {
 }
 
 export interface NebulaTenantSettingsMessages {
-  title: string;
-  description: string;
   readonlyHint: string;
   tabs: {
     basic: string;
@@ -1721,6 +1719,52 @@ export interface NebulaTenantSettingsMessages {
   };
 }
 
+export interface NebulaStorageManageMessages {
+  title: string;
+  actions: {
+    refresh: string;
+    search: string;
+    reset: string;
+    download: string;
+    share: string;
+    delete: string;
+  };
+  columns: {
+    fileName: string;
+    fileSize: string;
+    mimeType: string;
+    source: string;
+    extension: string;
+    createTime: string;
+    actions: string;
+  };
+  fields: {
+    fileName: string;
+    sourceEntity: string;
+    sourceId: string;
+    sourceType: string;
+  };
+  placeholders: {
+    fileName: string;
+    sourceEntity: string;
+    sourceId: string;
+    sourceType: string;
+  };
+  confirm: {
+    deleteTitle: string;
+    deleteContent: string;
+  };
+  feedback: {
+    loadFailed: string;
+    downloadFailed: string;
+    shareMissingUrl: string;
+    shareFailed: string;
+    shareCopied: string;
+    deleteSuccess: string;
+    deleteFailed: string;
+  };
+}
+
 export interface NebulaMessages {
   common: NebulaCommonMessages;
   layout: NebulaLayoutMessages;
@@ -1732,6 +1776,7 @@ export interface NebulaMessages {
   onlineUser: NebulaOnlineUserMessages;
   loginLog: NebulaLoginLogMessages;
   siteMessage: NebulaSiteMessageMessages;
+  storageManage: NebulaStorageManageMessages;
 }
 
 /** Recursive type that generates all dot-notation paths to string leaves. */

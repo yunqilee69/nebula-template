@@ -35,6 +35,7 @@ const useFileListStyles = createStyles(({ token }) => ({
 
 interface ImageListStyleProps {
   readonly thumbSize: number;
+  readonly thumbHeight: number;
   readonly shape: 'square' | 'circle';
 }
 
@@ -56,7 +57,7 @@ const useImageListStyles = createStyles(({ token }, props: ImageListStyleProps) 
     },
     frame: {
       width: props.thumbSize,
-      height: props.thumbSize,
+      height: props.thumbHeight,
       overflow: 'hidden',
       border: `1px solid ${token.colorBorderSecondary}`,
       borderRadius: thumbRadius,
@@ -74,12 +75,13 @@ const useImageListStyles = createStyles(({ token }, props: ImageListStyleProps) 
   };
 });
 
-const useImagePreviewStyles = createStyles(({ token }) => ({
+const useImagePreviewStyles = createStyles(({ token }, props: { readonly fit: 'cover' | 'contain' }) => ({
   thumbnail: {
     display: 'block',
     width: '100%',
     height: '100%',
-    objectFit: 'cover',
+    // 圆形头像需要铺满裁切；矩形资源位（Logo / 背景图）用 contain，避免把标识裁掉
+    objectFit: props.fit,
   },
   placeholder: {
     display: 'flex',
@@ -136,9 +138,19 @@ interface FileUploadListProps {
   readonly onRemove: (file: NeUploadFile) => void | Promise<void>;
   readonly onRetry?: (file: NeUploadFile) => void;
   readonly disabled?: boolean;
+  readonly removeLabel?: (file: NeUploadFile) => string;
+  readonly removable?: (file: NeUploadFile) => boolean;
 }
 
-export function FileUploadList({ files, uploadButton, onRemove, onRetry, disabled }: FileUploadListProps) {
+export function FileUploadList({
+  files,
+  uploadButton,
+  onRemove,
+  onRetry,
+  disabled,
+  removeLabel,
+  removable,
+}: FileUploadListProps) {
   const { styles } = useFileListStyles();
   return (
     <div className={styles.list} role="list">
@@ -152,7 +164,15 @@ export function FileUploadList({ files, uploadButton, onRemove, onRetry, disable
               <UploadErrorState file={file} onRetry={onRetry} disabled={disabled} />
             ) : null}
           </div>
-          <Button aria-label={`删除 ${file.name}`} type="text" icon={<DeleteOutlined />} disabled={disabled} onClick={() => void onRemove(file)} />
+          {removable?.(file) === false ? null : (
+            <Button
+              aria-label={removeLabel?.(file) ?? `删除 ${file.name}`}
+              type="text"
+              icon={<DeleteOutlined />}
+              disabled={disabled}
+              onClick={() => void onRemove(file)}
+            />
+          )}
         </div>
       ))}
       {uploadButton}
@@ -179,57 +199,111 @@ function useLocalObjectUrl(file: File | undefined) {
   return objectUrl;
 }
 
-function UploadImagePreview({ file, preview }: { readonly file: NeUploadFile; readonly preview: boolean }) {
-  const { styles } = useImagePreviewStyles();
+function UploadImagePreview({
+  file,
+  preview,
+  imageAlt,
+  fit,
+  placeholder,
+  onPreviewError,
+}: {
+  readonly file: NeUploadFile;
+  readonly preview: boolean;
+  readonly imageAlt?: string;
+  readonly fit: 'cover' | 'contain';
+  readonly placeholder?: ReactNode;
+  readonly onPreviewError?: (file: NeUploadFile) => void;
+}) {
+  const { styles } = useImagePreviewStyles({ fit });
   // 本地对象 URL 优先：上传完成但未绑定的图片还没有服务端地址，只有它可预览
   const localObjectUrl = useLocalObjectUrl(file.originFileObj);
   const storagePreviewUrl = useStoragePreviewUrl(file.thumbUrl ?? file.url);
   const previewUrl = localObjectUrl ?? storagePreviewUrl;
+  const alt = imageAlt ?? file.name;
 
   if (!previewUrl) {
     return (
-      <div className={styles.placeholder} role="img" aria-label={`文件占位: ${file.name}`}>
-        <FileOutlined aria-hidden="true" />
+      <div className={styles.placeholder} role="img" aria-label={imageAlt ?? `文件占位: ${file.name}`}>
+        {placeholder ?? <FileOutlined aria-hidden="true" />}
       </div>
     );
   }
 
-  return <Image src={previewUrl} alt={file.name} preview={preview} className={styles.thumbnail} />;
+  return (
+    <Image
+      src={previewUrl}
+      alt={alt}
+      preview={preview}
+      className={styles.thumbnail}
+      onError={() => onPreviewError?.(file)}
+    />
+  );
 }
 
 interface ImageUploadListProps {
   readonly files: NeUploadFile[];
   readonly shape: 'square' | 'circle';
   readonly size: number;
+  readonly height: number;
   readonly preview: boolean;
   readonly uploadButton: ReactNode;
   readonly onRemove: (file: NeUploadFile) => void | Promise<void>;
   readonly onRetry?: (file: NeUploadFile) => void;
   readonly disabled?: boolean;
+  readonly imageAlt?: string;
+  readonly removeLabel?: (file: NeUploadFile) => string;
+  readonly removable?: (file: NeUploadFile) => boolean;
+  readonly placeholder?: ReactNode;
+  /** 预览加载失败（例如对象存储直链过期）时的回调，用于重新解析下载地址 */
+  readonly onPreviewError?: (file: NeUploadFile) => void;
 }
 
-export function ImageUploadList({ files, shape, size, preview, uploadButton, onRemove, onRetry, disabled }: ImageUploadListProps) {
-  const { styles } = useImageListStyles({ thumbSize: size, shape });
+export function ImageUploadList({
+  files,
+  shape,
+  size,
+  height,
+  preview,
+  uploadButton,
+  onRemove,
+  onRetry,
+  disabled,
+  imageAlt,
+  removeLabel,
+  removable,
+  placeholder,
+  onPreviewError,
+}: ImageUploadListProps) {
+  const { styles } = useImageListStyles({ thumbSize: size, thumbHeight: height, shape });
   return (
     <div className={styles.list} role="list">
       {files.map((file) => (
         <div key={file.uid} role="listitem" className={styles.item}>
           <div className={styles.frame}>
-            <UploadImagePreview file={file} preview={preview} />
+            <UploadImagePreview
+              file={file}
+              preview={preview}
+              imageAlt={imageAlt}
+              fit={shape === 'circle' ? 'cover' : 'contain'}
+              placeholder={placeholder}
+              onPreviewError={onPreviewError}
+            />
           </div>
           {file.status === 'uploading' ? <Progress percent={file.percent ?? 0} size="small" /> : null}
           {file.status === 'error' ? (
             <UploadErrorState file={file} onRetry={onRetry} disabled={disabled} />
           ) : null}
-          <Button
-            aria-label={`删除 ${file.name}`}
-            type="text"
-            size="small"
-            icon={<DeleteOutlined />}
-            disabled={disabled}
-            onClick={() => void onRemove(file)}
-            className={styles.deleteButton}
-          />
+          {removable?.(file) === false ? null : (
+            <Button
+              aria-label={removeLabel?.(file) ?? `删除 ${file.name}`}
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              disabled={disabled}
+              onClick={() => void onRemove(file)}
+              className={styles.deleteButton}
+            />
+          )}
         </div>
       ))}
       {uploadButton}

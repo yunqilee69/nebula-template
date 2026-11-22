@@ -377,6 +377,41 @@ describe('ProfileInfoPage', () => {
     expect(service.updateProfile).not.toHaveBeenCalled();
   });
 
+  it('submits the replaced avatar file id so the backend can release it', async () => {
+    const user = userEvent.setup();
+    const oldAvatarUrl = '/api/storage/download?fileId=old-avatar&filename=old-avatar.png';
+    const newAvatarUrl = '/api/storage/download?fileId=new-avatar&filename=new-avatar.png';
+    const service = createService({
+      getProfile: vi.fn().mockResolvedValue({ ...profile, avatar: oldAvatarUrl }),
+      updateProfile: vi.fn().mockResolvedValue({ ...profile, avatar: newAvatarUrl }),
+    });
+    vi.mocked(request)
+      .mockResolvedValueOnce([{ mode: 'PROXY', url: oldAvatarUrl }])
+      .mockResolvedValueOnce(new Blob(['old-avatar'], { type: 'image/png' }));
+    const uploadAvatar = vi.fn().mockResolvedValue({
+      task: uploadedAvatarTask,
+      taskId: 'task-avatar-1',
+      previewUrl: 'blob:page-avatar',
+    });
+    mockObjectUrls('blob:old-avatar-preview', 'blob:selected-avatar');
+
+    renderPage(service, { uploadAvatar });
+
+    await waitFor(() => expect(screen.getByAltText('头像')).toHaveAttribute('src', 'blob:old-avatar-preview'));
+    const fileInput = document.querySelector('input[type="file"]');
+    if (!(fileInput instanceof HTMLInputElement)) throw new Error('avatar file input was not rendered');
+
+    await user.upload(fileInput, new File(['avatar'], 'new-avatar.png', { type: 'image/png' }));
+
+    // 换头像 = 删旧 + 加新：旧 fileId 必须随保存提交，否则旧记录永久残留
+    await waitFor(() => {
+      expect(service.updateProfile).toHaveBeenCalledWith(expect.objectContaining({
+        uploadTaskIds: { avatar: ['task-avatar-1'] },
+        deletedFileIds: ['old-avatar'],
+      }));
+    });
+  });
+
   it('keeps the selected avatar preview while the protected upload preview is loading', async () => {
     const user = userEvent.setup();
     const oldAvatarUrl = '/api/storage/download?fileId=old-avatar&filename=old-avatar.png';

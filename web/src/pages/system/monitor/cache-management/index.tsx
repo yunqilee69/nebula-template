@@ -15,6 +15,15 @@ function includesText(value: string | undefined, keyword: string): boolean {
   return value?.toLowerCase().includes(keyword.toLowerCase()) ?? false;
 }
 
+/**
+ * 缓存模式的中文label。后端给的是配置口径的英文值（redis / caffeine），未知取值原样展示。
+ */
+function formatCacheMode(cacheMode: string): string {
+  if (cacheMode === 'redis') return 'Redis';
+  if (cacheMode === 'caffeine') return 'Caffeine';
+  return cacheMode;
+}
+
 export function CacheManagementPage({ service: serviceProp }: CacheManagementPageProps) {
   const service = serviceProp ?? cacheService;
   const notice = useNotice();
@@ -22,6 +31,7 @@ export function CacheManagementPage({ service: serviceProp }: CacheManagementPag
   const [caches, setCaches] = useState<readonly CacheResp[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [cacheNameFilter, setCacheNameFilter] = useState('');
   const [cacheKeyFilter, setCacheKeyFilter] = useState('');
   const [selectedCacheName, setSelectedCacheName] = useState<string>();
@@ -37,7 +47,9 @@ export function CacheManagementPage({ service: serviceProp }: CacheManagementPag
         ...cache,
         entries: cache.entries.filter((entry) => cacheKeyKeyword === '' || includesText(entry.cacheKey, cacheKeyKeyword)),
       }))
-      .filter((cache) => cache.entries.length > 0);
+      // 只按 Key 过滤时才隐藏没有匹配项的分组；没有 Key 关键字时保留空命名空间，
+      // 否则「未注册」与「已注册但当前无数据」在页面上看起来一样
+      .filter((cache) => cacheKeyKeyword === '' || cache.entries.length > 0);
   }, [cacheKeyFilter, cacheNameFilter, caches]);
   const filteredEntries = useMemo(() => flattenCaches(filteredCaches), [filteredCaches]);
   const selectedCache = filteredCaches.find((cache) => cache.cacheName === selectedCacheName);
@@ -46,6 +58,10 @@ export function CacheManagementPage({ service: serviceProp }: CacheManagementPag
   ), [selectedCache]);
   const selectedEntry = selectedId ? filteredEntries.find((item) => getCacheEntryId(item) === selectedId) : undefined;
   const selectedEntryId = selectedEntry ? getCacheEntryId(selectedEntry) : undefined;
+  const cacheMode = useMemo(() => {
+    const modes = new Set(caches.map((cache) => cache.cacheMode).filter((mode): mode is string => !!mode));
+    return modes.size === 1 ? [...modes][0] : undefined;
+  }, [caches]);
 
   const loadCaches = useCallback(async () => {
     setLoading(true);
@@ -88,6 +104,26 @@ export function CacheManagementPage({ service: serviceProp }: CacheManagementPag
     }
   }, [loadCaches, notice, service]);
 
+  const clearSelectedCache = useCallback(async () => {
+    if (!selectedCache) return;
+    const cacheName = selectedCache.cacheName;
+    setClearing(true);
+    try {
+      await service.clearCache({ cacheName });
+      notice.success('缓存分组已清空');
+      setSelectedId(undefined);
+      await loadCaches();
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        notice.error('清空缓存分组失败');
+        return;
+      }
+      throw error;
+    } finally {
+      setClearing(false);
+    }
+  }, [loadCaches, notice, selectedCache, service]);
+
   const deleteSelected = useCallback(() => {
     if (!selectedEntry) return Promise.resolve();
     return deleteEntries([selectedEntry], '缓存项已删除');
@@ -124,6 +160,7 @@ export function CacheManagementPage({ service: serviceProp }: CacheManagementPag
               allowClear
               style={{ width: 260 }}
             />
+            {cacheMode ? <Tag color="geekblue">{`缓存模式 ${formatCacheMode(cacheMode)}`}</Tag> : null}
             <Tag color="blue">共 {filteredEntries.length} 项</Tag>
           </Flex>
           <Space wrap>
@@ -138,6 +175,14 @@ export function CacheManagementPage({ service: serviceProp }: CacheManagementPag
               onConfirm={() => void deleteEntries(filteredEntries, '缓存项已批量删除')}
             >
               <Button danger disabled={filteredEntries.length === 0 || deleting} loading={deleting}>删除全部</Button>
+            </Popconfirm>
+            <Popconfirm
+              title={`确认清空缓存「${selectedCache?.cacheName ?? ''}」下的全部缓存项？`}
+              okText="清空"
+              cancelText="取消"
+              onConfirm={() => void clearSelectedCache()}
+            >
+              <Button danger disabled={!selectedCache || clearing} loading={clearing}>清空当前分组</Button>
             </Popconfirm>
           </Space>
         </Flex>

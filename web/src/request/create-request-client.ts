@@ -49,6 +49,70 @@ function showBusinessError(message: string, options: RequestClientOptions) {
   }
 }
 
+function rejectBusinessError(
+  response: AxiosResponse,
+  payload: ApiResultPayload,
+  options: RequestClientOptions,
+) {
+  const code = getApiResultCode(payload);
+  const message = getApiResultMessage(payload);
+
+  console.error('Nebula request business error', {
+    code,
+    message,
+    url: response.config.url,
+  });
+
+  if (!(response.config as RetriableRequestConfig)._nebulaSilent) {
+    showBusinessError(message, options);
+  }
+
+  return Promise.reject(new NebulaBusinessError(code, message));
+}
+
+/**
+ * blob 响应也可能承载业务错误。
+ *
+ * <p>下载类接口（`/api/storage/download*`）的失败走统一异常出口，返回 HTTP 200 +
+ * `ApiResult` JSON；而 `responseType=blob` 会把这份 JSON 当二进制收下来，
+ * 结果是"图片空白 / 下载到一个坏文件"且用户看不到任何错误提示。
+ * 这里按 Content-Type 判定并把内容还原成业务错误，与 JSON 响应共用同一套处理。</p>
+ */
+async function readBlobBusinessError(response: AxiosResponse): Promise<ApiResultPayload | null> {
+  const data: unknown = response.data;
+  if (typeof Blob === 'undefined' || !(data instanceof Blob)) return null;
+
+  const contentType = (data.type || String(response.headers?.['content-type'] ?? '')).toLowerCase();
+  if (!contentType.includes('json')) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(await readBlobText(data));
+    if (!isApiResult(parsed) || getApiResultCode(parsed) === '0') return null;
+    return parsed;
+  } catch {
+    // 不是合法 JSON 时按普通二进制处理，交给调用方
+    return null;
+  }
+}
+
+/**
+ * 读取 Blob 的文本内容。
+ *
+ * <p>优先用 {@code Blob.text()}；测试环境（jsdom）与老浏览器没有该 API 时退回 {@code FileReader}，
+ * 否则会把"读不出来"误判成"不是业务错误"。</p>
+ */
+function readBlobText(blob: Blob): Promise<string> {
+  if (typeof blob.text === 'function') return blob.text();
+  if (typeof FileReader === 'undefined') return Promise.reject(new Error('当前环境不支持读取 Blob'));
+
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error ?? new Error('读取 Blob 失败'));
+    reader.readAsText(blob);
+  });
+}
+
 export function createRequestClient(options: RequestClientOptions = {}) {
   const client = axios.create({
     baseURL: options.baseURL,
@@ -85,8 +149,12 @@ export function createRequestClient(options: RequestClientOptions = {}) {
   });
 
   client.interceptors.response.use(
-    ((response: AxiosResponse) => {
+    (async (response: AxiosResponse) => {
       if (response.config.responseType === 'blob') {
+        const errorPayload = await readBlobBusinessError(response);
+        if (errorPayload) {
+          return rejectBusinessError(response, errorPayload, options);
+        }
         return response.data;
       }
 
@@ -100,19 +168,8 @@ export function createRequestClient(options: RequestClientOptions = {}) {
         return response.data.data;
       }
 
-      const message = getApiResultMessage(response.data);
-      console.error('Nebula request business error', {
-        code,
-        message,
-        url: response.config.url,
-      });
-
-      if (!(response.config as RetriableRequestConfig)._nebulaSilent) {
-        showBusinessError(message, options);
-      }
-
-      return Promise.reject(new NebulaBusinessError(code, message));
-    }) as (response: AxiosResponse) => AxiosResponse,
+      return rejectBusinessError(response, response.data, options);
+    }) as unknown as (response: AxiosResponse) => AxiosResponse,
     async (error) => {
       if (!axios.isAxiosError(error)) {
         return Promise.reject(error);

@@ -403,13 +403,18 @@ spring:
 
 ### 5.4 对象存储后端与直连下载配置
 
-正式内容存储后端由当前租户 `sys_param` 中的 `storage.backend.type` 选择；当前租户没有该行时，回退到
-`nebula.storage.content.type` 启动配置。每个租户读取自己的参数，不存在跨租户兜底；
-无租户上下文（启动期）直接使用启动配置。可选值来自**依赖里装进来的 provider 模块**：
+正式内容存储后端由当前租户 `sys_param` 中的 `storage.backend.type` 选择。取值为 `application`
+（**代码默认值**）或为空时表示**跟随 `application.yml` 的 `nebula.storage.content.type` 启动配置**，
+此时其余 `storage.backend.*` 参数一律不参与解析；只有取具体后端类型时才走在线配置。
+每个租户读取自己的参数，不存在跨租户兜底；无租户上下文（启动期）直接使用启动配置。
+
+「跟随启动配置」必须是显式取值而不是「取一套看起来合理的默认值」，否则参数中心会把
+`application.yml` 里的配置静默覆盖掉——页面显示一套、实际写入另一套。可选值来自**依赖里装进来的 provider 模块**：
 
 | type | 提供模块 | 说明 |
 |---|---|---|
-| `filesystem` | nebula-storage-core（内置） | 本地目录，默认值 |
+| `application` | —（哨兵值） | 跟随 `nebula.storage.content.type`，代码默认值 |
+| `filesystem` | nebula-storage-core（内置） | 本地目录 |
 | `db` | nebula-storage-core（内置） | 内容落 `storage_content` 表 |
 | `minio` | nebula-storage-provider-minio | MinIO 原生 SDK |
 | `aliyun-oss` | nebula-storage-provider-aliyun-oss | 阿里云 OSS 原生 SDK |
@@ -471,7 +476,7 @@ nebula:
 
 | 参数键 | 说明 |
 |---|---|
-| `storage.backend.type` | 后端类型；**该行不存在时沿用 `nebula.storage.content.type`** |
+| `storage.backend.type` | 后端类型；`application`（默认）或空表示**沿用 `nebula.storage.content.type`** |
 | `storage.backend.filesystem.base-dir` | 文件系统后端根目录 |
 | `storage.backend.endpoint` | MinIO / 阿里云 OSS / 腾讯云 COS 的服务地址或自定义域名地址 |
 | `storage.backend.region` | 腾讯云 COS 地域 |
@@ -484,6 +489,15 @@ nebula:
 
 租户保存后存储后端最迟 5 秒热生效，无需重启。租户参数的单个字段为空时，回退到对应 provider 的
 `nebula.storage.content.<type>.*` 启动配置。
+
+这两层配置的在线入口是「系统管理 → 高级配置 → 存储」页签，保存走 `PUT /api/storage/settings`：
+保存前按后端类型校验必填项（`requiredSettingFields`），并校验上传策略不变式
+`分片大小 ≤ 分片阈值 ≤ 单文件上限 ≤ spring.servlet.multipart.max-file-size`。
+该接口只回传凭据的「是否已配置」，明文与密文都不下发。
+
+**读取必须对单个参数降级，不得整页失败**：加密凭据的密文在密钥不可用（跨环境拷贝数据、换过
+`nebula.crypto` 密钥）时解密会抛 `KEY_UNAVAILABLE`。配置页只展示「是否已配置」，此时应按未配置处理并记
+WARN，由人工重新保存凭据；把异常冒出去会让整张配置页打不开，而故障信息还藏在 500 里。
 
 ### 5.5 下载响应缓存配置
 

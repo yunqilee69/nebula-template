@@ -36,4 +36,16 @@ describe('cacheService', () => {
       params: { cacheName: 'login-lock', cacheKey: 'lock:alice' },
     });
   });
+
+  it('calls DELETE /api/frontend/caches to clear a namespace', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+
+    await cacheService.clearCache({ cacheName: 'authSessionCache' });
+
+    expect(mockedRequest).toHaveBeenCalledWith({
+      method: 'DELETE',
+      url: '/api/frontend/caches',
+      params: { cacheName: 'authSessionCache' },
+    });
+  });
 });

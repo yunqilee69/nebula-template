@@ -202,6 +202,15 @@ export const builtInMenuComponentRegistry = createMenuComponentRegistry({
     loader: () =>
       import('@/pages/system/notify/announcement').then((module) => ({ default: module.AnnouncementManagementPage })),
   },
+  StorageFileManagementPage: {
+    component: 'StorageFileManagementPage',
+    defaultName: '存储管理',
+    defaultCode: 'STORAGE_FILE_MANAGEMENT',
+    defaultPath: '/system/storage',
+    defaultIcon: 'DatabaseOutlined',
+    loader: () =>
+      import('@/pages/system/storage').then((module) => ({ default: module.StorageFileManagementPage })),
+  },
   NotifyRecordPage: {
     component: 'NotifyRecordPage',
     defaultName: '通知记录',

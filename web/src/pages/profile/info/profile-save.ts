@@ -18,13 +18,20 @@ export function buildAvatarUploadTaskIds(avatarTaskId: string | undefined): Prof
  *
  * <p>头像只提交 `uploadTaskIds.avatar`，绑定与最终地址都由后端保存流程产出，前端不再提交头像地址。</p>
  */
-export function buildProfilePayload(values: ProfileFormValues, avatarTaskId?: string): UpdateProfileReq {
+export function buildProfilePayload(
+  values: ProfileFormValues,
+  avatarTaskId?: string,
+  deletedFileIds?: readonly string[],
+): UpdateProfileReq {
   const uploadTaskIds = buildAvatarUploadTaskIds(avatarTaskId);
+  const removed = (deletedFileIds ?? []).map(normalizeOptionalText).filter((fileId): fileId is string => Boolean(fileId));
   return {
     nickname: normalizeOptionalText(values.nickname),
     email: normalizeOptionalText(values.email),
     phone: normalizeOptionalText(values.phone),
     ...(uploadTaskIds ? { uploadTaskIds } : {}),
+    // 与 uploadTaskIds 同批提交：后端先绑定新的、再释放这些（只删记录，内容按引用计数回收）
+    ...(removed.length > 0 ? { deletedFileIds: removed } : {}),
   };
 }
 

@@ -644,6 +644,27 @@ INSERT INTO auth_menu (
         NOW(),
         NOW()
     ),
+    -- 存储管理（正式文件列表：下载、分享、删除）
+    (
+        '0196dbe0a6f17000a000000000000033', @default_tenant_id,
+        '存储管理',
+        '0196dbe0a6f17000a000000000000002',
+        '/system/storage',
+        35,
+        'STORAGE_FILE_MANAGEMENT',
+        'DatabaseOutlined',
+        'StorageFileManagementPage',
+        'MENU',
+        1,
+        0,
+        NULL,
+        1,
+        1,
+        NULL,
+        '当前租户正式文件列表：支持下载、生成分享链接、删除（删除只解除记录，内容按引用计数回收）',
+        NOW(),
+        NOW()
+    ),
     -- 系统监控 (二级菜单组)
     (
         '0196dbe0a6f17000a000000000000015', @default_tenant_id,

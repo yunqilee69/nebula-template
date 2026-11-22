@@ -1461,32 +1461,3 @@ COMMENT ON COLUMN storage_content.storage_key IS '存储Key';
 COMMENT ON COLUMN storage_content.content IS '文件内容';
 COMMENT ON COLUMN storage_content.create_time IS '创建时间';
 COMMENT ON COLUMN storage_content.update_time IS '更新时间';
-
-CREATE TABLE IF NOT EXISTS storage_file_variant (
-    id CHAR(32) PRIMARY KEY,
-    tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
-    file_id CHAR(32) NOT NULL,
-    variant VARCHAR(50) NOT NULL,
-    content_key VARCHAR(500) NOT NULL,
-    width INT,
-    height INT,
-    file_size BIGINT,
-    file_hash VARCHAR(64),
-    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS uk_file_variant ON storage_file_variant (tenant_id, file_id, variant);
-CREATE INDEX IF NOT EXISTS idx_file_variant_hash ON storage_file_variant (tenant_id, file_hash);
-
-COMMENT ON TABLE storage_file_variant IS '文件派生版本表';
-COMMENT ON COLUMN storage_file_variant.id IS '主键，UUID';
-COMMENT ON COLUMN storage_file_variant.file_id IS '源文件ID';
-COMMENT ON COLUMN storage_file_variant.variant IS '派生标识，如 thumb';
-COMMENT ON COLUMN storage_file_variant.content_key IS '派生内容存储Key';
-COMMENT ON COLUMN storage_file_variant.width IS '宽（图片类）';
-COMMENT ON COLUMN storage_file_variant.height IS '高（图片类）';
-COMMENT ON COLUMN storage_file_variant.file_size IS '字节数';
-COMMENT ON COLUMN storage_file_variant.file_hash IS '内容哈希';
-COMMENT ON COLUMN storage_file_variant.create_time IS '创建时间';
-COMMENT ON COLUMN storage_file_variant.update_time IS '更新时间';

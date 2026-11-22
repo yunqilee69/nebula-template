@@ -68,11 +68,8 @@ describe('createStorageService', () => {
     expect(service.getDownloadUrl('file-1', '合同.pdf')).toBe('/api/storage/download?fileId=file-1&filename=%E5%90%88%E5%90%8C.pdf');
   });
 
-  it('appends the variant only when one is given', () => {
-    expect(buildStorageDownloadUrl('file-1', 'avatar.png', 'thumb'))
-      .toBe('/api/storage/download?fileId=file-1&filename=avatar.png&variant=thumb');
-    // variant 为空串或空白等价于不传，避免生成 variant= 这类无效查询参数
-    expect(buildStorageDownloadUrl('file-1', 'avatar.png', '  '))
+  it('builds proxy download URLs with and without a filename', () => {
+    expect(buildStorageDownloadUrl('file-1', 'avatar.png'))
       .toBe('/api/storage/download?fileId=file-1&filename=avatar.png');
     expect(buildStorageDownloadUrl('file-1')).toBe('/api/storage/download?fileId=file-1');
   });
@@ -143,26 +140,25 @@ describe('createStorageService', () => {
     }]);
     const service = createStorageService(request);
 
-    await expect(service.getDownloadLocation('file-1', undefined, 'thumb'))
+    await expect(service.getDownloadLocation('file-1'))
       .resolves.toMatchObject([{ fileId: 'file-1', mode: 'DIRECT' }]);
 
     expect(request).toHaveBeenCalledWith({
       url: '/api/storage/download-location',
       method: 'get',
-      params: { fileId: 'file-1', filename: undefined, variant: 'thumb' },
+      params: { fileId: 'file-1', filename: undefined },
     });
   });
 
   it('resolves every attachment location of a business source in one call', async () => {
     const request = vi.fn().mockResolvedValue([
       { fileId: 'file-1', fileName: 'front.jpg', mode: 'DIRECT', url: 'https://oss.example.com/a.jpg?sig=1' },
-      { fileId: 'file-2', fileName: 'back.jpg', mode: 'PROXY', url: '/api/storage/download?fileId=file-2&variant=thumb' },
+      { fileId: 'file-2', fileName: 'back.jpg', mode: 'PROXY', url: '/api/storage/download?fileId=file-2' },
     ]);
     const service = createStorageService(request);
 
     await expect(service.getDownloadLocationsBySource(
       { sourceEntity: 'deliveryOrder', sourceId: '1870000000000000001', sourceType: 'signPhoto' },
-      'thumb',
     )).resolves.toHaveLength(2);
 
     expect(request).toHaveBeenCalledWith({
@@ -172,20 +168,17 @@ describe('createStorageService', () => {
         sourceEntity: 'deliveryOrder',
         sourceId: '1870000000000000001',
         sourceType: 'signPhoto',
-        variant: 'thumb',
       },
     });
   });
 
-  it('parses storage download URLs for preview loading, including variant', () => {
+  it('parses storage download URLs for preview loading', () => {
     expect(parseStorageDownloadUrl('/api/storage/download?fileId=file-1&filename=avatar.png')).toEqual({
       fileId: 'file-1',
       filename: 'avatar.png',
     });
-    expect(parseStorageDownloadUrl('/api/storage/download?fileId=file-1&variant=thumb')).toEqual({
-      fileId: 'file-1',
-      variant: 'thumb',
-    });
+    expect(parseStorageDownloadUrl('/api/storage/download?fileId=file-1')).toEqual({ fileId: 'file-1' });
+    // 非 storage 下载地址（对象存储直链、外部 CDN）不参与解析，直接当图片地址用
     expect(parseStorageDownloadUrl('https://cdn.example.com/avatar.png')).toBeUndefined();
   });
 

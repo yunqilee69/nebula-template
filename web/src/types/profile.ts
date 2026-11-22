@@ -30,6 +30,8 @@ export interface UpdateProfileReq {
   phone?: string;
   /** 待绑定的上传任务；不再提交 avatar 地址本身。 */
   uploadTaskIds?: ProfileUploadTaskIds;
+  /** 本次要删除（换头像后弃用）的正式文件 ID：后端先绑定新头像，再释放这些文件的引用。 */
+  deletedFileIds?: string[];
 }
 
 export interface ChangePasswordReq {

@@ -628,6 +628,27 @@ INSERT INTO auth_menu (
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
+    -- 存储管理（正式文件列表：下载、分享、删除）
+    (
+        '0196dbe0a6f17000a000000000000033', current_setting('nebula.default_tenant_id'),
+        '存储管理',
+        '0196dbe0a6f17000a000000000000002',
+        '/system/storage',
+        35,
+        'STORAGE_FILE_MANAGEMENT',
+        'DatabaseOutlined',
+        'StorageFileManagementPage',
+        'MENU',
+        1,
+        FALSE,
+        NULL,
+        TRUE,
+        TRUE,
+        NULL,
+        '当前租户正式文件列表：支持下载、生成分享链接、删除（删除只解除记录，内容按引用计数回收）',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    ),
     -- 系统监控 (二级菜单组)
     (
         '0196dbe0a6f17000a000000000000015', current_setting('nebula.default_tenant_id'),

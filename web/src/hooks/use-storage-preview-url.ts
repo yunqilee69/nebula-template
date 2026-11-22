@@ -52,11 +52,11 @@ export function useStoragePreviewUrl(url: string | undefined) {
     let active = true;
     let objectUrl: string | undefined;
 
-    // 预览不传 filename：避免直链带上 attachment 头；variant 保留，缩略图仍取派生版本
+    // 预览不传 filename：避免直链带上 attachment 头
     request<StorageDownloadLocation[]>({
       url: STORAGE_DOWNLOAD_LOCATION_PATH,
       method: 'GET',
-      params: { fileId: downloadParams.fileId, variant: downloadParams.variant },
+      params: { fileId: downloadParams.fileId },
     })
       .then((locations) => {
         const location = locations[0];

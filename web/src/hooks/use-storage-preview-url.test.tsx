@@ -57,7 +57,7 @@ describe('useStoragePreviewUrl', () => {
     expect(request).toHaveBeenCalledWith({
       url: '/api/storage/download-location',
       method: 'GET',
-      params: { fileId: 'old-avatar', variant: undefined },
+      params: { fileId: 'old-avatar' },
     });
   });
 

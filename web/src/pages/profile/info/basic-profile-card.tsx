@@ -1,73 +1,37 @@
-import { CameraOutlined, LoadingOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, Descriptions, Form, Input, Progress, Space, Tag, Typography, Upload, message, theme as antdTheme } from 'antd';
-import type { FormInstance, UploadProps } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
+import { Button, Card, Descriptions, Form, Input, Space, Tag, theme as antdTheme, Typography } from 'antd';
+import type { FormInstance } from 'antd';
 import { createStyles } from 'antd-style';
+import { useCallback, useMemo, useRef } from 'react';
+import { parseStorageDownloadUrl } from '@/api/storage';
+import { NeImageUpload } from '@/components/ne-upload';
+import type { NeUploadFile } from '@/components/ne-upload';
+import type { UploadTaskDetailResp } from '@/types/storage';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
 import type { ProfileResp, UpdateProfileReq } from '@/types/profile';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createAvatarPreviewUrl } from './avatar-upload';
-import type { AvatarUploadResult } from './avatar-upload';
 
 export type ProfileFormValues = Omit<UpdateProfileReq, 'uploadTaskIds'>;
 
+/** 头像框边长（像素）。 */
+const avatarFrameSize = 88;
+
 const useStyles = createStyles(({ token }) => ({
-  avatar: {
+  avatarPlaceholder: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
     background: token.colorPrimary,
-    boxShadow: token.boxShadowTertiary,
-  },
-  avatarUploadTrigger: {
-    position: 'relative',
-    display: 'inline-flex',
-    padding: 0,
-    border: 0,
-    borderRadius: '50%',
-    background: 'transparent',
-    color: 'inherit',
-    lineHeight: 0,
-    cursor: 'pointer',
-    '&:focus-visible': {
-      outline: `${token.lineWidthFocus}px solid ${token.colorPrimaryBorder}`,
-      outlineOffset: token.marginXXS,
-    },
-    '&:hover .nebula-profile-avatar-overlay, &:focus-visible .nebula-profile-avatar-overlay': {
-      opacity: 1,
-    },
-  },
-  avatarUploadTriggerDisabled: {
-    cursor: 'not-allowed',
-    opacity: token.opacityLoading,
-  },
-  avatarOverlay: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '50%',
-    background: token.colorBgMask,
     color: token.colorTextLightSolid,
-    fontSize: token.fontSizeLG,
-    opacity: 0,
-    pointerEvents: 'none',
-    transition: `opacity ${token.motionDurationMid} ${token.motionEaseOut}`,
-  },
-  avatarProgressOverlay: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none',
+    fontSize: token.fontSizeHeading3,
+    fontWeight: token.fontWeightStrong,
+    lineHeight: 1,
   },
   avatarHint: {
     display: 'block',
   },
 }));
-
-interface LocalAvatarPreview {
-  readonly url: string;
-  readonly avatarUrl?: string;
-}
 
 interface BasicProfileCardProps {
   readonly profile?: ProfileResp;
@@ -79,16 +43,14 @@ interface BasicProfileCardProps {
   readonly uploadDisabled: boolean;
   readonly onRefresh: () => void | Promise<void>;
   readonly onSubmit: (values: ProfileFormValues) => void | Promise<void>;
-  readonly uploadAvatarFile: (file: File, onProgress?: (percent: number) => void) => Promise<AvatarUploadResult>;
-}
-
-function getAvatarUploadErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
-
-function createLocalAvatarPreview(file: File): LocalAvatarPreview | undefined {
-  const url = createAvatarPreviewUrl(file);
-  return url ? { url } : undefined;
+  /** 只负责把文件传成临时任务（绑定与保存由页面在回吐回调里发起）。 */
+  readonly uploadAvatarTask: (file: File, onProgress?: (percent: number) => void) => Promise<UploadTaskDetailResp>;
+  /**
+   * 上传成功回调：带上本次的新任务与"被顶掉的旧头像文件"。
+   *
+   * <p>页面在这里调用保存接口，把 `uploadTaskIds` 与 `deletedFileIds` 一次性提交。</p>
+   */
+  readonly onAvatarUploaded: (task: UploadTaskDetailResp, removedFileIds: string[]) => void | Promise<void>;
 }
 
 export function BasicProfileCard({
@@ -101,62 +63,46 @@ export function BasicProfileCard({
   uploadDisabled,
   onRefresh,
   onSubmit,
-  uploadAvatarFile,
+  uploadAvatarTask,
+  onAvatarUploaded,
 }: BasicProfileCardProps) {
   const { t } = useNebulaI18n();
   const { token } = antdTheme.useToken();
   const { styles } = useStyles();
-  const [localAvatarPreview, setLocalAvatarPreview] = useState<LocalAvatarPreview>();
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [avatarPercent, setAvatarPercent] = useState(0);
   const renderNotProvided = (value: string | number | undefined) => value ?? t('auth.profileInfo.empty.notProvided');
   const avatarFallback = profile?.nickname?.slice(0, 1) ?? profile?.username?.slice(0, 1);
   const avatarAlt = t('auth.profileInfo.fields.avatar');
-  const avatarDisplayUrl = localAvatarPreview?.url ?? avatarPreviewUrl;
-  const avatarUploadDisabled = uploadDisabled || avatarUploading;
 
-  useEffect(() => {
-    if (!localAvatarPreview?.avatarUrl) return;
-    if (avatarUrl !== localAvatarPreview.avatarUrl) {
-      setLocalAvatarPreview(undefined);
-    }
-  }, [avatarUrl, localAvatarPreview?.avatarUrl]);
-
-  useEffect(() => {
-    const previewUrl = localAvatarPreview?.url;
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [localAvatarPreview?.url]);
-
-  const beforeAvatarUpload = useCallback<NonNullable<UploadProps['beforeUpload']>>(
-    (file) => {
-      const preview = createLocalAvatarPreview(file);
-      if (preview) setLocalAvatarPreview(preview);
-      setAvatarPercent(0);
-      setAvatarUploading(true);
-      void uploadAvatarFile(file, setAvatarPercent)
-        .then((result) => {
-          // 保存未完成时保留本地预览：图片和待提交的 taskId 一起等下一次保存
-          if (!result.saved || !preview || !result.avatarUrl) return;
-          setLocalAvatarPreview({ ...preview, avatarUrl: result.avatarUrl });
-        })
-        .catch((error: unknown) => {
-          // 上传本身失败：撤掉预览，此时不存在任何存储任务
-          setLocalAvatarPreview(undefined);
-          void message.error(getAvatarUploadErrorMessage(error, t('auth.profileInfo.feedback.avatarUploadFailed')));
-        })
-        .finally(() => {
-          setAvatarUploading(false);
-        });
-      return Upload.LIST_IGNORE;
+  // 业务直传的下载位置：头像地址来自资料响应，页面已把它解析成可直接渲染的地址
+  // （受权限保护的 /api/storage/download 会先换成 blob），组件据此装载列表，不再自行发请求。
+  // 地址变化（保存成功 / 重新加载资料）会触发组件重新装载，待保存的本地预览随之退场。
+  const avatarLocations = useMemo(
+    () => {
+      // 只认"已解析成可直接渲染"的预览地址：受权限保护的下载地址还没换成 blob 时先不给种子，
+      // 让组件保留本地待保存的预览，避免刚上传的图片被一张加载不出来的地址顶掉
+      const url = avatarPreviewUrl?.trim();
+      if (!url) return [];
+      // fileId 从"正式下载地址"反解（预览地址可能是 blob，解析不出）：换图时组件靠它
+      // 把被顶掉的旧头像报进"待删除"列表
+      const fileId = parseStorageDownloadUrl(avatarUrl?.trim() ?? '')?.fileId;
+      return [{ fileId, fileName: avatarAlt, mode: 'PROXY', url } as const];
     },
-    [t, uploadAvatarFile],
+    [avatarAlt, avatarPreviewUrl, avatarUrl],
   );
 
-  const avatarTriggerClassName = useMemo(
-    () => `${styles.avatarUploadTrigger}${avatarUploadDisabled ? ` ${styles.avatarUploadTriggerDisabled}` : ''}`,
-    [avatarUploadDisabled, styles.avatarUploadTrigger, styles.avatarUploadTriggerDisabled],
+  // 上传只产生临时任务；待删除集合由组件同步回吐（onRemovalChange 先于 onUploadSuccess 触发），
+  // 页面拿到"新增 + 删除"两个列表后再调保存接口
+  const removedFileIdsRef = useRef<string[]>([]);
+  const handleRemovalChange = useCallback((fileIds: string[]) => {
+    removedFileIdsRef.current = fileIds;
+  }, []);
+
+  const handleUploadSuccess = useCallback(
+    (_file: NeUploadFile, task: UploadTaskDetailResp) => {
+      // 组件的 onRemovalChange 同步先跑，这里读到的一定是本次换图后的最新待删除集合
+      void onAvatarUploaded(task, removedFileIdsRef.current);
+    },
+    [onAvatarUploaded],
   );
 
   return (
@@ -164,32 +110,25 @@ export function BasicProfileCard({
       <Space orientation="vertical" size={token.marginMD} className="w-full">
         <Space align="center" size={token.marginMD}>
           <Space orientation="vertical" align="center" size={token.marginXXS}>
-            <Upload accept="image/*" disabled={avatarUploadDisabled} showUploadList={false} beforeUpload={beforeAvatarUpload}>
-              <button type="button" aria-label={t('auth.profileInfo.actions.uploadAvatar')} className={avatarTriggerClassName} disabled={avatarUploadDisabled}>
-                <Avatar src={avatarDisplayUrl} alt={avatarAlt} size={88} className={styles.avatar}>
-                  {avatarFallback}
-                </Avatar>
-                <span className={`${styles.avatarOverlay} nebula-profile-avatar-overlay`} aria-hidden="true">
-                  {avatarUploading ? <LoadingOutlined /> : <CameraOutlined />}
-                </span>
-                {avatarUploading && avatarPercent > 0 ? (
-                  <span className={styles.avatarProgressOverlay}>
-                    <Progress
-                      type="circle"
-                      percent={Math.round(avatarPercent)}
-                      size={88}
-                      strokeWidth={6}
-                      strokeColor={token.colorPrimary}
-                      trailColor="rgba(0, 0, 0, 0.45)"
-                      format={(percent) => (
-                        <span style={{ color: token.colorTextLightSolid, fontSize: token.fontSizeSM }}>{percent}%</span>
-                      )}
-                    />
-                  </span>
-                ) : null}
-              </button>
-            </Upload>
-            <Typography.Text type="secondary" className={styles.avatarHint}>{t('auth.profileInfo.hints.avatarUpload')}</Typography.Text>
+            <NeImageUpload
+              downloadLocations={avatarLocations}
+              uploadRequest={uploadAvatarTask}
+              onUploadSuccess={handleUploadSuccess}
+              removalMode="deferred"
+              onRemovalChange={handleRemovalChange}
+              imageAlt={avatarAlt}
+              uploadText={t('auth.profileInfo.actions.uploadAvatar')}
+              helperText={<Typography.Text type="secondary" className={styles.avatarHint}>{t('auth.profileInfo.hints.avatarUpload')}</Typography.Text>}
+              placeholder={avatarFallback ? <span className={styles.avatarPlaceholder}>{avatarFallback}</span> : undefined}
+              accept="image/*"
+              maxCount={1}
+              replaceable
+              shape="circle"
+              thumbnailSize={avatarFrameSize}
+              // 头像没有"清空"能力：不渲染删除按钮，换图靠再次选择
+              removable={() => false}
+              disabled={uploadDisabled}
+            />
           </Space>
           <Descriptions column={2} size="small">
             <Descriptions.Item label={t('auth.profileInfo.fields.accountName')}>{renderNotProvided(profile?.username)}</Descriptions.Item>

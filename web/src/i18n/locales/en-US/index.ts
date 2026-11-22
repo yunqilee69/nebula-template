@@ -7,6 +7,7 @@ import { loginLog } from './login-log';
 import { onlineUser } from './online-user';
 import { scheduler } from './scheduler';
 import { siteMessage } from './site-message';
+import { storageManage } from './storage-manage';
 import { system } from './system';
 import { tenantSettings } from './tenant-settings';
 
@@ -21,4 +22,5 @@ export const enUS: NebulaMessages = {
   onlineUser,
   loginLog,
   siteMessage,
+  storageManage,
 };

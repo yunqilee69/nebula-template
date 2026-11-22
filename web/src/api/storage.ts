@@ -71,12 +71,9 @@ export interface StorageService {
   deleteFile: (fileId: string) => Promise<void>;
   getDownloadUrl: (fileId: string, filename?: string) => string;
   /** 解析下载位置：服务端决定走直链还是代理，客户端按 mode 分支消费。按 fileId 解析返回单元素数组。 */
-  getDownloadLocation: (fileId: string, filename?: string, variant?: string) => Promise<StorageDownloadLocation[]>;
+  getDownloadLocation: (fileId: string, filename?: string) => Promise<StorageDownloadLocation[]>;
   /** 按业务归属批量解析下载位置：一次拿到该业务实体下全部附件的下载位置，可直接遍历渲染多项。 */
-  getDownloadLocationsBySource: (
-    req: ListStorageFilesBySourceReq,
-    variant?: string,
-  ) => Promise<StorageDownloadLocation[]>;
+  getDownloadLocationsBySource: (req: ListStorageFilesBySourceReq) => Promise<StorageDownloadLocation[]>;
   downloadFile: (fileId: string, filename?: string) => Promise<Blob>;
 }
 
@@ -86,11 +83,9 @@ const storageDownloadPath = '/api/storage/download';
 export const STORAGE_DOWNLOAD_LOCATION_PATH = '/api/storage/download-location';
 
 /** 构造服务端代理下载地址（PROXY 模式与鉴权 blob 获取使用）。 */
-export function buildStorageDownloadUrl(fileId: string, filename?: string, variant?: string) {
+export function buildStorageDownloadUrl(fileId: string, filename?: string) {
   const searchParams = new URLSearchParams({ fileId });
   if (filename) searchParams.set('filename', filename);
-  const normalizedVariant = normalizeOptionalText(variant);
-  if (normalizedVariant) searchParams.set('variant', normalizedVariant);
   return `${storageDownloadPath}?${searchParams.toString()}`;
 }
 
@@ -101,7 +96,7 @@ function normalizeOptionalText(value: string | undefined) {
 
 export function parseStorageDownloadUrl(
   downloadUrl: string,
-): { readonly fileId: string; readonly filename?: string; readonly variant?: string } | undefined {
+): { readonly fileId: string; readonly filename?: string } | undefined {
   const url = new URL(downloadUrl, 'http://nebula.local');
   if (url.pathname !== storageDownloadPath) return undefined;
 
@@ -109,11 +104,9 @@ export function parseStorageDownloadUrl(
   if (!fileId) return undefined;
 
   const filename = normalizeOptionalText(url.searchParams.get('filename') ?? undefined);
-  const variant = normalizeOptionalText(url.searchParams.get('variant') ?? undefined);
   return {
     fileId,
     ...(filename ? { filename } : {}),
-    ...(variant ? { variant } : {}),
   };
 }
 
@@ -194,15 +187,15 @@ export function createStorageService(request: StorageRequestFn): StorageService 
       return buildStorageDownloadUrl(fileId, filename);
     },
 
-    getDownloadLocation(fileId, filename, variant) {
+    getDownloadLocation(fileId, filename) {
       return request<StorageDownloadLocation[]>({
         url: STORAGE_DOWNLOAD_LOCATION_PATH,
         method: 'get',
-        params: { fileId, filename, variant },
+        params: { fileId, filename },
       });
     },
 
-    getDownloadLocationsBySource(req, variant) {
+    getDownloadLocationsBySource(req) {
       const source = normalizeSourceReq(req);
       return request<StorageDownloadLocation[]>({
         url: STORAGE_DOWNLOAD_LOCATION_PATH,
@@ -211,7 +204,6 @@ export function createStorageService(request: StorageRequestFn): StorageService 
           sourceEntity: source.sourceEntity,
           sourceId: source.sourceId,
           sourceType: source.sourceType,
-          variant,
         },
       });
     },

@@ -1,8 +1,6 @@
 import type { NebulaTenantSettingsMessages } from '../../types';
 
 export const tenantSettings: NebulaTenantSettingsMessages = {
-  title: '企业设置',
-  description: '维护当前企业的资料、登录页品牌与基础标识。企业代码、域名和状态由平台统一管理。',
   readonlyHint: '企业代码、访问域名和状态由平台统一管理，如需修改请联系平台。',
   tabs: {
     basic: '基础信息',

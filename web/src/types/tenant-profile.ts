@@ -8,6 +8,19 @@ export interface TenantBrandingConfig {
   loginBackground?: string;
 }
 
+/**
+ * 登录页品牌文字项（企业资料接口）。
+ *
+ * <p>图片资源位（登录页 Logo / favicon / 背景图）不在资料响应里回传地址：
+ * 上传组件按 `sourceEntity=tenant-profile` + `sourceType=<资源位>` 自行解析下载地址。
+ * 登录页需要的图片地址由 `/api/frontend/init`（{@link TenantBrandingDto}）提供。</p>
+ */
+export interface TenantProfileBranding {
+  loginTitle?: string;
+  loginSubtitle?: string;
+  themeColor?: string;
+}
+
 /** 前端初始化下发的租户品牌与只读信息。 */
 export interface TenantBranding {
   tenantId?: string;
@@ -44,7 +57,6 @@ export interface TenantProfile {
   name: string;
   shortName?: string;
   status: string;
-  logo?: string;
   contactEmail?: string;
   contactPhone?: string;
   website?: string;
@@ -53,7 +65,7 @@ export interface TenantProfile {
   description?: string;
   locale?: string;
   timezone?: string;
-  branding?: TenantBrandingConfig;
+  branding?: TenantProfileBranding;
   domains: TenantProfileDomain[];
   createTime?: string;
   updateTime?: string;
@@ -69,8 +81,8 @@ export type TenantAssetSlot = 'logo' | 'login-logo' | 'favicon' | 'login-backgro
  */
 export type TenantAssetUploadTaskIds = Partial<Record<TenantAssetSlot, string[]>>;
 
-/** 可提交的租户品牌字段：图片资源位走 `uploadTaskIds`，不再提交地址。 */
-export type UpdateTenantBrandingReq = Omit<TenantBrandingConfig, 'loginLogo' | 'favicon' | 'loginBackground'>;
+/** 可提交的租户品牌字段：图片资源位走 `uploadTaskIds`，不提交地址。 */
+export type UpdateTenantBrandingReq = TenantProfileBranding;
 
 /** 更新当前租户资料的请求。 */
 export interface UpdateTenantProfileReq {
@@ -87,4 +99,6 @@ export interface UpdateTenantProfileReq {
   branding?: UpdateTenantBrandingReq;
   /** 企业资料图的上传任务；绑定由保存接口完成。 */
   uploadTaskIds?: TenantAssetUploadTaskIds;
+  /** 本次要删除（换图后弃用）的正式文件 ID：后端先绑定新图，再释放这些文件的引用。 */
+  deletedFileIds?: string[];
 }

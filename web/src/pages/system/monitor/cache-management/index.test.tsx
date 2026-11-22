@@ -9,6 +9,8 @@ import { CacheManagementPage } from './index';
 const CACHE_GROUPS: readonly CacheResp[] = [
   {
     cacheName: 'login-lock',
+    cacheMode: 'redis',
+    protectedCache: false,
     defaultTtlSeconds: 3600,
     entryCount: 1,
     entries: [
@@ -23,6 +25,8 @@ const CACHE_GROUPS: readonly CacheResp[] = [
   },
   {
     cacheName: 'token-session',
+    cacheMode: 'redis',
+    protectedCache: false,
     defaultTtlSeconds: 7200,
     entryCount: 1,
     entries: [
@@ -35,12 +39,32 @@ const CACHE_GROUPS: readonly CacheResp[] = [
       },
     ],
   },
+  {
+    cacheName: 'dictItemByType',
+    cacheMode: 'redis',
+    protectedCache: false,
+    defaultTtlSeconds: 300,
+    entryCount: 0,
+    entries: [],
+  },
+  {
+    cacheName: 'authSessionCache',
+    cacheMode: 'redis',
+    protectedCache: true,
+    defaultTtlSeconds: 7200,
+    entryCount: 7,
+    entries: [],
+  },
 ];
 
-function createService(): CacheService {
+/** 去掉空命名空间与受保护命名空间后的基础数据集，用于条目级交互用例。 */
+const ENTRY_GROUPS: readonly CacheResp[] = CACHE_GROUPS.filter((cache) => cache.entries.length > 0);
+
+function createService(caches: readonly CacheResp[] = CACHE_GROUPS): CacheService {
   return {
-    listCaches: vi.fn().mockResolvedValue(CACHE_GROUPS),
+    listCaches: vi.fn().mockResolvedValue(caches),
     deleteCacheEntry: vi.fn().mockResolvedValue(undefined),
+    clearCache: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -54,11 +78,22 @@ function renderPage(service = createService()): CacheService {
   return service;
 }
 
-async function confirmPopover(title: string) {
+async function renderEntryPage(): Promise<CacheService> {
+  const service = createService(ENTRY_GROUPS);
+  render(
+    <NebulaProvider>
+      <CacheManagementPage service={service} />
+    </NebulaProvider>,
+  );
+  await findCacheNameButton('login-lock');
+  return service;
+}
+
+async function confirmPopover(title: string, okButtonName: RegExp = /删\s*除/) {
   const popup = await screen.findByText(title);
   const popover = popup.closest('.ant-popover');
   if (!(popover instanceof HTMLElement)) throw new Error(`Unable to find popover: ${title}`);
-  await userEvent.click(within(popover).getByRole('button', { name: /删\s*除/ }));
+  await userEvent.click(within(popover).getByRole('button', { name: okButtonName }));
 }
 
 function getCacheNameButton(cacheName: string): HTMLElement {
@@ -162,14 +197,49 @@ describe('CacheManagementPage', () => {
 
   it('deletes every visible key from the current filtered result', async () => {
     const user = userEvent.setup();
-    const service = renderPage();
+    const service = await renderEntryPage();
 
-    await findCacheNameButton('login-lock');
     await user.click(screen.getByRole('button', { name: '删除全部' }));
     await confirmPopover('确认删除当前筛选结果中的全部缓存项？');
 
     await waitFor(() => expect(service.deleteCacheEntry).toHaveBeenCalledTimes(2));
     expect(service.deleteCacheEntry).toHaveBeenCalledWith({ cacheName: 'login-lock', cacheKey: 'lock:alice' });
     expect(service.deleteCacheEntry).toHaveBeenCalledWith({ cacheName: 'token-session', cacheKey: 'session:bob' });
+  });
+
+  it('shows the cache mode and keeps namespaces without entries visible', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText('缓存模式 Redis')).toBeInTheDocument();
+    // 没有条目、只在启动期注册过的命名空间照样列出：否则「未注册」与「注册了但为空」看起来一样
+    await user.click(await findCacheNameButton('dictItemByType'));
+
+    expect(screen.getByText('0 个 Key')).toBeInTheDocument();
+    expect(screen.getByText('当前缓存名称下暂无 Key')).toBeInTheDocument();
+  });
+
+  it('marks protected namespaces and hides their keys', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await findCacheNameButton('authSessionCache'));
+
+    expect(screen.getByText('受保护')).toBeInTheDocument();
+    expect(screen.getByText('7 个 Key')).toBeInTheDocument();
+    expect(screen.getByText('受保护缓存不提供 Key 列表，可整组清空')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /选择缓存 Key authSessionCache/ })).not.toBeInTheDocument();
+  });
+
+  it('clears the selected cache group and refreshes the list', async () => {
+    const user = userEvent.setup();
+    const service = renderPage();
+
+    await user.click(await findCacheNameButton('authSessionCache'));
+    await user.click(screen.getByRole('button', { name: '清空当前分组' }));
+    await confirmPopover('确认清空缓存「authSessionCache」下的全部缓存项？', /清\s*空/);
+
+    await waitFor(() => expect(service.clearCache).toHaveBeenCalledWith({ cacheName: 'authSessionCache' }));
+    await waitFor(() => expect(service.listCaches).toHaveBeenCalledTimes(2));
   });
 });

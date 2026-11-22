@@ -36,6 +36,9 @@ vi.mock('@/api/storage-service', () => ({
     createUploadTask: vi.fn(),
     uploadTaskPart: vi.fn(),
     completeUploadTask: vi.fn(),
+    // 企业资料页的资源位组件挂载时会按业务归属解析下载地址
+    getDownloadLocationsBySource: vi.fn().mockResolvedValue([]),
+    getDownloadLocation: vi.fn(),
   },
 }));
 

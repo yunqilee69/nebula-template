@@ -1,8 +1,6 @@
 import type { NebulaTenantSettingsMessages } from '../../types';
 
 export const tenantSettings: NebulaTenantSettingsMessages = {
-  title: 'Enterprise settings',
-  description: 'Manage your enterprise profile, login page branding, and basic identifiers. Code, domains, and status are managed by the platform.',
   readonlyHint: 'Enterprise code, domains, and status are managed by the platform. Contact the platform to change them.',
   tabs: {
     basic: 'Basic information',
