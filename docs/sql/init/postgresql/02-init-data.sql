@@ -944,7 +944,7 @@ INSERT INTO auth_api (
     ('0196dbe0a6f17000a000000000000403', current_setting('nebula.default_tenant_id'), 'FRONTEND_APP_RELEASE_QUERY', '应用版本查询', 'frontend', 3, '应用版本分页与详情查询，供升级提示使用', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000404', current_setting('nebula.default_tenant_id'), 'STORAGE_FILE_QUERY', '文件查询与下载', 'storage', 4, '正式文件详情、分页、按业务实体列出、下载与下载位置解析共用的准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a000000000000405', current_setting('nebula.default_tenant_id'), 'FRONTEND_CACHE_QUERY', '动态缓存查询', 'frontend', 5, '动态缓存列表查询；响应会回传缓存条目值，属管理端调试准入码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    -- 以下 8 个码代码侧用 @NebulaPermission 声明，但框架内没有对应管理端页面：
+    -- 以下 10 个码代码侧用权限注解声明，但框架内没有对应管理端页面：
     -- auth_button 行挂不上菜单（部分码甚至没有种子行），管理端看不到也授不出去。
     -- 按 docs/spec/09-security.md 2.3.3 改判为接口权限：代码侧用 @NebulaApiPermission，登记行落 auth_api。
     ('0196dbe0a6f17000a000000000000406', current_setting('nebula.default_tenant_id'), 'STORAGE_UPLOAD', '文件上传', 'storage', 6, '建上传任务、单文件上传、分片上传、完成与绑定共用的准入码；入口散落在各业务的 nebula-upload 组件里，无独立按钮', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -955,7 +955,8 @@ INSERT INTO auth_api (
     ('0196dbe0a6f17000a00000000000040b', current_setting('nebula.default_tenant_id'), 'FRONTEND_APP_RELEASE_DELETE', '删除应用版本', 'frontend', 11, '删除应用版本发布记录；框架内暂无管理端页面，仅做服务端准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a00000000000040c', current_setting('nebula.default_tenant_id'), 'NOTIFY_PUSH_DEVICE_QUERY', '查询推送设备', 'notify', 12, '管理端查看全系统推送设备；面向当前用户的设备接口不加权限码', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('0196dbe0a6f17000a00000000000040d', current_setting('nebula.default_tenant_id'), 'NOTIFY_PUSH_TEST', '测试推送', 'notify', 13, '向指定用户或设备发起测试推送；会向真实终端下发通知，属运营动作', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('0196dbe0a6f17000a00000000000040e', current_setting('nebula.default_tenant_id'), 'STORAGE_SETTINGS_QUERY', '读取存储配置', 'storage', 14, '高级配置 → 存储 tab 读取两层配置；页面上没有独立查询按钮，属列表接口准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('0196dbe0a6f17000a00000000000040e', current_setting('nebula.default_tenant_id'), 'STORAGE_SETTINGS_QUERY', '读取存储配置', 'storage', 14, '高级配置 → 存储 tab 读取两层配置；页面上没有独立查询按钮，属列表接口准入', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('0196dbe0a6f17000a00000000000040f', current_setting('nebula.default_tenant_id'), 'STORAGE_UPLOAD_TASK_DELETE', '删除临时上传任务', 'storage', 15, '删除临时上传任务及临时内容；不删除绑定后的正式文件', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (tenant_id, code) DO UPDATE SET
     name = EXCLUDED.name,
     module = EXCLUDED.module,

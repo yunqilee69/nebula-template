@@ -5,6 +5,7 @@ import type { GitHubLoginStatusResp, LoginResp } from '@/types/auth';
 describe('token session storage', () => {
   afterEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('stores and reads access and refresh tokens from login responses', () => {
@@ -46,6 +47,54 @@ describe('token session storage', () => {
     expect(getStoredAccessToken()).toBeNull();
     expect(getStoredRefreshToken()).toBeNull();
     expect(getStoredTenantCode()).toBeNull();
+  });
+
+  it('stores tokens in session storage when auto login is disabled', () => {
+    saveAuthTokens(
+      {
+        accessToken: 'session-access',
+        refreshToken: 'session-refresh',
+      },
+      { persist: false },
+    );
+
+    expect(getStoredAccessToken()).toBe('session-access');
+    expect(getStoredRefreshToken()).toBe('session-refresh');
+    expect(localStorage.getItem('nebula-web.access-token')).toBeNull();
+    expect(sessionStorage.getItem('nebula-web.access-token')).toBe('session-access');
+  });
+
+  it('removes the previous storage location when the auto login choice changes', () => {
+    saveAuthTokens({ accessToken: 'local-access', refreshToken: 'local-refresh' });
+
+    saveAuthTokens({ accessToken: 'session-access', refreshToken: 'session-refresh' }, { persist: false });
+
+    expect(localStorage.getItem('nebula-web.access-token')).toBeNull();
+    expect(localStorage.getItem('nebula-web.refresh-token')).toBeNull();
+    expect(getStoredAccessToken()).toBe('session-access');
+    expect(getStoredRefreshToken()).toBe('session-refresh');
+  });
+
+  it('keeps the session storage choice when tokens are saved without an explicit preference', () => {
+    saveAuthTokens({ accessToken: 'session-access', refreshToken: 'session-refresh' }, { persist: false });
+
+    // 刷新令牌等后台流程不传 persist：必须沿用会话级存储，不能悄悄升级为持久登录
+    saveAuthTokens({ accessToken: 'refreshed-access', refreshToken: 'refreshed-refresh' });
+
+    expect(getStoredAccessToken()).toBe('refreshed-access');
+    expect(sessionStorage.getItem('nebula-web.access-token')).toBe('refreshed-access');
+    expect(localStorage.getItem('nebula-web.access-token')).toBeNull();
+  });
+
+  it('clears tokens from both storage locations', () => {
+    saveAuthTokens({ accessToken: 'session-access', refreshToken: 'session-refresh' }, { persist: false });
+
+    clearAuthTokens();
+
+    expect(getStoredAccessToken()).toBeNull();
+    expect(getStoredRefreshToken()).toBeNull();
+    expect(sessionStorage.getItem('nebula-web.access-token')).toBeNull();
+    expect(localStorage.getItem('nebula-web.token-persistence')).toBeNull();
   });
 
   it('supports optional tokens returned by OAuth login status', () => {

@@ -3,10 +3,21 @@ import type { NebulaTenantSettingsMessages } from '../../types';
 export const tenantSettings: NebulaTenantSettingsMessages = {
   readonlyHint: '企业代码、访问域名和状态由平台统一管理，如需修改请联系平台。',
   tabs: {
-    basic: '基础信息',
-    branding: '品牌与登录页',
+    basic: '企业资料',
+    branding: '品牌与站点',
     security: '登录与安全',
     identity: '企业标识',
+  },
+  groups: {
+    assets: '品牌资源',
+    profile: '企业资料',
+    branding: '品牌资料',
+    footer: '登录页页脚',
+  },
+  assetHints: {
+    logo: '推荐 1:1 正方形，512×512 像素以上，PNG 透明背景，文件不超过 2 MB。',
+    favicon: '推荐正方形，256×256 或 512×512 像素，PNG 格式，文件不超过 1 MB。',
+    loginBackground: '推荐 16:9 横版，1920×1080 像素以上，JPG/PNG，文件不超过 5 MB。',
   },
   actions: {
     save: '保存',
@@ -17,11 +28,11 @@ export const tenantSettings: NebulaTenantSettingsMessages = {
     openOAuth: '打开 OAuth2 配置',
   },
   basic: {
-    title: '基础信息',
+    title: '企业资料',
     description: '这些信息会展示在企业管理端、登录页和通知中。',
   },
   branding: {
-    title: '品牌与登录页',
+    title: '品牌与站点',
     description: '自定义企业 Logo、登录页标题、主题色和背景图。留空时使用企业名称与默认品牌。',
   },
   security: {
@@ -50,12 +61,16 @@ export const tenantSettings: NebulaTenantSettingsMessages = {
     description: '企业简介',
     locale: '默认语言',
     timezone: '默认时区',
-    loginLogo: '登录页 Logo',
     loginTitle: '登录页标题',
     loginSubtitle: '登录页欢迎语',
     themeColor: '主题色',
     favicon: 'Favicon',
     loginBackground: '登录页背景图',
+    footerCopyright: '页脚版权文案',
+    footerIcp: '备案号',
+    footerContactEmail: '页脚联系邮箱',
+    footerContactPhone: '页脚联系电话',
+    footerWebsite: '页脚官网',
   },
   placeholders: {
     name: '例如：Acme 科技有限公司',
@@ -71,11 +86,17 @@ export const tenantSettings: NebulaTenantSettingsMessages = {
     loginTitle: '默认使用企业名称',
     loginSubtitle: '展示在登录页标题下方',
     themeColor: '例如：#1677ff',
+    footerCopyright: '例如：© 2026 Acme 科技有限公司',
+    footerIcp: '例如：京ICP备12345678号',
+    footerContactEmail: '例如：support@acme.com',
+    footerContactPhone: '例如：+86 138 0000 0000',
+    footerWebsite: 'https://www.acme.com',
   },
   feedback: {
     loadFailed: '加载企业资料失败',
     saveSuccess: '企业资料已保存',
     saveFailed: '保存企业资料失败',
+    brandRefreshFailed: '刷新企业品牌失败',
     uploadFailed: '图片上传失败',
     uploadSuccess: '图片已上传，保存后生效',
     pendingSave: '待保存生效',

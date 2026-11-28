@@ -27,7 +27,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 --         auth_oauth2_provider, auth_tenant_oauth2_provider, auth_tenant_invitation
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_tenant (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     code VARCHAR(64) NOT NULL COMMENT '租户编码，公开且不可变',
     name VARCHAR(100) NOT NULL COMMENT '租户名称',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE/SUSPENDED/EXPIRED/DELETED',
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS auth_tenant (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户表';
 
 CREATE TABLE IF NOT EXISTS auth_tenant_domain (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     domain VARCHAR(255) NOT NULL COMMENT '租户子域名（小写）',
     primary_domain TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否主域名',
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS auth_tenant_domain (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户域名表';
 
 CREATE TABLE IF NOT EXISTS auth_person (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     username VARCHAR(64) NOT NULL COMMENT '全局唯一用户名（小写）',
     display_name VARCHAR(100) COMMENT '展示名',
     password_hash VARCHAR(100) COMMENT '密码哈希',
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS auth_person (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台账号表';
 
 CREATE TABLE IF NOT EXISTS auth_person_user (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     person_id CHAR(32) NOT NULL COMMENT '平台账号ID',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     user_id CHAR(32) NOT NULL COMMENT '租户用户ID',
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS auth_person_user (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台账号-租户账号关联表';
 
 CREATE TABLE IF NOT EXISTS auth_oauth2_provider (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     code VARCHAR(50) NOT NULL COMMENT '提供商编码',
     name VARCHAR(100) NOT NULL COMMENT '提供商名称',
     protocol VARCHAR(20) NOT NULL COMMENT '协议：OAUTH2/OIDC/WECHAT',
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_provider (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='OAuth2提供商全局目录';
 
 CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     provider_id CHAR(32) NOT NULL COMMENT '提供商ID',
     channel VARCHAR(20) NOT NULL COMMENT '渠道：WEB/MINI/APP',
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户OAuth2提供商配置';
 
 CREATE TABLE IF NOT EXISTS auth_tenant_invitation (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     email VARCHAR(100) COMMENT '受邀邮箱',
     phone VARCHAR(32) COMMENT '受邀手机号',
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS auth_tenant_invitation (
 -- Tables: auth_user
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     employee_no VARCHAR(50) COMMENT '工号，租户内唯一',
     username VARCHAR(50) NOT NULL COMMENT '用户名，唯一',
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS auth_user (
 -- Tables: auth_role
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_role (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     code VARCHAR(50) NOT NULL COMMENT '角色编码，唯一',
     name VARCHAR(50) NOT NULL COMMENT '角色名称',
@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS auth_role (
 -- Tables: auth_org, auth_user_org
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_org (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     name VARCHAR(100) NOT NULL COMMENT '组织名称',
     parent_id CHAR(32) COMMENT '父组织ID，NULL为根节点',
@@ -217,7 +217,7 @@ CREATE TABLE IF NOT EXISTS auth_org (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='组织表';
 
 CREATE TABLE IF NOT EXISTS auth_user_org (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
     org_id CHAR(32) NOT NULL COMMENT '组织ID',
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS auth_user_org (
 -- Tables: auth_user_role
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_user_role (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
     role_id CHAR(32) NOT NULL COMMENT '角色ID',
@@ -252,7 +252,7 @@ CREATE TABLE IF NOT EXISTS auth_user_role (
 -- Tables: auth_menu, auth_button
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_menu (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     name VARCHAR(100) NOT NULL COMMENT '菜单名称',
     parent_id CHAR(32) COMMENT '父菜单ID，NULL为根节点',
@@ -278,7 +278,7 @@ CREATE TABLE IF NOT EXISTS auth_menu (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='菜单表';
 
 CREATE TABLE IF NOT EXISTS auth_button (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     menu_id CHAR(32) NOT NULL COMMENT '所属菜单ID',
     code VARCHAR(100) NOT NULL COMMENT '按钮编码，租户内唯一',
@@ -295,7 +295,7 @@ CREATE TABLE IF NOT EXISTS auth_button (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='按钮表';
 
 CREATE TABLE IF NOT EXISTS auth_api (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     code VARCHAR(100) NOT NULL COMMENT '接口权限编码，租户内唯一',
     name VARCHAR(100) NOT NULL COMMENT '接口权限名称',
@@ -316,7 +316,7 @@ CREATE TABLE IF NOT EXISTS auth_api (
 -- Tables: auth_permission
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_permission (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     subject_type VARCHAR(20) NOT NULL COMMENT '主体类型：USER/ROLE/ORG',
     subject_id CHAR(32) NOT NULL COMMENT '主体ID',
@@ -334,7 +334,7 @@ CREATE TABLE IF NOT EXISTS auth_permission (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='权限表';
 
 CREATE TABLE IF NOT EXISTS auth_data_scope (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     subject_type VARCHAR(20) NOT NULL COMMENT '主体类型：USER/ROLE/ORG',
     subject_id CHAR(32) NOT NULL COMMENT '主体ID',
@@ -355,7 +355,7 @@ CREATE TABLE IF NOT EXISTS auth_data_scope (
 -- Tables: auth_oauth2_account
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_oauth2_account (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     provider_config_id CHAR(32) NULL COMMENT '租户 OAuth2 配置 ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
@@ -376,7 +376,7 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_account (
 -- Source: dict/01-dict-schema-mysql.sql
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_dict_type (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     code VARCHAR(100) NOT NULL COMMENT '字典编码，唯一',
     name VARCHAR(100) NOT NULL COMMENT '字典名称',
@@ -388,7 +388,7 @@ CREATE TABLE IF NOT EXISTS sys_dict_type (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='字典类型表';
 
 CREATE TABLE IF NOT EXISTS sys_dict_item (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     dict_code VARCHAR(100) NOT NULL COMMENT '所属字典编码',
     name VARCHAR(100) NOT NULL COMMENT '字典项名称',
@@ -413,7 +413,7 @@ CREATE TABLE IF NOT EXISTS sys_dict_item (
 -- Source: frontend/01-frontend-schema-mysql.sql
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS frontend_user_preference (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     user_id CHAR(32) NOT NULL COMMENT '用户ID',
     locale_tag VARCHAR(32) COMMENT '语言标签',
@@ -427,7 +427,7 @@ CREATE TABLE IF NOT EXISTS frontend_user_preference (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='前端用户偏好表';
 
 CREATE TABLE IF NOT EXISTS frontend_app_release (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     platform VARCHAR(16) NOT NULL COMMENT '平台：IOS/ANDROID/OHOS/H5',
     channel VARCHAR(32) NOT NULL COMMENT '分发渠道，如 APP_STORE/HUAWEI/APP_GALLERY/INTERNAL/WEB；客户端未传时取平台默认渠道',
     version_code INT NOT NULL COMMENT '整数构建号，比较用；不要用字符串版本号比较',
@@ -449,7 +449,7 @@ CREATE TABLE IF NOT EXISTS frontend_app_release (
 -- Source: notify/01-notify-schema-mysql.sql
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_notify_template (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     template_code VARCHAR(100) NOT NULL COMMENT '模板编码',
     template_name VARCHAR(100) NOT NULL COMMENT '模板名称',
@@ -463,7 +463,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_template (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知模板表';
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_field (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     template_id VARCHAR(64) NOT NULL COMMENT '通知模板ID',
     field_code VARCHAR(100) NOT NULL COMMENT '字段编码',
@@ -480,7 +480,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_template_field (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知模板自定义字段表';
 
 CREATE TABLE IF NOT EXISTS sys_notify_template_variant (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     template_id VARCHAR(64) NOT NULL COMMENT '通知模板ID',
     channel_type VARCHAR(32) NOT NULL COMMENT '渠道类型',
@@ -498,7 +498,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_template_variant (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知模板渠道变体表';
 
 CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     target_name VARCHAR(100) NOT NULL COMMENT '目标名称',
     channel_type VARCHAR(32) NOT NULL COMMENT '渠道类型',
@@ -513,7 +513,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知渠道目标表';
 
 CREATE TABLE IF NOT EXISTS sys_notify_record (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     channel_type VARCHAR(32) NOT NULL COMMENT '渠道类型',
     template_code VARCHAR(100) COMMENT '模板编码',
@@ -544,7 +544,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_record (
 -- 通知类别：模板的归类维度，用于按类控制用户是否接收（消息设置页的开关分组）。
 -- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=1 的内置类别不可删除。
 CREATE TABLE IF NOT EXISTS sys_notify_category (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     code VARCHAR(32) NOT NULL COMMENT '类别编码，唯一且创建后不可修改',
     name VARCHAR(50) NOT NULL COMMENT '类别名称',
@@ -563,7 +563,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_category (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知类别表';
 
 CREATE TABLE IF NOT EXISTS sys_site_message (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     record_id VARCHAR(64) NOT NULL COMMENT '通知记录ID',
     category_code VARCHAR(32) NOT NULL DEFAULT 'DEFAULT' COMMENT '通知类别 code，随发送记录冗余',
@@ -583,7 +583,7 @@ CREATE TABLE IF NOT EXISTS sys_site_message (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='站内信表';
 
 CREATE TABLE IF NOT EXISTS sys_announcement (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     title VARCHAR(255) NOT NULL COMMENT '标题',
     content TEXT NOT NULL COMMENT '内容',
@@ -605,7 +605,7 @@ CREATE TABLE IF NOT EXISTS sys_announcement (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告主表';
 
 CREATE TABLE IF NOT EXISTS sys_announcement_target (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     announcement_id VARCHAR(64) NOT NULL COMMENT '公告ID',
     target_type VARCHAR(20) NOT NULL COMMENT '目标类型',
@@ -618,7 +618,7 @@ CREATE TABLE IF NOT EXISTS sys_announcement_target (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告定向配置表';
 
 CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     announcement_id VARCHAR(64) NOT NULL COMMENT '公告ID',
     user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
@@ -632,7 +632,7 @@ CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告已读记录表';
 
 CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     user_id VARCHAR(64) NOT NULL COMMENT '用户ID',
     category_code VARCHAR(32) NOT NULL COMMENT '通知类别 code',
@@ -650,7 +650,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
 -- 否则已登出的用户仍会收到该设备的推送（串号泄露）。
 -- push_token 是可定位到设备的个人数据：注销时清空，日志中不得完整打印。
 CREATE TABLE IF NOT EXISTS sys_notify_push_device (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     user_id VARCHAR(64) NOT NULL COMMENT '所属用户ID，来自登录态，不接受客户端传入',
     device_id VARCHAR(128) NOT NULL COMMENT '客户端生成的稳定设备标识，全局唯一',
@@ -676,7 +676,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_device (
 -- 逐设备推送投递明细。一次 PUSH 发送会扇出到多台设备，sys_notify_record 上只有一个汇总答案，
 -- 排障要能回答"是哪台设备、哪个厂商、什么原因失败的"。刻意不落 push_token。
 CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     record_id VARCHAR(64) NOT NULL COMMENT '关联 sys_notify_record.id（channel_type=PUSH）',
     device_id VARCHAR(128) NOT NULL COMMENT '设备标识',
@@ -698,7 +698,7 @@ CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
 -- Source: param/01-param-schema-mysql.sql
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sys_param (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     param_key VARCHAR(150) NOT NULL COMMENT '参数键，唯一',
     param_name VARCHAR(100) NOT NULL COMMENT '参数名称',
@@ -723,7 +723,7 @@ CREATE TABLE IF NOT EXISTS sys_param (
 -- Source: scheduler/02-scheduler-schema-mysql.sql
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS scheduler_job (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     job_code VARCHAR(128) NOT NULL COMMENT '任务编码，唯一',
     job_name VARCHAR(128) NOT NULL COMMENT '任务名称',
@@ -745,7 +745,7 @@ CREATE TABLE IF NOT EXISTS scheduler_job (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='调度任务定义表';
 
 CREATE TABLE IF NOT EXISTS scheduler_job_run (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     request_id VARCHAR(64) NOT NULL COMMENT '运行请求唯一标识，唯一',
     job_code VARCHAR(128) NOT NULL COMMENT '任务编码',
@@ -810,23 +810,23 @@ CREATE TABLE IF NOT EXISTS auth_login_record (
 -- Source: audit/01-audit-schema-mysql.sql
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS audit_record (
-    id VARCHAR(64) NOT NULL,
+    id VARCHAR(64) NOT NULL COMMENT '主键',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
-    operator_id VARCHAR(64) DEFAULT NULL,
-    operator_name VARCHAR(128) DEFAULT NULL,
-    person_id CHAR(32) DEFAULT NULL,
-    operator_tenant_id CHAR(32) DEFAULT NULL,
-    target_tenant_id CHAR(32) DEFAULT NULL,
-    module VARCHAR(64) DEFAULT NULL,
-    action VARCHAR(128) DEFAULT NULL,
-    resource_type VARCHAR(128) DEFAULT NULL,
-    resource_id VARCHAR(64) DEFAULT NULL,
-    resource_name VARCHAR(256) DEFAULT NULL,
-    request_params LONGTEXT,
-    response_data LONGTEXT,
-    request_ip VARCHAR(64) DEFAULT NULL,
-    result_status VARCHAR(32) DEFAULT NULL,
-    result_message VARCHAR(1024) DEFAULT NULL,
+    operator_id VARCHAR(64) DEFAULT NULL COMMENT '操作人ID',
+    operator_name VARCHAR(128) DEFAULT NULL COMMENT '操作人名称',
+    person_id CHAR(32) DEFAULT NULL COMMENT '平台账号ID',
+    operator_tenant_id CHAR(32) DEFAULT NULL COMMENT '操作人所属租户ID',
+    target_tenant_id CHAR(32) DEFAULT NULL COMMENT '目标租户ID',
+    module VARCHAR(64) DEFAULT NULL COMMENT '业务模块',
+    action VARCHAR(128) DEFAULT NULL COMMENT '操作动作',
+    resource_type VARCHAR(128) DEFAULT NULL COMMENT '资源类型',
+    resource_id VARCHAR(64) DEFAULT NULL COMMENT '资源ID',
+    resource_name VARCHAR(256) DEFAULT NULL COMMENT '资源名称',
+    request_params LONGTEXT COMMENT '请求参数',
+    response_data LONGTEXT COMMENT '响应数据',
+    request_ip VARCHAR(64) DEFAULT NULL COMMENT '请求IP',
+    result_status VARCHAR(32) DEFAULT NULL COMMENT '结果状态',
+    result_message VARCHAR(1024) DEFAULT NULL COMMENT '结果消息',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (id),
@@ -895,7 +895,7 @@ CREATE TABLE IF NOT EXISTS event_consume_record (
 -- Source: storage test schema and runtime entities
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS storage_upload_task (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     task_mode VARCHAR(20) NOT NULL COMMENT '上传模式',
     file_name VARCHAR(255) NOT NULL COMMENT '文件名',
@@ -919,7 +919,7 @@ CREATE TABLE IF NOT EXISTS storage_upload_task (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='存储上传任务表';
 
 CREATE TABLE IF NOT EXISTS storage_upload_part (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     task_id CHAR(32) NOT NULL COMMENT '上传任务ID',
     part_number INT NOT NULL COMMENT '分片序号',
@@ -936,7 +936,7 @@ CREATE TABLE IF NOT EXISTS storage_upload_part (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='存储上传分片表';
 
 CREATE TABLE IF NOT EXISTS storage_file (
-    id CHAR(32) NOT NULL,
+    id CHAR(32) NOT NULL COMMENT '主键，UUID v7',
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> '') COMMENT '租户ID',
     file_name VARCHAR(255) NOT NULL COMMENT '文件名',
     file_extension VARCHAR(50) DEFAULT NULL COMMENT '文件扩展名',

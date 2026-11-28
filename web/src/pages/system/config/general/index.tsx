@@ -22,7 +22,7 @@ import { TabPanel } from './components/config-panels';
 import { TestEmailModal, type TestEmailFormValues } from './components/test-email-modal';
 import { TenantAuthTab } from './auth-tab';
 import { StorageSettingsPanel } from './storage';
-import { TenantInfoTab, TenantProfileProvider } from './tenant-settings';
+import { TenantProfileProvider, TenantSettingsTabs } from './tenant-settings';
 
 /* ------------------------------------------------------------------ */
 /*  Main page                                                         */
@@ -133,9 +133,9 @@ export function GeneralConfigPage() {
         ),
       }));
 
-    // 企业信息：资料 + 品牌 + 企业标识一块页面，共用 `PUT /api/auth/tenant/profile`
+    // 企业资料与品牌资源共享一份表单和 `PUT /api/auth/tenant/profile`，合并为「品牌与站点」一页
     const tenantTabs = canReadTenantProfile
-      ? [{ key: 'tenant-info', label: '企业信息', children: <TenantInfoTab /> }]
+      ? [{ key: 'tenant-info', label: '品牌与站点', children: <TenantSettingsTabs /> }]
       : [];
     // 认证：OAuth2 走自己的接口，登录/注册参数沿用本页批量保存
     const authTabs = [{

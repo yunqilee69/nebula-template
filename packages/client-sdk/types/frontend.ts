@@ -40,7 +40,6 @@ export interface FrontendTenantResp {
 
 /** 租户登录页品牌配置。 */
 export interface FrontendTenantBrandingResp {
-  loginLogo?: string;
   loginTitle?: string;
   loginSubtitle?: string;
   themeColor?: string;

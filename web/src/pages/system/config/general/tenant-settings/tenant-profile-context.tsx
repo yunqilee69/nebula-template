@@ -34,6 +34,16 @@ function normalizeText(value: string | undefined): string | undefined {
   return normalized ? normalized : undefined;
 }
 
+/**
+ * 可清空字段的提交值。
+ *
+ * <p>后端用 `null` 表示「本次未提交，保留旧值」、空字符串表示「明确清空」。JSON 会丢弃
+ * `undefined`，所以清空后的输入必须显式提交空字符串，否则会被当成未提交而保留旧值。</p>
+ */
+function submittedText(value: string | undefined): string {
+  return value?.trim() ?? '';
+}
+
 export function toFormValues(profile: TenantProfile): TenantProfileFormValues {
   return {
     name: profile.name,
@@ -50,6 +60,11 @@ export function toFormValues(profile: TenantProfile): TenantProfileFormValues {
       loginTitle: profile.branding?.loginTitle,
       loginSubtitle: profile.branding?.loginSubtitle,
       themeColor: profile.branding?.themeColor,
+      footerCopyright: profile.branding?.footerCopyright,
+      footerIcp: profile.branding?.footerIcp,
+      footerContactEmail: profile.branding?.footerContactEmail,
+      footerContactPhone: profile.branding?.footerContactPhone,
+      footerWebsite: profile.branding?.footerWebsite,
     },
   };
 }
@@ -70,19 +85,24 @@ function toRequest(values: TenantProfileFormValues, deletedFileIds: string[]): U
   const uploadTaskIds = toUploadTaskIds(values.assetTaskIds);
   return {
     name: values.name.trim(),
-    shortName: normalizeText(values.shortName),
-    contactEmail: normalizeText(values.contactEmail),
-    contactPhone: normalizeText(values.contactPhone),
-    website: normalizeText(values.website),
-    address: normalizeText(values.address),
-    industry: normalizeText(values.industry),
-    description: normalizeText(values.description),
-    locale: normalizeText(values.locale),
-    timezone: normalizeText(values.timezone),
+    shortName: submittedText(values.shortName),
+    contactEmail: submittedText(values.contactEmail),
+    contactPhone: submittedText(values.contactPhone),
+    website: submittedText(values.website),
+    address: submittedText(values.address),
+    industry: submittedText(values.industry),
+    description: submittedText(values.description),
+    locale: submittedText(values.locale),
+    timezone: submittedText(values.timezone),
     branding: {
-      loginTitle: normalizeText(branding.loginTitle),
-      loginSubtitle: normalizeText(branding.loginSubtitle),
-      themeColor: normalizeText(branding.themeColor),
+      loginTitle: submittedText(branding.loginTitle),
+      loginSubtitle: submittedText(branding.loginSubtitle),
+      themeColor: submittedText(branding.themeColor),
+      footerCopyright: submittedText(branding.footerCopyright),
+      footerIcp: submittedText(branding.footerIcp),
+      footerContactEmail: submittedText(branding.footerContactEmail),
+      footerContactPhone: submittedText(branding.footerContactPhone),
+      footerWebsite: submittedText(branding.footerWebsite),
     },
     ...(uploadTaskIds ? { uploadTaskIds } : {}),
     // 换图时被顶掉的旧图：与 uploadTaskIds 同批提交，后端先绑定新的、再释放这些
@@ -91,7 +111,7 @@ function toRequest(values: TenantProfileFormValues, deletedFileIds: string[]): U
 }
 
 interface TenantProfileContextValue {
-  /** 表单实例：基础信息与品牌两个 tab 共用，切换 tab 不丢已填值。 */
+  /** 表单实例：企业资料与品牌两个 tab 共用，切换 tab 不丢已填值。 */
   readonly form: ReturnType<typeof Form.useForm<TenantProfileFormValues>>[0];
   readonly profile: TenantProfile | null;
   readonly loading: boolean;
@@ -103,7 +123,7 @@ interface TenantProfileContextValue {
   readonly reportRemovedFileIds: (slot: TenantAssetSlot, fileIds: string[]) => void;
   /** 重新拉取企业资料。 */
   readonly reload: () => Promise<void>;
-  /** 校验当前表单并保存；基础信息与品牌两个 tab 的保存按钮都调它。 */
+  /** 校验当前表单并保存；企业资料与品牌两个 tab 的保存按钮都调它。 */
   readonly save: () => Promise<void>;
 }
 
@@ -112,7 +132,7 @@ const TenantProfileContext = createContext<TenantProfileContextValue | null>(nul
 /**
  * 供企业资料相关 tab 共享的状态容器。
  *
- * <p>基础信息与品牌共用同一个 `PUT /api/auth/tenant/profile` 接口与一份表单，
+ * <p>企业资料与品牌共用同一个 `PUT /api/auth/tenant/profile` 接口与一份表单，
  * 因此状态必须提到 tab 之上；登录与安全（OAuth2）和存储各有自己的接口，不走这里。</p>
  */
 export function TenantProfileProvider({ enabled = true, children }: {
@@ -181,8 +201,16 @@ export function TenantProfileProvider({ enabled = true, children }: {
       if (authStore.user) {
         authStore.setUser({ ...authStore.user, tenantName: updated.name });
       }
-      // 资料响应不再回传图片地址：品牌（登录页 Logo / 背景图）改从 /api/frontend/init 重新拉取
-      void useTenantBrandStore.getState().load();
+      // 资料响应不再回传图片地址：品牌（favicon / 背景图）改从 /api/frontend/init 重新拉取。
+      // 等待强制刷新结束，但刷新失败只单独警告，不得进入资料保存失败分支。
+      try {
+        const refreshed = await useTenantBrandStore.getState().load({ force: true });
+        if (refreshed === false) {
+          void message.warning(t('tenantSettings.feedback.brandRefreshFailed'));
+        }
+      } catch {
+        void message.warning(t('tenantSettings.feedback.brandRefreshFailed'));
+      }
 
       void message.success(t('tenantSettings.feedback.saveSuccess'));
     } catch {

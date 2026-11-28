@@ -208,6 +208,7 @@ function NeUploadView({
     if (!hasSuppliedLocations && !sourceReq) return;
 
     let active = true;
+    previewRetryRef.current.clear();
     const resolving = hasSuppliedLocations
       ? Promise.resolve<readonly StorageDownloadLocation[]>(downloadLocations ?? [])
       : appStorageService.getDownloadLocationsBySource(sourceReq!);
@@ -260,7 +261,7 @@ function NeUploadView({
   maxCountRef.current = maxCount;
   const messageRef = useRef(message);
   messageRef.current = message;
-  /** 已尝试重解析的预览键：同一个 (uid,url) 只重试一次，避免直链始终不可用时无限循环 */
+  /** 已尝试重解析的文件 uid：同一个装载周期只重试一次，避免新直链再次失效时无限循环 */
   const previewRetryRef = useRef(new Set<string>());
 
   /**
@@ -270,23 +271,21 @@ function NeUploadView({
    * 用 fileId 重新问一次服务端即可自愈，不需要用户刷新页面。</p>
    */
   const refreshPreview = useCallback(
-    (file: NeUploadFile) => {
-      if (!file.fileId) return;
-      const retryKey = `${file.uid}:${file.url ?? ''}`;
-      if (previewRetryRef.current.has(retryKey)) return;
-      previewRetryRef.current.add(retryKey);
-      void appStorageService
-        .getDownloadLocation(file.fileId)
-        .then((locations) => {
-          const nextUrl = locations[0]?.url;
-          if (!nextUrl) return;
-          applyUpdate((prev) => prev.map((item) => (
-            item.uid === file.uid ? { ...item, url: nextUrl, thumbUrl: nextUrl } : item
-          )));
-        })
-        .catch(() => {
-          // 重解析失败就保持占位，不打扰用户；下次挂载会重新装载
-        });
+    async (file: NeUploadFile): Promise<boolean> => {
+      if (!file.fileId || previewRetryRef.current.has(file.uid)) return false;
+      previewRetryRef.current.add(file.uid);
+      try {
+        const locations = await appStorageService.getDownloadLocation(file.fileId);
+        const nextUrl = locations[0]?.url;
+        if (!nextUrl) return false;
+        applyUpdate((prev) => prev.map((item) => (
+          item.uid === file.uid ? { ...item, url: nextUrl, thumbUrl: nextUrl } : item
+        )));
+        return true;
+      } catch {
+        // 重解析失败就保持占位，不打扰用户；下次挂载会重新装载
+        return false;
+      }
     },
     [applyUpdate],
   );

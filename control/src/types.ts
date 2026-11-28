@@ -38,7 +38,6 @@ export interface CurrentUser {
 }
 
 export interface TenantBrandingConfig {
-  loginLogo?: string;
   loginTitle?: string;
   loginSubtitle?: string;
   themeColor?: string;

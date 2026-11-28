@@ -109,7 +109,7 @@ describe('GeneralConfigPage', () => {
     renderPage();
 
     expect(await screen.findByRole('tab', { name: '认证' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: '企业信息' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '品牌与站点' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '存储' })).not.toBeInTheDocument();
     // 没有企业资料权限时不应发起读取，避免进页面就看到「加载失败」
     expect(tenantProfileService.getProfile).not.toHaveBeenCalled();
@@ -164,25 +164,26 @@ describe('GeneralConfigPage', () => {
     expect(screen.getByRole('tab', { name: '审计' })).toBeInTheDocument();
   });
 
-  it('merges tenant settings into 企业信息 and 认证 tabs', async () => {
-    const user = userEvent.setup();
+  it('renders tenant profile and branding in one 品牌与站点 tab while keeping 认证 separate', async () => {
     renderPage();
 
-    // 企业资料、品牌、企业标识合并为一个「企业信息」tab
-    expect(await screen.findByRole('tab', { name: '企业信息' })).toBeInTheDocument();
+    // 「企业信息」已改名为「品牌与站点」，资料与品牌合并为同一页，不再有内层 tab。
+    expect(await screen.findByRole('tab', { name: '品牌与站点' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '认证' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '企业信息' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '企业资料' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '基础信息' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '品牌与登录页' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '企业标识' })).not.toBeInTheDocument();
-    // 登录与安全（OAuth2）与登录/注册参数合并为「认证」
-    expect(screen.getByRole('tab', { name: '认证' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '登录与注册' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '登录与安全' })).not.toBeInTheDocument();
 
-    // 企业信息是默认激活的 tab，挂载即拉取企业资料
     await waitFor(() => expect(tenantProfileService.getProfile).toHaveBeenCalled());
-    // 同一 tab 内三段都在：资料、品牌、企业标识
+    // 同一屏同时出现资料字段与品牌字段
+    expect(await screen.findByLabelText('企业名称')).toBeInTheDocument();
+    expect(screen.getByLabelText('登录页标题')).toBeInTheDocument();
     expect((await screen.findAllByDisplayValue('Acme')).length).toBeGreaterThan(0);
-    expect(screen.getByText(/自定义企业 Logo/)).toBeInTheDocument();
     expect(screen.getByText('企业代码')).toBeInTheDocument();
+    expect(screen.getByText(/自定义企业 Logo/)).toBeInTheDocument();
   });
 });

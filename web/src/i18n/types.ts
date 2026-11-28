@@ -1642,6 +1642,17 @@ export interface NebulaTenantSettingsMessages {
     security: string;
     identity: string;
   };
+  groups: {
+    assets: string;
+    profile: string;
+    branding: string;
+    footer: string;
+  };
+  assetHints: {
+    logo: string;
+    favicon: string;
+    loginBackground: string;
+  };
   actions: {
     save: string;
     saving: string;
@@ -1684,12 +1695,16 @@ export interface NebulaTenantSettingsMessages {
     description: string;
     locale: string;
     timezone: string;
-    loginLogo: string;
     loginTitle: string;
     loginSubtitle: string;
     themeColor: string;
     favicon: string;
     loginBackground: string;
+    footerCopyright: string;
+    footerIcp: string;
+    footerContactEmail: string;
+    footerContactPhone: string;
+    footerWebsite: string;
   };
   placeholders: {
     name: string;
@@ -1705,11 +1720,17 @@ export interface NebulaTenantSettingsMessages {
     loginTitle: string;
     loginSubtitle: string;
     themeColor: string;
+    footerCopyright: string;
+    footerIcp: string;
+    footerContactEmail: string;
+    footerContactPhone: string;
+    footerWebsite: string;
   };
   feedback: {
     loadFailed: string;
     saveSuccess: string;
     saveFailed: string;
+    brandRefreshFailed: string;
     uploadFailed: string;
     uploadSuccess: string;
     pendingSave: string;
@@ -1721,6 +1742,10 @@ export interface NebulaTenantSettingsMessages {
 
 export interface NebulaStorageManageMessages {
   title: string;
+  tabs: {
+    files: string;
+    uploadTasks: string;
+  };
   actions: {
     refresh: string;
     search: string;
@@ -1728,6 +1753,8 @@ export interface NebulaStorageManageMessages {
     download: string;
     share: string;
     delete: string;
+    upload: string;
+    deleteTask: string;
   };
   columns: {
     fileName: string;
@@ -1737,31 +1764,68 @@ export interface NebulaStorageManageMessages {
     extension: string;
     createTime: string;
     actions: string;
+    taskMode: string;
+    taskId: string;
+    fileHash: string;
+    bound: string;
+    chunkCount: string;
+    uploadedChunkCount: string;
+    status: string;
+    uploadUserId: string;
+    updateTime: string;
+    lastChunkTime: string;
   };
   fields: {
     fileName: string;
     sourceEntity: string;
     sourceId: string;
     sourceType: string;
+    taskMode: string;
+    status: string;
+    uploadUserId: string;
   };
   placeholders: {
     fileName: string;
     sourceEntity: string;
     sourceId: string;
     sourceType: string;
+    taskMode: string;
+    status: string;
+    uploadUserId: string;
+  };
+  taskModes: {
+    simple: string;
+    chunk: string;
+  };
+  taskStatuses: {
+    init: string;
+    uploading: string;
+    completed: string;
+    failed: string;
+  };
+  bound: {
+    yes: string;
+    no: string;
   };
   confirm: {
     deleteTitle: string;
     deleteContent: string;
+    deleteTaskTitle: string;
+    deleteTaskContent: string;
   };
   feedback: {
     loadFailed: string;
+    taskLoadFailed: string;
     downloadFailed: string;
     shareMissingUrl: string;
     shareFailed: string;
     shareCopied: string;
     deleteSuccess: string;
     deleteFailed: string;
+    uploadSuccess: string;
+    uploadFailed: string;
+    deleteTaskSuccess: string;
+    deleteTaskFailed: string;
   };
 }
 

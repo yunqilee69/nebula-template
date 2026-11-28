@@ -177,7 +177,7 @@ describe('LoginPage', () => {
     clearTenantCode();
   });
 
-  it('loads config, shows password login by default, and renders only form methods as tabs', async () => {
+  it('loads config, shows password login by default, and keeps only account and phone tabs', async () => {
     const user = userEvent.setup();
     const authService = createMockAuthService({
       getAuthConfig: vi.fn().mockResolvedValue(fullConfig),
@@ -193,12 +193,12 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/当前登录方式/)).not.toBeInTheDocument();
     const passwordTab = screen.getByRole('tab', { name: '账号密码登录' });
     const phoneTab = screen.getByRole('tab', { name: '手机号登录' });
-    const emailTab = screen.getByRole('tab', { name: '邮箱登录' });
     expect(passwordTab).toHaveAttribute('aria-selected', 'true');
-    expect(phoneTab.querySelector('.anticon-mobile')).toBeInTheDocument();
-    expect(emailTab.querySelector('.anticon-mail')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'GitHub' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    // 邮箱与平台账号收进「其他登录方式」，不再是页签
+    expect(screen.queryByRole('tab', { name: '邮箱登录' })).not.toBeInTheDocument();
     expect(screen.getByText(/其他登录方式/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '邮箱登录' }).querySelector('.anticon-mail')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'GitHub' }).querySelector('.anticon-github')).toBeInTheDocument();
 
     await user.click(phoneTab);
@@ -206,6 +206,16 @@ describe('LoginPage', () => {
     expect(phoneTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('手机号')).toBeInTheDocument();
     expect(authService.getAuthConfig).toHaveBeenCalledOnce();
+
+    await user.click(screen.getByRole('button', { name: '邮箱登录' }));
+
+    expect(screen.getByLabelText('邮箱')).toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /返\s*回/ }));
+
+    expect(screen.getByLabelText('用户名')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '账号密码登录' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('offers a separate platform account login method in tenant mode', async () => {
@@ -219,12 +229,13 @@ describe('LoginPage', () => {
     renderLoginPage({ authService, onLoginSuccess });
 
     expect(await screen.findByLabelText('用户名')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: '平台账号登录' }));
+    await user.click(screen.getByRole('button', { name: '平台账号登录' }));
 
     expect(screen.getByLabelText('平台账号')).toBeInTheDocument();
     await user.type(screen.getByLabelText('平台账号'), 'platform_admin');
     await user.type(screen.getByLabelText('密码'), '123456');
-    await user.click(screen.getByRole('button', { name: /登\s*录/ }));
+    // 图标按钮的 aria-label 也含「登录」，这里按 antd 自动插入空格的按钮文案精确匹配提交按钮
+    await user.click(screen.getByRole('button', { name: '登 录' }));
 
     await waitFor(() => {
       expect(authService.personLogin).toHaveBeenCalledWith({
@@ -245,6 +256,7 @@ describe('LoginPage', () => {
 
     expect(await screen.findByLabelText('用户名')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '平台账号登录' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '平台账号登录' })).not.toBeInTheDocument();
   });
 
   it('renders extra login badges from NebulaProvider loginBadge.extraLoginBadges', async () => {
@@ -476,7 +488,36 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /登\s*录/ }));
 
     await waitFor(() => {
-      expect(saveAuthTokens).toHaveBeenCalledWith(loginResp);
+      expect(saveAuthTokens).toHaveBeenCalledWith(loginResp, { persist: true });
+    });
+  });
+
+  it('defaults to auto login and persists tokens in session storage when unchecked', async () => {
+    const user = userEvent.setup();
+    const authService = createMockAuthService({
+      getAuthConfig: vi.fn().mockResolvedValue(passwordOnlyConfig),
+      login: vi.fn().mockResolvedValue(loginResp),
+    });
+
+    renderLoginPage({ authService });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('用户名')).toBeInTheDocument();
+    });
+
+    const autoLogin = screen.getByRole('checkbox', { name: '自动登录' });
+    expect(autoLogin).toBeChecked();
+    expect(screen.getByRole('link', { name: '忘记密码？' })).toHaveAttribute('href', '/forgot-password');
+
+    await user.click(autoLogin);
+    expect(autoLogin).not.toBeChecked();
+
+    await user.type(screen.getByLabelText('用户名'), 'admin');
+    await user.type(screen.getByLabelText('密码'), 'password123');
+    await user.click(screen.getByRole('button', { name: /登\s*录/ }));
+
+    await waitFor(() => {
+      expect(saveAuthTokens).toHaveBeenCalledWith(loginResp, { persist: false });
     });
   });
 
@@ -624,7 +665,7 @@ describe('LoginPage', () => {
     await user.click(await screen.findByRole('button', { name: 'SSO 登录' }));
 
     await waitFor(() => {
-      expect(saveAuthTokens).toHaveBeenCalledWith(extraResp);
+      expect(saveAuthTokens).toHaveBeenCalledWith(extraResp, { persist: true });
     });
   });
 
@@ -694,7 +735,7 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(authService.getCurrentUser).toHaveBeenCalledOnce();
     });
-    expect(saveAuthTokens).toHaveBeenCalledWith(loginResp);
+    expect(saveAuthTokens).toHaveBeenCalledWith(loginResp, { persist: true });
     expect(useAuthStore.getState().user).toMatchObject({
       id: 'user-1',
       name: 'Alice',

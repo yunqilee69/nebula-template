@@ -3,10 +3,21 @@ import type { NebulaTenantSettingsMessages } from '../../types';
 export const tenantSettings: NebulaTenantSettingsMessages = {
   readonlyHint: 'Enterprise code, domains, and status are managed by the platform. Contact the platform to change them.',
   tabs: {
-    basic: 'Basic information',
-    branding: 'Branding & login',
+    basic: 'Enterprise profile',
+    branding: 'Brand & site',
     security: 'Login & security',
     identity: 'Enterprise identity',
+  },
+  groups: {
+    assets: 'Brand assets',
+    profile: 'Enterprise profile',
+    branding: 'Brand details',
+    footer: 'Login footer',
+  },
+  assetHints: {
+    logo: 'Recommended: 1:1 square, at least 512×512 px, transparent PNG, up to 2 MB.',
+    favicon: 'Recommended: square, 256×256 or 512×512 px, PNG, up to 1 MB.',
+    loginBackground: 'Recommended: 16:9 landscape, at least 1920×1080 px, JPG/PNG, up to 5 MB.',
   },
   actions: {
     save: 'Save',
@@ -17,11 +28,11 @@ export const tenantSettings: NebulaTenantSettingsMessages = {
     openOAuth: 'Open OAuth2 configuration',
   },
   basic: {
-    title: 'Basic information',
+    title: 'Enterprise profile',
     description: 'These details appear in the admin console, login page, and notifications.',
   },
   branding: {
-    title: 'Branding & login page',
+    title: 'Brand & site',
     description: 'Customize the enterprise logo, login title, primary color, and background. Empty values fall back to defaults.',
   },
   security: {
@@ -50,12 +61,16 @@ export const tenantSettings: NebulaTenantSettingsMessages = {
     description: 'Description',
     locale: 'Default language',
     timezone: 'Default time zone',
-    loginLogo: 'Login page logo',
     loginTitle: 'Login page title',
     loginSubtitle: 'Login page subtitle',
     themeColor: 'Primary color',
     favicon: 'Favicon',
     loginBackground: 'Login page background',
+    footerCopyright: 'Footer copyright',
+    footerIcp: 'ICP filing number',
+    footerContactEmail: 'Footer contact email',
+    footerContactPhone: 'Footer contact phone',
+    footerWebsite: 'Footer website',
   },
   placeholders: {
     name: 'e.g. Acme Technology Ltd.',
@@ -71,11 +86,17 @@ export const tenantSettings: NebulaTenantSettingsMessages = {
     loginTitle: 'Defaults to the enterprise name',
     loginSubtitle: 'Shown below the login title',
     themeColor: 'e.g. #1677ff',
+    footerCopyright: 'e.g. © 2026 Acme Technology Ltd.',
+    footerIcp: 'e.g. ICP filing number',
+    footerContactEmail: 'e.g. support@acme.com',
+    footerContactPhone: 'e.g. +1 555 000 0000',
+    footerWebsite: 'https://www.acme.com',
   },
   feedback: {
     loadFailed: 'Failed to load enterprise settings',
     saveSuccess: 'Enterprise settings saved',
     saveFailed: 'Failed to save enterprise settings',
+    brandRefreshFailed: 'Failed to refresh enterprise branding',
     uploadFailed: 'Image upload failed',
     uploadSuccess: 'Image uploaded, takes effect after saving',
     pendingSave: 'Pending save',

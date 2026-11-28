@@ -39,24 +39,28 @@ const authAdapter = {
 
 const loginBadgeOptions: LoginBadgeOptions = { authService };
 
-function buildTenantBrand(tenant: TenantBranding | null): NebulaBrandConfig | undefined {
+export function buildTenantBrand(tenant: TenantBranding | null): NebulaBrandConfig | undefined {
   if (!tenant) return undefined;
   const name = tenant.name?.trim() || tenant.shortName?.trim() || tenant.code?.trim();
   if (!name) return undefined;
   const logoUrl = tenant.logo?.trim();
-  const loginLogoUrl = tenant.branding?.loginLogo?.trim() || logoUrl;
   return {
     name,
     title: name,
     logo: logoUrl ? <TenantBrandLogo src={logoUrl} alt={name} height={26} /> : undefined,
-    loginLogo: loginLogoUrl
-      ? <TenantBrandLogo src={loginLogoUrl} alt={name} height={40} resolveStorage={false} />
-      : undefined,
+    logoUrl,
     loginTitle: tenant.branding?.loginTitle?.trim() || name,
     loginSubtitle: tenant.branding?.loginSubtitle?.trim(),
     loginBackground: tenant.branding?.loginBackground?.trim(),
     themeColor: tenant.branding?.themeColor?.trim(),
-    faviconHref: tenant.branding?.favicon?.trim() || logoUrl,
+    faviconHref: tenant.branding?.favicon?.trim(),
+    footer: {
+      copyright: tenant.branding?.footerCopyright?.trim(),
+      icp: tenant.branding?.footerIcp?.trim(),
+      contactEmail: tenant.branding?.footerContactEmail?.trim(),
+      contactPhone: tenant.branding?.footerContactPhone?.trim(),
+      website: tenant.branding?.footerWebsite?.trim(),
+    },
   };
 }
 

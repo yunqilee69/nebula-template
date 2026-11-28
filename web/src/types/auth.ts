@@ -142,10 +142,15 @@ export interface FrontendStorageInit {
   upload?: FrontendUploadConfig;
 }
 
+export type FrontendTenantResp = Pick<
+  TenantBranding,
+  'tenantId' | 'code' | 'name' | 'shortName' | 'logo' | 'branding'
+>;
+
 export interface FrontendInitResp {
   frontendConfig?: FrontendConfigResp;
   loginConfig?: AuthInitResp;
-  tenant?: TenantBranding;
+  tenant?: FrontendTenantResp;
   defaultPreference?: FrontendPreferenceResp;
   defaultTheme?: FrontendThemeResp;
   storage?: FrontendStorageInit;

@@ -212,16 +212,24 @@ function UploadImagePreview({
   readonly imageAlt?: string;
   readonly fit: 'cover' | 'contain';
   readonly placeholder?: ReactNode;
-  readonly onPreviewError?: (file: NeUploadFile) => void;
+  readonly onPreviewError?: (file: NeUploadFile) => boolean | Promise<boolean>;
 }) {
   const { styles } = useImagePreviewStyles({ fit });
   // 本地对象 URL 优先：上传完成但未绑定的图片还没有服务端地址，只有它可预览
   const localObjectUrl = useLocalObjectUrl(file.originFileObj);
   const storagePreviewUrl = useStoragePreviewUrl(file.thumbUrl ?? file.url);
   const previewUrl = localObjectUrl ?? storagePreviewUrl;
-  const alt = imageAlt ?? file.name;
+  const previewKey = `${file.uid}:${previewUrl ?? ''}`;
+  const [failedPreviewKey, setFailedPreviewKey] = useState<string>();
 
-  if (!previewUrl) {
+  useEffect(() => {
+    setFailedPreviewKey((current) => current && current !== previewKey ? undefined : current);
+  }, [previewKey]);
+
+  const alt = imageAlt ?? file.name;
+  const showPlaceholder = !previewUrl || failedPreviewKey === previewKey;
+
+  if (showPlaceholder) {
     return (
       <div className={styles.placeholder} role="img" aria-label={imageAlt ?? `文件占位: ${file.name}`}>
         {placeholder ?? <FileOutlined aria-hidden="true" />}
@@ -235,7 +243,12 @@ function UploadImagePreview({
       alt={alt}
       preview={preview}
       className={styles.thumbnail}
-      onError={() => onPreviewError?.(file)}
+      onError={() => {
+        void (async () => {
+          const refreshed = await onPreviewError?.(file);
+          if (refreshed !== true) setFailedPreviewKey(previewKey);
+        })();
+      }}
     />
   );
 }
@@ -255,7 +268,7 @@ interface ImageUploadListProps {
   readonly removable?: (file: NeUploadFile) => boolean;
   readonly placeholder?: ReactNode;
   /** 预览加载失败（例如对象存储直链过期）时的回调，用于重新解析下载地址 */
-  readonly onPreviewError?: (file: NeUploadFile) => void;
+  readonly onPreviewError?: (file: NeUploadFile) => boolean | Promise<boolean>;
 }
 
 export function ImageUploadList({

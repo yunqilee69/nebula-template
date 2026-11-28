@@ -1,21 +1,27 @@
 import { DeleteOutlined, DownloadOutlined, LinkOutlined } from '@ant-design/icons';
-import { App, Button, Popconfirm, Tag, Typography } from 'antd';
-import { useCallback, useMemo, useRef } from 'react';
+import { App, Button, Popconfirm, Tabs, Tag, Typography } from 'antd';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Access } from '@/components/access';
 import { NebulaProTable } from '@/components/nebula-pro-table';
 import type { NebulaPageReq, NebulaProColumns, NebulaProTableAction } from '@/components/nebula-pro-table';
+import { NeUpload } from '@/components/ne-upload';
+import { createPolicyUploadRequest } from '@/api/storage';
+import { appStorageService } from '@/api/storage-service';
 import { useNebulaI18n } from '@/hooks/use-nebula-i18n';
-import type { StorageFileResp } from '@/types/storage';
 import { storageFileService as defaultStorageFileService } from '@/services/storage-files';
 import type { StorageFileService } from '@/services/storage-files';
+import { storageUploadTaskService as defaultStorageUploadTaskService } from '@/services/storage-upload-tasks';
+import type { StorageUploadTaskService } from '@/services/storage-upload-tasks';
+import { ensureUploadPolicy, useUploadPolicyStore } from '@/stores/upload-policy-store';
+import type { StorageFileResp, UploadTaskDetailResp, UploadTaskStatus } from '@/types/storage';
 
-/**
- * 删除正式文件需要的接口权限码：与后端 `StorageApiCodes.STORAGE_FILE_DELETE` 对应。
- * 删除入口按它显隐；服务端另有同样的准入校验。
- */
 const storageFileDeletePermission = 'API:STORAGE_FILE_DELETE:Allow';
+const storageUploadPermission = 'API:STORAGE_UPLOAD:Allow';
+const storageUploadTaskDeletePermission = 'API:STORAGE_UPLOAD_TASK_DELETE:Allow';
 
-/** 表格搜索项。 */
+type StorageTabKey = 'files' | 'uploadTasks';
+
+/** 正式文件表格搜索项。 */
 interface StorageFileQuery {
   fileName?: string;
   sourceEntity?: string;
@@ -23,9 +29,19 @@ interface StorageFileQuery {
   sourceType?: string;
 }
 
+/** 临时上传任务表格搜索项。 */
+interface StorageUploadTaskQuery {
+  fileName?: string;
+  taskMode?: string;
+  status?: UploadTaskStatus;
+  uploadUserId?: string;
+}
+
 export interface StorageFileManagementPageProps {
-  /** 便于测试注入替身。 */
+  /** 便于测试注入正式文件服务。 */
   readonly service?: StorageFileService;
+  /** 便于测试注入临时上传任务服务。 */
+  readonly uploadTaskService?: StorageUploadTaskService;
 }
 
 /** 文件大小展示：超过 1KB 逐级换算，保留一位小数。 */
@@ -41,17 +57,31 @@ function formatFileSize(size: number | undefined) {
   return `${unitIndex === 0 ? value : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-/**
- * 存储管理：以表格查看当前租户内的全部正式文件，支持下载、分享、删除。
- *
- * <p>三个操作都走后端既有接口，因此都会被审计记录：
- * 下载 = `GET /api/storage/download`（`STORAGE_FILE_QUERY`），
- * 分享 = `POST /api/storage/generate-signed-url`（`STORAGE_FILE_QUERY`，审计 `GENERATE_SIGNED_URL`），
- * 删除 = `DELETE /api/storage/files/{id}`（`STORAGE_FILE_DELETE`，审计 `DELETE_FILE`）。</p>
- *
- * <p>删除只删记录不删内容：内容按 `storageKey` 共享，零引用时由后端回收。</p>
- */
-export function StorageFileManagementPage({ service = defaultStorageFileService }: StorageFileManagementPageProps) {
+function formatTaskStatus(status: UploadTaskStatus, t: (key: any) => string) {
+  const keyByStatus: Record<UploadTaskStatus, string> = {
+    INIT: 'storageManage.taskStatuses.init',
+    UPLOADING: 'storageManage.taskStatuses.uploading',
+    COMPLETED: 'storageManage.taskStatuses.completed',
+    FAILED: 'storageManage.taskStatuses.failed',
+  };
+  return t(keyByStatus[status]);
+}
+
+function formatTaskMode(taskMode: string, t: (key: any) => string) {
+  if (taskMode === 'simple') return t('storageManage.taskModes.simple');
+  if (taskMode === 'chunk') return t('storageManage.taskModes.chunk');
+  return taskMode || '-';
+}
+
+function formatDateTime(value: unknown) {
+  return typeof value === 'string' && value ? value : '-';
+}
+
+interface StorageFilesTableProps {
+  readonly service: StorageFileService;
+}
+
+function StorageFilesTable({ service }: StorageFilesTableProps) {
   const { t } = useNebulaI18n();
   const { message } = App.useApp();
   const actionRef = useRef<NebulaProTableAction | undefined>(undefined);
@@ -68,7 +98,6 @@ export function StorageFileManagementPage({ service = defaultStorageFileService 
     [service],
   );
 
-  /** 下载：交给存储 API 的封装解析下载位置（DIRECT 直链、PROXY 代理），再触发浏览器保存。 */
   const handleDownload = useCallback(
     async (file: StorageFileResp) => {
       try {
@@ -80,7 +109,6 @@ export function StorageFileManagementPage({ service = defaultStorageFileService 
     [message, service, t],
   );
 
-  /** 分享：申请短时签名地址并复制到剪贴板，直接发给第三方即可下载。 */
   const handleShare = useCallback(
     async (file: StorageFileResp) => {
       try {
@@ -108,7 +136,6 @@ export function StorageFileManagementPage({ service = defaultStorageFileService 
       try {
         await service.deleteFile(file.id);
         message.success(t('storageManage.feedback.deleteSuccess'));
-        // 删掉的可能是当前页最后一条：交给表格刷新，越界时它会自动回退
         await actionRef.current?.reload();
       } catch (error: unknown) {
         message.error(error instanceof Error && error.message ? error.message : t('storageManage.feedback.deleteFailed'));
@@ -123,7 +150,6 @@ export function StorageFileManagementPage({ service = defaultStorageFileService 
       dataIndex: 'fileName',
       ellipsis: true,
     },
-    // 归属三元组：只作为搜索项（表格里合并成一列展示）
     {
       title: t('storageManage.fields.sourceEntity'),
       dataIndex: 'sourceEntity',
@@ -176,7 +202,7 @@ export function StorageFileManagementPage({ service = defaultStorageFileService 
       dataIndex: 'createTime',
       width: 180,
       search: false,
-      render: (value) => (typeof value === 'string' && value ? value : '-'),
+      render: (value) => formatDateTime(value),
     },
     {
       title: t('storageManage.columns.actions'),
@@ -218,6 +244,261 @@ export function StorageFileManagementPage({ service = defaultStorageFileService 
       request={requestFiles}
       search={{ labelWidth: 'auto', defaultCollapsed: false }}
       scroll={{ x: 1200 }}
+    />
+  );
+}
+
+interface StorageUploadTasksTableProps {
+  readonly service: StorageUploadTaskService;
+}
+
+function StorageUploadTasksTable({ service }: StorageUploadTasksTableProps) {
+  const { t } = useNebulaI18n();
+  const { message } = App.useApp();
+  const actionRef = useRef<NebulaProTableAction | undefined>(undefined);
+  const uploadPolicy = useUploadPolicyStore((state) => state.policy);
+  const uploadPolicyLoaded = useUploadPolicyStore((state) => state.loaded);
+
+  useEffect(() => {
+    if (!uploadPolicyLoaded) void ensureUploadPolicy();
+  }, [uploadPolicyLoaded]);
+
+  const requestTasks = useCallback(
+    (params: StorageUploadTaskQuery & NebulaPageReq) => service.pageUploadTasks({
+      pageNum: params.pageNum,
+      pageSize: params.pageSize,
+      fileName: params.fileName,
+      taskMode: params.taskMode,
+      status: params.status,
+      uploadUserId: params.uploadUserId,
+    }),
+    [service],
+  );
+
+  const uploadRequest = useMemo(
+    () => createPolicyUploadRequest(appStorageService, uploadPolicy),
+    [uploadPolicy],
+  );
+
+  const handleUploadSuccess = useCallback(async () => {
+    message.success(t('storageManage.feedback.uploadSuccess'));
+    await actionRef.current?.reload();
+  }, [message, t]);
+
+  const handleUploadError = useCallback((error: unknown) => {
+    message.error(error instanceof Error && error.message ? error.message : t('storageManage.feedback.uploadFailed'));
+  }, [message, t]);
+
+  const handleDelete = useCallback(
+    async (task: UploadTaskDetailResp) => {
+      try {
+        await service.deleteUploadTask(task.id);
+        message.success(t('storageManage.feedback.deleteTaskSuccess'));
+        await actionRef.current?.reload();
+      } catch (error: unknown) {
+        message.error(error instanceof Error && error.message ? error.message : t('storageManage.feedback.deleteTaskFailed'));
+      }
+    },
+    [message, service, t],
+  );
+
+  const columns = useMemo<NebulaProColumns<UploadTaskDetailResp>[]>(() => [
+    {
+      title: t('storageManage.columns.taskId'),
+      dataIndex: 'id',
+      width: 220,
+      search: false,
+      ellipsis: true,
+    },
+    {
+      title: t('storageManage.columns.fileName'),
+      dataIndex: 'fileName',
+      ellipsis: true,
+    },
+    {
+      title: t('storageManage.fields.taskMode'),
+      dataIndex: 'taskMode',
+      valueEnum: {
+        simple: { text: t('storageManage.taskModes.simple') },
+        chunk: { text: t('storageManage.taskModes.chunk') },
+      },
+      render: (_value, task) => formatTaskMode(task.taskMode, t),
+    },
+    {
+      title: t('storageManage.columns.fileSize'),
+      dataIndex: 'fileSize',
+      width: 110,
+      search: false,
+      render: (_value, task) => formatFileSize(task.fileSize),
+    },
+    {
+      title: t('storageManage.columns.mimeType'),
+      dataIndex: 'fileMimeType',
+      width: 180,
+      search: false,
+      ellipsis: true,
+      render: (_value, task) => task.fileMimeType ?? '-',
+    },
+    {
+      title: t('storageManage.columns.extension'),
+      dataIndex: 'fileExtension',
+      width: 90,
+      search: false,
+      render: (_value, task) => (task.fileExtension ? <Tag>{task.fileExtension}</Tag> : '-'),
+    },
+    {
+      title: t('storageManage.columns.fileHash'),
+      dataIndex: 'fileHash',
+      width: 220,
+      search: false,
+      ellipsis: true,
+      render: (_value, task) => task.fileHash ?? '-',
+    },
+    {
+      title: t('storageManage.columns.status'),
+      dataIndex: 'status',
+      width: 120,
+      valueEnum: {
+        INIT: { text: t('storageManage.taskStatuses.init') },
+        UPLOADING: { text: t('storageManage.taskStatuses.uploading') },
+        COMPLETED: { text: t('storageManage.taskStatuses.completed') },
+        FAILED: { text: t('storageManage.taskStatuses.failed') },
+      },
+      render: (_value, task) => formatTaskStatus(task.status, t),
+    },
+    {
+      title: t('storageManage.columns.bound'),
+      dataIndex: 'bound',
+      width: 140,
+      search: false,
+      render: (_value, task) => task.bound ? t('storageManage.bound.yes') : t('storageManage.bound.no'),
+    },
+    {
+      title: t('storageManage.columns.chunkCount'),
+      dataIndex: 'chunkCount',
+      width: 100,
+      search: false,
+      render: (_value, task) => task.chunkCount ?? '-',
+    },
+    {
+      title: t('storageManage.columns.uploadedChunkCount'),
+      dataIndex: 'uploadedChunkCount',
+      width: 130,
+      search: false,
+      render: (_value, task) => task.uploadedChunkCount ?? '-',
+    },
+    {
+      title: t('storageManage.columns.uploadUserId'),
+      dataIndex: 'uploadUserId',
+      width: 150,
+      search: false,
+      ellipsis: true,
+      render: (_value, task) => task.uploadUserId ?? '-',
+    },
+    {
+      title: t('storageManage.columns.createTime'),
+      dataIndex: 'createTime',
+      width: 180,
+      search: false,
+      render: (value) => formatDateTime(value),
+    },
+    {
+      title: t('storageManage.columns.updateTime'),
+      dataIndex: 'updateTime',
+      width: 180,
+      search: false,
+      render: (value) => formatDateTime(value),
+    },
+    {
+      title: t('storageManage.columns.lastChunkTime'),
+      dataIndex: 'lastChunkTime',
+      width: 180,
+      search: false,
+      render: (value) => formatDateTime(value),
+    },
+    {
+      title: t('storageManage.columns.actions'),
+      key: 'actions',
+      valueType: 'option',
+      width: 150,
+      fixed: 'right',
+      render: (_value, task) => (
+        <Access permission={storageUploadTaskDeletePermission} fallback={null}>
+          <Popconfirm
+            title={t('storageManage.confirm.deleteTaskTitle')}
+            description={t('storageManage.confirm.deleteTaskContent').replace('{fileName}', task.fileName)}
+            okText={t('common.actions.confirm')}
+            cancelText={t('common.actions.cancel')}
+            okButtonProps={{ danger: true }}
+            onConfirm={() => handleDelete(task)}
+          >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+              {t('storageManage.actions.deleteTask')}
+            </Button>
+          </Popconfirm>
+        </Access>
+      ),
+    },
+  ], [handleDelete, t]);
+
+  return (
+    <NebulaProTable<UploadTaskDetailResp, StorageUploadTaskQuery>
+      actionRef={actionRef}
+      rowKey="id"
+      headerTitle={t('storageManage.tabs.uploadTasks')}
+      columns={columns}
+      request={requestTasks}
+      search={{ labelWidth: 'auto', defaultCollapsed: false }}
+      scroll={{ x: 2200 }}
+      toolBarRender={() => [
+        <Access key="upload" permission={storageUploadPermission} fallback={null}>
+          <NeUpload
+            maxCount={1}
+            replaceable
+            removable={() => false}
+            uploadText={t('storageManage.actions.upload')}
+            uploadRequest={uploadRequest}
+            onUploadSuccess={() => void handleUploadSuccess()}
+            onUploadError={(_file, error) => handleUploadError(error)}
+          />
+        </Access>,
+      ]}
+    />
+  );
+}
+
+/**
+ * 存储管理：正式文件与临时上传任务分 Tab 展示。
+ *
+ * 正式文件保留下载、分享和正式文件删除行为；临时任务只展示元数据，上传和临时任务删除分别受接口权限控制。
+ */
+export function StorageFileManagementPage({
+  service = defaultStorageFileService,
+  uploadTaskService = defaultStorageUploadTaskService,
+}: StorageFileManagementPageProps) {
+  const { t } = useNebulaI18n();
+  const [activeTabKey, setActiveTabKey] = useState<StorageTabKey>('files');
+
+  const handleTabChange = useCallback((key: string) => {
+    if (key === 'files' || key === 'uploadTasks') setActiveTabKey(key);
+  }, []);
+
+  return (
+    <Tabs
+      activeKey={activeTabKey}
+      onChange={handleTabChange}
+      items={[
+        {
+          key: 'files',
+          label: t('storageManage.tabs.files'),
+          children: activeTabKey === 'files' ? <StorageFilesTable service={service} /> : null,
+        },
+        {
+          key: 'uploadTasks',
+          label: t('storageManage.tabs.uploadTasks'),
+          children: activeTabKey === 'uploadTasks' ? <StorageUploadTasksTable service={uploadTaskService} /> : null,
+        },
+      ]}
     />
   );
 }

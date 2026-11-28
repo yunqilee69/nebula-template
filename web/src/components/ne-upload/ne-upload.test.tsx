@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from 'antd';
 import type { ReactElement } from 'react';
@@ -588,6 +588,39 @@ describe('NeUpload', () => {
     expect(onChange).toHaveBeenLastCalledWith([
       expect.objectContaining({ fileId: 'file-img', url: 'https://oss.example.com/a.png?sig=1' }),
     ]);
+  });
+
+  it('shows the placeholder after its one-time refreshed preview also returns 404', async () => {
+    const originalUrl = 'https://oss.example.com/missing.png?sig=expired';
+    const refreshedUrl = 'https://oss.example.com/missing.png?sig=renewed';
+    vi.mocked(appStorageService.getDownloadLocation)
+      .mockResolvedValueOnce([{ mode: 'DIRECT', url: refreshedUrl }])
+      .mockResolvedValue([]);
+
+    renderWithApp(
+      <NeImageUpload
+        defaultValue={[{
+          uid: 'img-missing',
+          fileId: 'file-missing',
+          name: 'missing.png',
+          status: 'done',
+          url: originalUrl,
+          thumbUrl: originalUrl,
+        }]}
+        placeholder={<span>图片不可用</span>}
+      />,
+    );
+
+    fireEvent.error(await screen.findByAltText('missing.png'));
+    const refreshedImage = await screen.findByAltText('missing.png');
+    await waitFor(() => expect(refreshedImage).toHaveAttribute('src', refreshedUrl));
+    fireEvent.error(refreshedImage);
+
+    await waitFor(() => {
+      expect(screen.getByText('图片不可用')).toBeInTheDocument();
+      expect(screen.queryByAltText('missing.png')).not.toBeInTheDocument();
+    });
+    expect(appStorageService.getDownloadLocation).toHaveBeenCalledTimes(1);
   });
 });
 

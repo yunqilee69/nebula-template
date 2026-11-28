@@ -7,6 +7,8 @@ export type UploadTaskStatus = 'INIT' | 'UPLOADING' | 'COMPLETED' | 'FAILED';
  */
 export interface UploadTaskDetailResp {
   id: string;
+  /** API responses may include this when tasks are listed for management. */
+  bound?: boolean;
   taskMode: string;
   fileName: string;
   fileExtension?: string;

@@ -45,7 +45,7 @@
     初始化 SQL 中只创建全局平台账号 `auth_person.username=superadmin`、`platform_admin=1`；它不绑定默认租户，也不在默认租户内创建同名 `auth_user`、角色或关联记录。超级管理员只存在于控制平面。后端能力标记仍保留字段名 `platform_admin`。
 
 13. **企业资料由租户自助维护，平台保留兜底编辑能力。**
-    数据平面「系统管理 → 高级配置 → 企业信息」页签由租户管理员维护企业名称、简称、Logo、对外联系方式、官网、地址、行业、简介、默认语言/时区与登录页品牌；企业代码、域名、状态仍由平台持有，租户只读。企业资料读取使用 `TENANT_PROFILE_QUERY`，保存使用 `TENANT_PROFILE_UPDATE`，内置 `ADMIN` 默认授权，自定义角色可按需授予。控制平面仍可编辑同样字段，但属于排障/交付手段，不写租户审计、不通知租户。移动端只读展示企业资料，不提供编辑入口。
+    数据平面「系统管理 → 高级配置 → 企业信息」页签由租户管理员维护企业名称、简称、Logo、对外联系方式、官网、地址、行业、简介、默认语言/时区与登录页品牌（含登录页页脚：版权文案、备案号、公开联系邮箱/电话、官网）；企业代码、域名、状态仍由平台持有，租户只读。企业资料读取使用 `TENANT_PROFILE_QUERY`，保存使用 `TENANT_PROFILE_UPDATE`，内置 `ADMIN` 默认授权，自定义角色可按需授予。控制平面仍可编辑同样字段，但属于排障/交付手段，不写租户审计、不通知租户。移动端只读展示企业资料，不提供编辑入口。
 
 ---
 
@@ -203,18 +203,31 @@ acme 页面点击“切换到 beta”
 
 ### 3.3 解析规则
 
+普通请求的解析顺序为：
+
 ```text
 已验证的租户域名
   > 显式 tenantCode（仅平台主域、开发环境、邀请链接）
   > App/构建配置
-  > 默认租户（仅单租户部署）
+```
+
+仅以下两个精确的 GET 路径允许匿名品牌兜底：`/api/frontend/init` 和
+`/api/frontend/brand-assets/{slot}`。这两个路径的解析顺序为：
+
+```text
+显式 X-Tenant-Code
+  > 已验证的租户域名
+  > 配置的 default-tenant-id 对应的 ACTIVE 普通租户
 ```
 
 - Host 归一化：小写、去端口、去尾点、IDN 转 punycode、拒绝 IP；
 - 只接受配置的 base domain 后缀，防止 `acme.app.example.com.evil.com`；
 - 只信任可信代理的 `Host` / `X-Forwarded-Host`，网关剥离外部同名头；
 - 租户子域上忽略 `?tenantCode=` 覆盖，避免跨租户钓鱼；
-- 租户状态为 `SUSPENDED`/`EXPIRED`/`DELETED` 时，子域名仍解析到品牌化停用页，不返回通用 404。
+- 对允许匿名选择租户的请求，显式 `X-Tenant-Code` 一旦提供即为权威选择；编码无效、租户不存在或不可用时直接报错，不能再回退 Host 或默认租户；
+- 多租户模式下，普通 API 以及除上述两个路径外的匿名请求必须严格解析租户上下文，不能因为裸基域、未知子域或解析失败而回退默认租户；
+- `default-tenant-id` 必须指向 ACTIVE 的普通租户，不能指向系统租户或字面量 `__system__`；默认租户解析失败时，品牌接口也直接报错；
+- 租户状态为 `SUSPENDED`/`EXPIRED`/`DELETED` 时，已验证的租户子域名仍解析到品牌化停用页，不返回通用 404。
 
 ### 3.4 企业码下发
 
@@ -955,8 +968,8 @@ UNIQUE (tenant_id, provider_config_id, provider_user_id)
 
 ### 9.5 初始化数据
 
-- 系统租户：`id=__system__`、`code=system`，是平台内部的纯模板命名空间，不是可登录的客户租户，不分配域名；`TenantResolver` 会拒绝把系统租户解析为登录租户。它保存一份完整的新租户模板：`ROOT` 组织、`ADMIN` 角色、`admin / 123456` 管理员账号、user-role/user-org 关联、菜单/按钮/API 目录、`ADMIN` 对全部模板资源的授权，以及字典和通知模板种子；
-- 默认租户：`id=0194f3c8b6b77c0d91a7d9af9c7d0100`、`code=default`，是普通租户，拥有自己的用户、角色、组织、菜单、参数和绑定关系。它不再包含超级管理员账号、`SUPERADMIN` 角色或「租户配置」菜单；控制平面邮件使用部署级 `nebula.tenant.email.*`，不读取该租户的短信/邮箱参数；
+- 系统租户：`id=__system__`、`code=system`，是平台内部的纯模板命名空间，不是可登录的客户租户，不分配域名；`TenantResolver` 会拒绝把系统租户解析为登录租户，也不得把它用于运行时租户或公开品牌兜底。它保存一份完整的新租户模板：`ROOT` 组织、`ADMIN` 角色、`admin / 123456` 管理员账号、user-role/user-org 关联、菜单/按钮/API 目录、`ADMIN` 对全部模板资源的授权，以及字典和通知模板种子；
+- 默认租户：`id=0194f3c8b6b77c0d91a7d9af9c7d0100`、`code=default`，是普通租户，拥有自己的用户、角色、组织、菜单、参数和绑定关系。它不再包含超级管理员账号、`SUPERADMIN` 角色或「租户配置」菜单；控制平面邮件使用部署级 `nebula.tenant.email.*`，不读取该租户的短信/邮箱参数；多租户下它仅可作为 `/api/frontend/init` 与 `/api/frontend/brand-assets/{slot}` 在无有效租户域名时的公开品牌兜底，不能作为普通 API 或其他匿名请求的缺上下文回退，也不代表控制平面；
 - 新建租户：`TenantResourceProvisioner` 从系统租户整体复制组织、角色、管理员账号、关联、菜单/按钮/API 和权限，并按新 ID 重新映射；字典、通知由各模块的 `TenantDataProvisioner` 复制，参数由 `SystemParamDefinitions` 物化租户级默认行。复制后各租户数据完全自包含，运行时不再回退系统租户。根组织名称替换为新租户名称，管理员默认 `admin / 123456`。创建请求显式传入 `adminUsername`/`adminPassword`/`adminNickname`/`adminEmail`/`adminPhone` 时覆盖模板值，不再额外生成邀请令牌。复制后各租户独立排序、显隐和删除；
 - `TenantDataProvisioner` 的实现由各模块 core 提供，目前只在单体部署（`nebula-app-runner`）中自动装配。拆分为独立服务时，auth 服务侧没有这些实现，会记录告警并跳过模块数据复制；在此形态下建租户需由对应服务补齐模板数据（或后续改为事件驱动）。
 - 超级管理员 person：`username=superadmin`、`platform_admin=1`、强密码；只存在于 `auth_person`，不绑定任何租户，也不持有租户角色；
@@ -990,12 +1003,13 @@ public final class TenantContext {
 - 普通 `ThreadLocal`，显式 `try/finally` 恢复；
 - `runAs` 保存旧值并恢复；
 - `ignore` 用深度计数；
+- 多租户模式下，普通 API 请求在进入业务层前必须解析出有效的 ACTIVE 租户上下文；缺失、未知、不可用或显式租户选择非法时直接返回租户错误，不得回退默认租户或 `__system__`。只有第 3.3 节列出的两个精确公开品牌 GET 路径允许使用配置的默认租户兜底；
 - 异步、事件、调度、Feign 必须显式传播，禁止依赖线程继承。
 
 ### 10.2 MyBatis
 
 - `TenantLineInnerInterceptor` 必须在 `PaginationInnerInterceptor` 之前，且**单租户也注册**：系统租户模板数据与默认租户数据同处租户表，只有追加 `tenant_id = ?` 才能把模板行挡在运行时之外；
-- 拦截器的租户 ID 统一由 `TenantIdResolver` 解析：单租户缺上下文回落到 `default-tenant-id`，多租户缺上下文仍然失败；
+- 拦截器的租户 ID 统一由 `TenantIdResolver` 解析：单租户缺上下文回落到 `default-tenant-id`；多租户普通 API 缺上下文仍然失败，不能回落默认租户；第 3.3 节两个精确公开品牌 GET 路径的默认租户兜底只在请求过滤器解析阶段生效；
 - `TenantTableRegistry` 启动校验所有表已分类：多租户下 `strict=true` 未分类直接启动失败，单租户只汇总提示一次并按全局表放行；
 - `TenantBaseEntity` / `TenantTreeEntity`；
 - 租户表实体继承 `TenantBaseEntity` 或实现 `TenantScoped`，由 `TenantIdResolver` 显式填充 `tenant_id`；无实体表登记 `nebula.tenant.tenant-tables`；
@@ -1037,6 +1051,7 @@ public final class TenantContext {
 
 ```text
 GET  /api/frontend/init                   Host 或 tenantCode，返回品牌 + 登录配置
+GET  /api/frontend/brand-assets/{slot}    固定品牌资源槽位的匿名图片响应
 GET  /api/auth/get-auth-config            同上
 POST /api/auth/login                      租户账号登录
 POST /api/auth/person-login               平台账号登录（独立登录方式，仅多租户）
@@ -1047,6 +1062,22 @@ GET  /api/auth/current-user               当前租户用户 + 权限
 POST /api/auth/logout                     退出当前租户
 GET  /api/auth/oauth2/{provider}/...      租户 OAuth
 ```
+
+公开品牌接口只覆盖两个精确的 GET 路径：`/api/frontend/init` 与
+`/api/frontend/brand-assets/{slot}`，并按第 3.3 节解析租户。资源接口的 `{slot}` 只能是固定槽位
+`logo`、`favicon`、`login-background`，客户端使用稳定的槽位 URL，并用 `v` 参数标识当前资源版本，例如：
+
+```text
+/api/frontend/brand-assets/logo?v=8ff77d3176c501455b963958abd05ebe1fd676e82977bf886ed9546a0bd9db9b
+/api/frontend/brand-assets/favicon?v=opaque-version
+/api/frontend/brand-assets/login-background?v=opaque-version
+```
+
+`v` 与响应的强 ETag 使用同一个服务端生成的 opaque 版本令牌（例如 64 位小写十六进制摘要）；内部 `fileId` 只能作为服务端计算输入，禁止出现在公开 URL、ETag、DTO 或 HTTP header 中。
+
+- `/api/frontend/init` 只返回公开身份与品牌数据；不得夹带联系人、内部配置、权限或其他私有租户资料，唯一例外是租户显式配置的登录页页脚字段（`footerCopyright`、`footerIcp`、`footerContactEmail`、`footerContactPhone`、`footerWebsite`），未配置时保持 `null`；
+- 槽位名非法、资源不存在或资源不可用时，资源接口必须返回真实 HTTP `404`，不能返回成功的 `ApiResult` 包装、默认图片、其他槽位内容或通用存储 URL；存在的图片以 `inline` 返回，并可使用 `ETag`、`Last-Modified` 与 `Cache-Control: public`；
+- `GET /api/storage/download?fileId=...` 是通用文件下载接口，仍要求登录态并受 `STORAGE_FILE_QUERY` 权限与当前租户文件归属校验保护；固定品牌资源的匿名访问不得扩大为任意存储文件公开下载。
 
 ### 11.2 平台账号自助接口
 
@@ -1079,7 +1110,7 @@ DELETE /api/auth/tenant/person-links/{id}
 
 - `GET/PUT /api/auth/tenant/profile` 只读写当前令牌所属租户，不接受客户端传入 `tenantId`；平台会话调用直接返回未授权；
 - 读接口要求 `BUTTON:TENANT_PROFILE_QUERY:Allow`，写接口要求 `BUTTON:TENANT_PROFILE_UPDATE:Allow`；`ADMIN` / `SUPER_ADMIN` 始终放行，其他角色需显式授权；
-- 可编辑字段：`name`、`shortName`、`logo`、`contactEmail`、`contactPhone`、`website`、`address`、`industry`、`description`、`locale`、`timezone`、`branding`；`branding` 持久化到 `auth_tenant.branding_json`，包含 `loginLogo`、`loginTitle`、`loginSubtitle`、`themeColor`、`favicon`、`loginBackground`；
+- 可编辑字段：`name`、`shortName`、`logo`、`contactEmail`、`contactPhone`、`website`、`address`、`industry`、`description`、`locale`、`timezone`、`branding`；`branding` 持久化到 `auth_tenant.branding_json`，包含 `loginTitle`、`loginSubtitle`、`themeColor`、`favicon`、`loginBackground` 与登录页页脚 `footerCopyright`、`footerIcp`、`footerContactEmail`、`footerContactPhone`、`footerWebsite`；登录页 Logo 直接复用企业 Logo（`auth_tenant.logo`），不单独配置；页脚字段是唯一会随公开品牌接口下发的租户联系信息，`website` 与 `footerWebsite` 必须为 `http(s)` 绝对地址；
 - `code`、`status`、`domains` 由平台维护，接口只读返回；保存后清理 `TENANT_BY_DOMAIN` 下 `code:` 与 `host:` 两类缓存。
 
 ### 11.4 控制平面接口（超级管理员）
@@ -1123,14 +1154,15 @@ PUT    /api/auth/oauth2-providers/{id}
 - 同一套 SPA 部署在所有租户子域，不承担控制平面职责；
 - 租户 token 存本子域 `localStorage`，key 带租户编码；
 - 租户登录页支持绑定挑战，展示“设置平台账号”表单；
-- 多租户下登录页额外提供独立的「平台账号登录」方式（仅用户名 + 密码），与租户账号登录并列；租户账号自身仍支持手机/邮箱/OAuth；
+- 多租户下登录页额外提供独立的「平台账号登录」方式（仅用户名 + 密码）；页签只保留「账号密码登录 / 手机号登录」，平台账号、邮箱、GitHub、微信与扩展登录统一收进「其他登录方式」图标行，点击账号类图标在原位展示表单并提供「返回」；
 - 个人详情页 `/profile/info` 在多租户模式下显示「企业个人信息 / 平台个人信息」页签；
 - 「系统管理 → 高级配置」(`/system/config/general`) 是租户管理员自助维护运行期配置的唯一入口，页签依次为「企业信息 / 认证 / 审计、通知等参数页签 / 存储」；
   - 「企业信息」把企业资料、登录页品牌与企业标识合到一块，企业代码、域名、状态只读；保存走 `PUT /api/auth/tenant/profile`，成功后写回品牌 store，布局与登录页品牌即时生效；
   - 「认证」同屏放企业第三方登录（`/api/auth/tenant/oauth2-providers`）与登录/注册策略参数；
   - 「存储」放正式内容后端的在线配置与上传策略（`/api/storage/settings`）；
   - 各页签按权限显隐：无 `TENANT_PROFILE_QUERY` 不显示「企业信息」，无 `STORAGE_SETTINGS_QUERY` 不显示「存储」；
-- 登录页与布局从 `/api/frontend/init` 的 `tenant` 节点读取名称、Logo、登录页标题/欢迎语/背景、主题色与 favicon；未配置时回落到企业名称与默认品牌；
+- 登录页与布局从 `/api/frontend/init` 的 `tenant` 节点读取名称、Logo、登录页标题/欢迎语/背景、主题色、favicon 与登录页页脚（版权、备案号、联系邮箱、联系电话、官网）；未配置时回落到企业名称与默认品牌，页脚只显示版权；图片资源统一使用 `/api/frontend/brand-assets/{slot}?v={version}` 的固定槽位 URL，不把通用 `/api/storage/download` URL 写入公开品牌响应；
+- `/api/frontend/init` 与固定品牌资源路径在裸基域或未知租户子域上按第 3.3 节使用 ACTIVE 默认租户兜底；显式无效 `X-Tenant-Code`、非法槽位、缺失或无效资源不触发兜底，分别返回租户错误或真实 HTTP `404`；
 - 切换企业菜单只展示已关联租户，点击导航；
 - 切换后清空权限/字典/参数/菜单缓存，重建 SSE；
 - 页面位置：
@@ -1188,7 +1220,7 @@ PERSON_CURRENT, PERSON_PROFILE, PERSON_PASSWORD, PERSON_TENANTS, PERSON_LINKS,
 PERSON_LOGOUT_ALL, TENANT_LOGIN, TENANT_BINDING_COMPLETE
 ```
 
-匿名端点白名单：`/api/frontend/init`、`/api/auth/login`、`/api/auth/platform-login`、`/api/auth/person-login`、`/api/auth/login/binding/complete`、`/api/auth/register`、`/api/auth/get-auth-config`、OAuth 回调。`/api/auth/account/person/**` 需要租户令牌，不在白名单内。
+匿名端点白名单：`/api/frontend/init`、`/api/frontend/brand-assets/**`、`/api/auth/login`、`/api/auth/platform-login`、`/api/auth/person-login`、`/api/auth/login/binding/complete`、`/api/auth/register`、`/api/auth/get-auth-config`、OAuth 回调。`/api/auth/account/person/**` 需要租户令牌，不在白名单内；品牌白名单只放行第 3.3 节规定的精确路径与固定资源槽位。
 
 控制平面 `control/` 使用自己的轻量 API 层，不依赖 `packages/client-sdk`；邮箱/手机号登录端点不在控制平面调用范围内。
 
@@ -1313,7 +1345,11 @@ VITE_TENANT_ENTRY_URL_TEMPLATE=https://{code}.app.example.com
 | 场景 | 期望 |
 |---|---|
 | `acme.app.example.com` | 解析到 acme |
-| 未知子域名 | 404/通用页，不列出其他租户 |
+| 裸基域访问精确公开品牌路径 | 使用 ACTIVE 的 `default-tenant-id`，仅返回默认租户公开品牌数据 |
+| 未知子域名访问精确公开品牌路径 | 使用 ACTIVE 的 `default-tenant-id`，不列出其他租户 |
+| 未知子域名访问普通 API | 严格失败，不能回退默认租户 |
+| 显式 `X-Tenant-Code` 无效 | 直接返回租户错误，不能回退 Host 或默认租户 |
+| 固定品牌资源槽位不存在或资源无效 | 真实 HTTP `404`，不是成功的 `ApiResult` 或默认资源 |
 | 租户暂停 | 品牌化停用页 |
 | `?tenantCode=beta` 在 acme 子域 | 被忽略 |
 | 保留子域名 | 不能分配给租户 |
@@ -1339,6 +1375,8 @@ VITE_TENANT_ENTRY_URL_TEMPLATE=https://{code}.app.example.com
 | 异步任务 | 继承租户 |
 | 事件消费 | 按事件租户执行 |
 | Quartz 任务 | `tenantId:jobCode` 隔离 |
+| 固定品牌资源槽位 | 仅四个公开槽位可匿名读取；缺失或无效资源返回真实 HTTP `404` |
+| 通用 `/api/storage/download` | 仍需登录态、`STORAGE_FILE_QUERY` 权限和当前租户文件归属校验，不因品牌公开接口而公开任意文件 |
 | 文件 | 不跨租户秒传/下载 |
 | 删除/更新 | 只影响当前租户 |
 

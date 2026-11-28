@@ -5,7 +5,7 @@ import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
 import 'dayjs/locale/zh-cn';
-import { useEffect, type PropsWithChildren } from 'react';
+import { useEffect, useRef, type PropsWithChildren } from 'react';
 import { NebulaBrandProvider, useNebulaBrand, type NebulaBrandConfig } from '@/providers/brand-context';
 import { NoticeProvider, type NoticeConfig } from '@/providers/notice';
 import { NebulaLoginBadgeProvider } from '@/providers/login-badge-provider';
@@ -94,30 +94,196 @@ function NebulaThemeDomBridge({ mode }: { mode: NebulaThemeMode }) {
   return null;
 }
 
-function ensureFaviconLink(): HTMLLinkElement {
-  const existing = document.head.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (existing) {
-    return existing;
+interface FaviconSnapshot {
+  readonly node: HTMLLinkElement;
+  readonly attributes: readonly [string, string][];
+}
+
+interface FaviconState {
+  readonly originals: FaviconSnapshot[];
+  managed: HTMLLinkElement[];
+  generation: number;
+}
+
+interface ThemeColorSnapshot {
+  readonly node: HTMLMetaElement;
+  readonly attributes: readonly [string, string][];
+}
+
+interface ThemeColorState {
+  readonly originals: ThemeColorSnapshot[];
+  managed: HTMLMetaElement[];
+}
+
+function snapshotFaviconLinks(): FaviconSnapshot[] {
+  return [...document.head.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')].map((node) => ({
+    node,
+    attributes: [...node.attributes].map(({ name, value }) => [name, value] as [string, string]),
+  }));
+}
+
+function snapshotThemeColorMetas(): ThemeColorSnapshot[] {
+  return [...document.head.querySelectorAll<HTMLMetaElement>('meta')]
+    .filter((node) => node.getAttribute('name')?.toLowerCase() === 'theme-color')
+    .map((node) => ({
+      node,
+      attributes: [...node.attributes].map(({ name, value }) => [name, value] as [string, string]),
+    }));
+}
+
+function restoreAttributes(node: Element, attributes: readonly [string, string][]) {
+  [...node.attributes].forEach(({ name }) => node.removeAttribute(name));
+  attributes.forEach(([name, value]) => node.setAttribute(name, value));
+}
+
+function restoreOriginalFavicons(state: FaviconState) {
+  state.managed.forEach((node) => node.remove());
+  state.managed = [];
+  state.originals.forEach(({ node, attributes }) => {
+    restoreAttributes(node, attributes);
+    if (!node.isConnected) document.head.appendChild(node);
+  });
+}
+
+function replaceFaviconLinks(current: HTMLLinkElement[], next: HTMLLinkElement[]) {
+  if (current.length === 0) {
+    const insertionPoint = document.head.querySelector('link[rel~="apple-touch-icon"]');
+    next.forEach((node) => {
+      if (insertionPoint) {
+        document.head.insertBefore(node, insertionPoint);
+      } else {
+        document.head.appendChild(node);
+      }
+    });
+    return;
   }
 
-  const link = document.createElement('link');
-  link.rel = 'icon';
-  document.head.appendChild(link);
-  return link;
+  current.forEach((node, index) => {
+    const replacement = next[index];
+    if (replacement) {
+      node.replaceWith(replacement);
+    } else {
+      node.remove();
+    }
+  });
+}
+
+function restoreOriginalThemeColors(state: ThemeColorState) {
+  state.managed.forEach((node) => node.remove());
+  state.managed = [];
+  state.originals.forEach(({ node, attributes }) => {
+    restoreAttributes(node, attributes);
+    if (!node.isConnected) document.head.appendChild(node);
+  });
+}
+
+function applyThemeColor(state: ThemeColorState, themeColor: string | undefined) {
+  const normalized = themeColor?.trim();
+  if (!normalized) {
+    restoreOriginalThemeColors(state);
+    return;
+  }
+
+  const sourceNodes = state.managed.length > 0
+    ? state.managed
+    : state.originals.map(({ node }) => node).filter((node) => node.isConnected);
+  const nodes = sourceNodes.length > 0 ? sourceNodes : [document.createElement('meta')];
+  const nextManaged = nodes.map((sourceNode, index) => {
+    const original = state.originals[index];
+    const nextNode = sourceNode.cloneNode(true) as HTMLMetaElement;
+    if (original) {
+      restoreAttributes(nextNode, original.attributes);
+    } else {
+      nextNode.name = 'theme-color';
+    }
+    nextNode.content = normalized;
+    return nextNode;
+  });
+
+  sourceNodes.forEach((node, index) => {
+    const replacement = nextManaged[index];
+    if (replacement) {
+      node.replaceWith(replacement);
+    } else {
+      node.remove();
+    }
+  });
+  if (sourceNodes.length === 0) {
+    nextManaged.forEach((node) => document.head.appendChild(node));
+  }
+  state.managed = nextManaged;
 }
 
 function NebulaBrandMetadata() {
   const resolvedBrand = useNebulaBrand();
+  const faviconStateRef = useRef<FaviconState>();
+  const themeColorStateRef = useRef<ThemeColorState>();
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    faviconStateRef.current = {
+      originals: snapshotFaviconLinks(),
+      managed: [],
+      generation: 0,
+    };
+    themeColorStateRef.current = {
+      originals: snapshotThemeColorMetas(),
+      managed: [],
+    };
+
+    return () => {
+      const faviconState = faviconStateRef.current;
+      // Test/document teardown can remove all links before React unmounts. In that case
+      // re-appending the snapshot would leak stale defaults into the next document state.
+      if (faviconState?.managed.some((node) => node.isConnected)) {
+        restoreOriginalFavicons(faviconState);
+      }
+      const themeColorState = themeColorStateRef.current;
+      if (themeColorState?.managed.some((node) => node.isConnected)) {
+        restoreOriginalThemeColors(themeColorState);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
 
     document.title = resolvedBrand.title;
+    const faviconState = faviconStateRef.current;
+    const themeColorState = themeColorStateRef.current;
+    if (!faviconState || !themeColorState) return;
 
-    if (resolvedBrand.faviconHref) {
-      ensureFaviconLink().href = resolvedBrand.faviconHref;
+    faviconState.generation += 1;
+    const generation = faviconState.generation;
+    const faviconHref = resolvedBrand.faviconHref?.trim();
+    if (!faviconHref) {
+      restoreOriginalFavicons(faviconState);
+    } else {
+      const sourceNodes = faviconState.managed.length > 0
+        ? faviconState.managed
+        : faviconState.originals.map(({ node }) => node).filter((node) => node.isConnected);
+      const nodes = sourceNodes.length > 0 ? sourceNodes : [document.createElement('link')];
+      const nextManaged = nodes.map((sourceNode, index) => {
+        const original = faviconState.originals[index];
+        const nextNode = sourceNode.cloneNode(true) as HTMLLinkElement;
+        if (original) {
+          restoreAttributes(nextNode, original.attributes);
+        } else {
+          nextNode.rel = 'icon';
+        }
+        nextNode.href = faviconHref;
+        nextNode.onerror = () => {
+          if (faviconState.generation !== generation) return;
+          restoreOriginalFavicons(faviconState);
+        };
+        return nextNode;
+      });
+
+      replaceFaviconLinks(sourceNodes, nextManaged);
+      faviconState.managed = nextManaged;
     }
-  }, [resolvedBrand.title, resolvedBrand.faviconHref]);
+    applyThemeColor(themeColorState, resolvedBrand.themeColor);
+  }, [resolvedBrand.title, resolvedBrand.faviconHref, resolvedBrand.themeColor]);
 
   return null;
 }

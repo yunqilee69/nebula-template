@@ -5,6 +5,10 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Root } from 'react-dom/client';
 
+vi.mock('./services/realtime-client', () => ({
+  createSiteMessageStream: () => ({ close: vi.fn() }),
+}));
+
 let mountedRoot: Root | null = null;
 
 describe('app entry wiring', () => {
@@ -29,6 +33,13 @@ describe('app entry wiring', () => {
 
   it('redirects root startup to login when no token is stored', async () => {
     document.body.innerHTML = '<div id="root"></div>';
+
+    vi.doMock('./request/create-request-client', () => ({
+      createRequestClient: () => ({
+        request: async () => Promise.reject(new Error('frontend init unavailable')),
+      }),
+    }));
+
     const browserEntryPath = './index.tsx';
 
     const entry = (await import(/* @vite-ignore */ browserEntryPath)) as { root: Root };

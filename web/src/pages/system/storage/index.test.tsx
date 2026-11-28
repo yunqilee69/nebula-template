@@ -1,10 +1,13 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NebulaProvider } from '@/providers/nebula-provider';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLocaleStore } from '@/stores/locale-store';
 import type { StorageFileService } from '@/services/storage-files';
+import type { StorageUploadTaskService } from '@/services/storage-upload-tasks';
+import { appStorageService } from '@/api/storage-service';
+import { DEFAULT_UPLOAD_POLICY, useUploadPolicyStore } from '@/stores/upload-policy-store';
 import { StorageFileManagementPage } from './index';
 
 function createService(overrides: Partial<StorageFileService> = {}): StorageFileService {
@@ -49,23 +52,62 @@ function createService(overrides: Partial<StorageFileService> = {}): StorageFile
   };
 }
 
+function createUploadTaskService(overrides: Partial<StorageUploadTaskService> = {}): StorageUploadTaskService {
+  return {
+    pageUploadTasks: vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'task-1',
+          bound: false,
+          taskMode: 'simple',
+          fileName: 'pending-contract.pdf',
+          fileExtension: 'pdf',
+          fileMimeType: 'application/pdf',
+          fileSize: 4096,
+          fileHash: 'sha256-task-1',
+          chunkCount: 1,
+          uploadedChunkCount: 1,
+          status: 'COMPLETED',
+          uploadUserId: 'user-1',
+          lastChunkTime: '2026-11-22 11:00:02',
+          createTime: '2026-11-22 11:00:00',
+          updateTime: '2026-11-22 11:00:01',
+        },
+      ],
+      total: 1,
+    }),
+    deleteUploadTask: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
 function grantDeletePermission() {
   useAuthStore.getState().setUser({
     id: 'user-1',
     name: '管理员',
     username: 'admin',
-    roles: ['ADMIN'],
+    roles: ['USER'],
     permissions: ['API:STORAGE_FILE_QUERY:Allow', 'API:STORAGE_FILE_DELETE:Allow'],
   });
 }
 
-function renderPage(service: StorageFileService) {
+function grantUploadPermission() {
+  useAuthStore.getState().setUser({
+    id: 'user-1',
+    name: '管理员',
+    username: 'admin',
+    roles: ['USER'],
+    permissions: ['API:STORAGE_UPLOAD:Allow'],
+  });
+}
+
+function renderPage(service: StorageFileService, uploadTaskService = createUploadTaskService()) {
   render(
     <NebulaProvider>
-      <StorageFileManagementPage service={service} />
+      <StorageFileManagementPage service={service} uploadTaskService={uploadTaskService} />
     </NebulaProvider>,
   );
-  return service;
+  return { service, uploadTaskService };
 }
 
 describe('StorageFileManagementPage', () => {
@@ -74,10 +116,11 @@ describe('StorageFileManagementPage', () => {
     vi.clearAllMocks();
     useAuthStore.getState().clearUser();
     useLocaleStore.getState().setLocale('zh-CN');
+    useUploadPolicyStore.setState({ policy: DEFAULT_UPLOAD_POLICY, loaded: false });
   });
 
   it('lists the tenant files with size and business source', async () => {
-    const service = renderPage(createService());
+    const { service } = renderPage(createService());
 
     expect(await screen.findByText('合同A.pdf')).toBeInTheDocument();
     expect(screen.getByText('avatar.png')).toBeInTheDocument();
@@ -102,7 +145,7 @@ describe('StorageFileManagementPage', () => {
 
   it('searches by filename and business source', async () => {
     const user = userEvent.setup();
-    const service = renderPage(createService());
+    const { service } = renderPage(createService());
 
     await screen.findByText('合同A.pdf');
     await user.type(screen.getByLabelText('文件名'), '合同');
@@ -117,7 +160,7 @@ describe('StorageFileManagementPage', () => {
 
   it('downloads a file through the authenticated client', async () => {
     const user = userEvent.setup();
-    const service = renderPage(createService());
+    const { service } = renderPage(createService());
 
     const row = (await screen.findByText('合同A.pdf')).closest('tr');
     if (!row) throw new Error('row not found');
@@ -131,7 +174,7 @@ describe('StorageFileManagementPage', () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-    const service = renderPage(createService());
+    const { service } = renderPage(createService());
 
     const row = (await screen.findByText('合同A.pdf')).closest('tr');
     if (!row) throw new Error('row not found');
@@ -146,7 +189,7 @@ describe('StorageFileManagementPage', () => {
 
   it('deletes a file after confirmation and hides the action without permission', async () => {
     const user = userEvent.setup();
-    const service = renderPage(createService());
+    const { service } = renderPage(createService());
 
     await screen.findByText('合同A.pdf');
     // 没有删除权限时不渲染删除入口，避免用户点了必然失败
@@ -163,5 +206,74 @@ describe('StorageFileManagementPage', () => {
     await waitFor(() => expect(service.deleteFile).toHaveBeenCalledWith('file-1'));
     // 删除后重新拉列表，避免界面停留在已被删掉的行上
     await waitFor(() => expect(service.pageFiles).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows temporary-task metadata and applies task filters', async () => {
+    const user = userEvent.setup();
+    const { uploadTaskService } = renderPage(createService());
+
+    await user.click(await screen.findByRole('tab', { name: /临时上传任务/ }));
+    expect(await screen.findByText('pending-contract.pdf')).toBeInTheDocument();
+    expect(screen.getByText('4.0 KB')).toBeInTheDocument();
+    expect(screen.getByText('已完成')).toBeInTheDocument();
+    expect(screen.getByText('task-1')).toBeInTheDocument();
+    expect(screen.getByText('sha256-task-1')).toBeInTheDocument();
+    expect(screen.getByText('2026-11-22 11:00:02')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /下载/ })).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('文件名'), '合同');
+    await user.click(screen.getByRole('button', { name: /查\s*询/ }));
+
+    await waitFor(() => expect(uploadTaskService.pageUploadTasks).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageNum: 1, fileName: '合同' }),
+    ));
+  });
+
+  it('uploads through the existing policy upload service and refreshes temporary tasks', async () => {
+    const user = userEvent.setup();
+    useUploadPolicyStore.setState({ policy: DEFAULT_UPLOAD_POLICY, loaded: true });
+    const upload = vi.spyOn(appStorageService, 'uploadSimpleFile').mockResolvedValue({
+      id: 'task-uploaded',
+      taskMode: 'simple',
+      fileName: 'new.txt',
+      status: 'COMPLETED',
+    });
+    const { uploadTaskService } = renderPage(createService());
+    act(() => grantUploadPermission());
+
+    await user.click(await screen.findByRole('tab', { name: /临时上传任务/ }));
+    const uploadButton = await screen.findByRole('button', { name: '上传临时文件' });
+    const input = uploadButton.closest('.ant-upload-wrapper')?.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement)) throw new Error('upload input not found');
+    await user.upload(input, new File(['new'], 'new.txt', { type: 'text/plain' }));
+
+    await waitFor(() => expect(upload).toHaveBeenCalledWith(expect.any(File), { onUploadProgress: expect.any(Function) }));
+    expect(await screen.findByText('临时文件上传成功')).toBeInTheDocument();
+    await waitFor(() => expect(uploadTaskService.pageUploadTasks).toHaveBeenCalledTimes(2));
+  });
+
+  it('deletes a temporary task only after permission and confirmation', async () => {
+    const user = userEvent.setup();
+    const { uploadTaskService } = renderPage(createService());
+
+    await user.click(await screen.findByRole('tab', { name: /临时上传任务/ }));
+    await screen.findByText('pending-contract.pdf');
+    expect(screen.queryByRole('button', { name: /删\s*除/ })).not.toBeInTheDocument();
+
+    useAuthStore.getState().setUser({
+      id: 'user-1',
+      name: '管理员',
+      username: 'admin',
+      roles: ['USER'],
+      permissions: ['API:STORAGE_UPLOAD_TASK_DELETE:Allow'],
+    });
+    const row = screen.getByText('pending-contract.pdf').closest('tr');
+    if (!row) throw new Error('row not found');
+    await user.click(await within(row).findByRole('button', { name: /删\s*除/ }));
+    await user.click(await screen.findByRole('button', { name: /确\s*认/ }));
+    expect(screen.getByText(/删除临时上传任务.*临时内容.*不会删除或影响已绑定的正式文件/)).toBeInTheDocument();
+
+    await waitFor(() => expect(uploadTaskService.deleteUploadTask).toHaveBeenCalledWith('task-1'));
+    await waitFor(() => expect(uploadTaskService.pageUploadTasks).toHaveBeenCalledTimes(2));
   });
 });

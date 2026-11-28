@@ -1,5 +1,14 @@
-import { GithubOutlined, KeyOutlined, LoginOutlined, MailOutlined, MobileOutlined, UserOutlined, WechatFilled } from '@ant-design/icons';
-import { Alert, Button, Flex, Form, Input, Tabs, Typography, theme } from 'antd';
+import {
+  ArrowLeftOutlined,
+  GithubOutlined,
+  LockOutlined,
+  LoginOutlined,
+  MailOutlined,
+  MobileOutlined,
+  UserOutlined,
+  WechatFilled,
+} from '@ant-design/icons';
+import { Alert, Button, Checkbox, Flex, Form, Input, Tabs, Tooltip, Typography, theme } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toCurrentUser } from '@/utils/auth/current-user';
@@ -40,7 +49,10 @@ const builtInLabels: Record<BuiltInLoginMethodKey, string> = {
 
 type LoginResult = LoginResp;
 type ExtraLoginResult = LoginResp | GitHubLoginStatusResp;
-type FormLoginMethodKey = Extract<BuiltInLoginMethodKey, 'password' | 'person' | 'phone' | 'email'>;
+/** 页签里的主登录方式：只有账号密码与手机号。 */
+type PrimaryFormLoginMethodKey = Extract<BuiltInLoginMethodKey, 'password' | 'phone'>;
+/** 收进「其他登录方式」的账号类登录方式：点击后在原位展示对应表单。 */
+type SecondaryFormLoginMethodKey = Extract<BuiltInLoginMethodKey, 'person' | 'email'>;
 
 type LoginMethodDescriptor =
   | { key: BuiltInLoginMethodKey; label: string; kind: 'built-in'; method: BuiltInLoginMethodKey }
@@ -50,32 +62,25 @@ type LoginSuccessHandler = (result: LoginResult) => void | Promise<void>;
 type WechatWebSuccessHandler = (result: WechatWebStatusResp) => void | Promise<void>;
 type ExtraSuccessHandler = (result?: ExtraLoginResult) => void | Promise<void>;
 
-const formLoginMethodKeys = new Set<BuiltInLoginMethodKey>(['password', 'person', 'phone', 'email']);
+const primaryFormLoginMethodKeys = new Set<BuiltInLoginMethodKey>(['password', 'phone']);
+const secondaryFormLoginMethodKeys = new Set<BuiltInLoginMethodKey>(['person', 'email']);
 
-function isFormLoginMethod(method: BuiltInLoginMethodKey): method is FormLoginMethodKey {
-  return formLoginMethodKeys.has(method);
-}
-
-function isFormLoginDescriptor(
+function isPrimaryFormDescriptor(
   method: LoginMethodDescriptor,
-): method is Extract<LoginMethodDescriptor, { kind: 'built-in' }> & { method: FormLoginMethodKey } {
-  return method.kind === 'built-in' && isFormLoginMethod(method.method);
+): method is Extract<LoginMethodDescriptor, { kind: 'built-in' }> & { method: PrimaryFormLoginMethodKey } {
+  return method.kind === 'built-in' && primaryFormLoginMethodKeys.has(method.method);
 }
 
-function isOAuthLoginDescriptor(method: LoginMethodDescriptor): boolean {
-  return method.kind === 'extra' || !isFormLoginDescriptor(method);
+function isSecondaryFormDescriptor(
+  method: LoginMethodDescriptor,
+): method is Extract<LoginMethodDescriptor, { kind: 'built-in' }> & { method: SecondaryFormLoginMethodKey } {
+  return method.kind === 'built-in' && secondaryFormLoginMethodKeys.has(method.method);
 }
 
 function isDirectRedirectOAuthDescriptor(
   method: LoginMethodDescriptor,
 ): method is Extract<LoginMethodDescriptor, { kind: 'built-in' }> & { method: 'github' } {
   return method.kind === 'built-in' && method.method === 'github';
-}
-
-function isWechatWebDescriptor(
-  method: LoginMethodDescriptor,
-): method is Extract<LoginMethodDescriptor, { kind: 'built-in' }> & { method: 'wechat' } {
-  return method.kind === 'built-in' && method.method === 'wechat';
 }
 
 function buildLoginMethodDescriptors(
@@ -100,12 +105,13 @@ function buildLoginMethodDescriptors(
     .filter((item): item is LoginMethodDescriptor => item !== null);
 }
 
+/** 「其他登录方式」里的图标：账号类用输入框同款图标，OAuth 用品牌图标。 */
 function getLoginMethodIcon(method: LoginMethodDescriptor): ReactNode {
   if (method.kind === 'extra') return <LoginOutlined aria-hidden />;
 
   switch (method.method) {
     case 'password':
-      return <KeyOutlined aria-hidden />;
+      return <UserOutlined aria-hidden />;
     case 'person':
       return <UserOutlined aria-hidden />;
     case 'phone':
@@ -125,6 +131,8 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const loginRedirectPath = normalizeAuthReturnPath(searchParams.get('redirect') ?? undefined);
   const setUser = useAuthStore((state) => state.setUser);
+  // 自动登录：勾选时令牌写入 localStorage，取消时写入 sessionStorage（关闭浏览器即失效）。
+  const [autoLogin, setAutoLogin] = useState(true);
 
   const [config, setConfig] = useState<AuthInitResp | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -177,6 +185,12 @@ export function LoginPage() {
     [builtInMethods, loginBadge.extraLoginBadges],
   );
 
+  // 方法列表决定初始选中的登录方式，必须保持引用稳定，否则登录页重渲染会把视图重置回账号密码。
+  const methods = useMemo(
+    () => buildLoginMethodDescriptors(mergedKeys, builtInMethods, loginBadge.extraLoginBadges),
+    [mergedKeys, builtInMethods, loginBadge.extraLoginBadges],
+  );
+
   const handleExtraSuccess = useCallback(
     async (result?: ExtraLoginResult) => {
       if (result) {
@@ -185,7 +199,7 @@ export function LoginPage() {
           navigate('/login/binding', { replace: true });
           return;
         }
-        saveAuthTokens(result);
+        saveAuthTokens(result, { persist: autoLogin });
         if (loginBadge.onLoginSuccess) {
           await loginBadge.onLoginSuccess(result);
         } else {
@@ -197,7 +211,7 @@ export function LoginPage() {
         }
       }
     },
-    [loginBadge.authService, loginBadge.onLoginSuccess, loginRedirectPath, navigate, setUser],
+    [autoLogin, loginBadge.authService, loginBadge.onLoginSuccess, loginRedirectPath, navigate, setUser],
   );
 
   const handleLoginSuccess = useCallback(
@@ -207,7 +221,7 @@ export function LoginPage() {
         navigate('/login/binding', { replace: true });
         return;
       }
-      saveAuthTokens(result);
+      saveAuthTokens(result, { persist: autoLogin });
       if (loginBadge.onLoginSuccess) {
         await loginBadge.onLoginSuccess(result);
       } else {
@@ -218,7 +232,7 @@ export function LoginPage() {
         navigate(loginRedirectPath, { replace: true });
       }
     },
-    [loginBadge.authService, loginBadge.onLoginSuccess, loginRedirectPath, navigate, setUser],
+    [autoLogin, loginBadge.authService, loginBadge.onLoginSuccess, loginRedirectPath, navigate, setUser],
   );
 
   if (configLoading) {
@@ -268,6 +282,8 @@ export function LoginPage() {
             config={null}
             loginBadgeContext={loginBadge}
             registerPath={loginBadge.registerPath}
+            autoLogin={autoLogin}
+            onAutoLoginChange={setAutoLogin}
             onLoginSuccess={handleLoginSuccess}
             onExtraSuccess={handleExtraSuccess}
           />
@@ -279,7 +295,6 @@ export function LoginPage() {
   }
 
   const authService = loginBadge.authService;
-  const methods = buildLoginMethodDescriptors(mergedKeys, builtInMethods, loginBadge.extraLoginBadges);
 
   return (
     <AuthShell>
@@ -289,6 +304,8 @@ export function LoginPage() {
         config={config}
         loginBadgeContext={loginBadge}
         registerPath={loginBadge.registerPath}
+        autoLogin={autoLogin}
+        onAutoLoginChange={setAutoLogin}
         onLoginSuccess={handleLoginSuccess}
         onExtraSuccess={handleExtraSuccess}
       />
@@ -302,6 +319,8 @@ interface LoginMethodSwitcherProps {
   config: AuthInitResp | null;
   loginBadgeContext: ReturnType<typeof useNebulaLoginBadge>;
   registerPath: string | undefined;
+  autoLogin: boolean;
+  onAutoLoginChange: (value: boolean) => void;
   onLoginSuccess: (result: LoginResult) => void;
   onExtraSuccess: ExtraSuccessHandler;
 }
@@ -312,22 +331,28 @@ function LoginMethodSwitcher({
   config,
   loginBadgeContext,
   registerPath,
+  autoLogin,
+  onAutoLoginChange,
   onLoginSuccess,
   onExtraSuccess,
 }: LoginMethodSwitcherProps) {
   const { token } = theme.useToken();
-  const formMethods = useMemo(() => methods.filter(isFormLoginDescriptor), [methods]);
-  const oauthMethods = useMemo(() => methods.filter(isOAuthLoginDescriptor), [methods]);
-  const initialFormMethodKey = useMemo(
-    () => formMethods.find((method) => method.key === 'password')?.key ?? formMethods[0]?.key,
-    [formMethods],
+  // 页签只保留账号密码与手机号；平台账号、邮箱、GitHub、微信、扩展登录都进「其他登录方式」。
+  const primaryMethods = useMemo(() => methods.filter(isPrimaryFormDescriptor), [methods]);
+  const otherMethods = useMemo(() => methods.filter((method) => !isPrimaryFormDescriptor(method)), [methods]);
+  const primaryDefaultKey = useMemo(
+    () => primaryMethods.find((method) => method.method === 'password')?.key ?? primaryMethods[0]?.key ?? null,
+    [primaryMethods],
   );
-  const initialOAuthMethodKey = useMemo(
-    () => (initialFormMethodKey ? null : oauthMethods.find((method) => !isDirectRedirectOAuthDescriptor(method) && !isWechatWebDescriptor(method))?.key ?? null),
-    [initialFormMethodKey, oauthMethods],
-  );
-  const [activeFormMethodKey, setActiveFormMethodKey] = useState<string | undefined>(initialFormMethodKey);
-  const [activeOAuthMethodKey, setActiveOAuthMethodKey] = useState<string | null>(initialOAuthMethodKey);
+  // 没有主登录方式时优先展示第一个账号类「其他登录方式」，其次才是扩展登录入口。
+  const initialKey = useMemo(() => {
+    if (primaryDefaultKey) return primaryDefaultKey;
+    const secondary = otherMethods.find(isSecondaryFormDescriptor);
+    if (secondary) return secondary.key;
+    return otherMethods.find((method) => method.kind === 'extra')?.key ?? null;
+  }, [otherMethods, primaryDefaultKey]);
+
+  const [activeKey, setActiveKey] = useState<string | null>(initialKey);
   const [directRedirectLoadingKey, setDirectRedirectLoadingKey] = useState<string | null>(null);
   const [directRedirectError, setDirectRedirectError] = useState<string | null>(null);
 
@@ -342,41 +367,33 @@ function LoginMethodSwitcher({
   );
 
   useEffect(() => {
-    setActiveFormMethodKey(initialFormMethodKey);
-    setActiveOAuthMethodKey(initialOAuthMethodKey);
-  }, [initialFormMethodKey, initialOAuthMethodKey]);
+    setActiveKey(initialKey);
+  }, [initialKey]);
 
-  const activeFormMethod = formMethods.find((method) => method.key === activeFormMethodKey) ?? formMethods[0];
+  const activePrimary = primaryMethods.find((method) => method.key === activeKey);
+  const activeOther = activePrimary ? undefined : methods.find((method) => method.key === activeKey);
+  const canGoBack = Boolean(activeOther) && primaryMethods.length > 0;
   // 注册与租户账号找回只适用于租户账号登录，平台账号登录不展示这两个入口。
-  const showsTenantAccountLinks = activeFormMethod?.method !== 'person';
-  const activeOAuthMethod = activeOAuthMethodKey ? oauthMethods.find((method) => method.key === activeOAuthMethodKey) ?? null : null;
+  const showsTenantAccountLinks = activePrimary?.method === 'password';
 
   const tabItems = useMemo(
-    () =>
-      formMethods.map((method) => ({
-        key: method.key,
-        label: method.label,
-        icon: getLoginMethodIcon(method),
-        children: null,
-      })),
-    [formMethods],
+    () => primaryMethods.map((method) => ({ key: method.key, label: method.label, children: null })),
+    [primaryMethods],
   );
 
-  if (!activeFormMethod && !activeOAuthMethod && oauthMethods.length === 0) {
+  if (methods.length === 0) {
     return <Alert type="info" title="暂无可用登录方式" description="当前认证服务未返回可用登录方式，请联系系统管理员检查登录管理配置。" showIcon />;
   }
 
-  const handleFormMethodChange = (key: string) => {
-    setActiveFormMethodKey(key);
-    setActiveOAuthMethodKey(null);
+  const handlePrimaryMethodChange = (key: string) => {
+    setActiveKey(key);
     setDirectRedirectError(null);
   };
 
-  const handleOAuthMethodClick = async (method: LoginMethodDescriptor) => {
+  const handleOtherMethodClick = async (method: LoginMethodDescriptor) => {
     if (authService && isDirectRedirectOAuthDescriptor(method)) {
       setDirectRedirectLoadingKey(method.key);
       setDirectRedirectError(null);
-      setActiveOAuthMethodKey(null);
 
       try {
         redirectToAuthorizeUrl(await prepareOAuthRedirect('github', authService));
@@ -389,105 +406,111 @@ function LoginMethodSwitcher({
     }
 
     setDirectRedirectError(null);
-    setActiveOAuthMethodKey(method.key);
+    setActiveKey(method.key);
   };
 
   const renderActivePanel = () => {
-    if (activeOAuthMethod) {
-      if (activeOAuthMethod.kind === 'extra') {
-        return (
-          <ExtraBadgePanel
-            badge={activeOAuthMethod.badge}
-            onSuccess={onExtraSuccess}
-            loginBadgeContext={loginBadgeContext}
-          />
-        );
-      }
+    if (!activeOther) return null;
 
-      return authService ? (
-        <LoginMethodPanel
-          method={activeOAuthMethod.method}
-          authService={authService}
-          onSuccess={onLoginSuccess}
-          onWechatSuccess={onWechatWebLoginSuccess}
-          config={config}
+    if (activeOther.kind === 'extra') {
+      return (
+        <ExtraBadgePanel
+          badge={activeOther.badge}
+          onSuccess={onExtraSuccess}
+          loginBadgeContext={loginBadgeContext}
         />
-      ) : null;
+      );
     }
 
-    return activeFormMethod && authService ? (
+    return authService ? (
       <LoginMethodPanel
-        method={activeFormMethod.method}
+        method={activeOther.method}
         authService={authService}
         onSuccess={onLoginSuccess}
         onWechatSuccess={onWechatWebLoginSuccess}
         config={config}
+        autoLogin={autoLogin}
+        onAutoLoginChange={onAutoLoginChange}
       />
     ) : null;
   };
 
   return (
     <Flex vertical gap={token.marginMD}>
-      {tabItems.length > 0 && (
+      {canGoBack ? (
+        <Button
+          type="link"
+          size="small"
+          icon={<ArrowLeftOutlined aria-hidden />}
+          onClick={() => handlePrimaryMethodChange(primaryDefaultKey ?? activeKey ?? '')}
+          style={{ alignSelf: 'flex-start', paddingInline: 0 }}
+        >
+          返回
+        </Button>
+      ) : null}
+
+      {primaryMethods.length > 0 && activePrimary ? (
         <Tabs
-          activeKey={activeFormMethod?.key}
+          activeKey={activePrimary.key}
           centered
           items={tabItems}
           tabBarGutter={token.marginMD}
-          tabBarStyle={{ marginBottom: token.marginMD }}
+          tabBarStyle={{ marginBottom: 0 }}
           type="line"
-          onChange={handleFormMethodChange}
-          onTabClick={handleFormMethodChange}
+          onChange={handlePrimaryMethodChange}
+          onTabClick={handlePrimaryMethodChange}
         />
-      )}
-
-      {renderActivePanel()}
-
-      {showsTenantAccountLinks && ((activeFormMethod && registerPath) || (activeFormMethod && authService)) ? (
-        <Flex justify="space-between" align="center">
-          {activeFormMethod && registerPath ? (
-            <Typography.Text type="secondary">
-              没有账号？
-              <Link to={registerPath}>立即注册</Link>
-            </Typography.Text>
-          ) : <span />}
-          {activeFormMethod && authService ? (
-            <Typography.Text type="secondary">
-              <Link to="/forgot-password">忘记密码？</Link>
-            </Typography.Text>
-          ) : <span />}
-        </Flex>
       ) : null}
 
-      {oauthMethods.length > 0 && (
-        <Flex align="center" justify="center" gap={token.marginXS} wrap="wrap" style={{ marginTop: token.marginXS }}>
+      {activeOther ? renderActivePanel() : activePrimary && authService ? (
+        <LoginMethodPanel
+          method={activePrimary.method}
+          authService={authService}
+          onSuccess={onLoginSuccess}
+          onWechatSuccess={onWechatWebLoginSuccess}
+          config={config}
+          autoLogin={autoLogin}
+          onAutoLoginChange={onAutoLoginChange}
+        />
+      ) : null}
+      {otherMethods.length > 0 ? (
+        <Flex align="center" justify="center" gap={token.marginXXS} wrap="wrap">
           <Typography.Text type="secondary">其他登录方式：</Typography.Text>
-          {oauthMethods.map((method) => {
-            const active = activeOAuthMethod?.key === method.key;
+          {otherMethods.map((method) => {
+            const active = activeOther?.key === method.key;
             return (
-              <Button
-                key={method.key}
-                aria-label={method.label}
-                shape="circle"
-                size="large"
-                type="text"
-                icon={getLoginMethodIcon(method)}
-                loading={directRedirectLoadingKey === method.key}
-                disabled={directRedirectLoadingKey !== null && directRedirectLoadingKey !== method.key}
-                onClick={() => {
-                  void handleOAuthMethodClick(method);
-                }}
-                style={{
-                  color: active ? token.colorPrimary : token.colorTextSecondary,
-                  fontSize: token.fontSizeHeading4,
-                  width: token.controlHeightLG,
-                  height: token.controlHeightLG,
-                }}
-              />
+              <Tooltip key={method.key} title={method.label}>
+                <Button
+                  aria-label={method.label}
+                  shape="circle"
+                  size="large"
+                  type="text"
+                  icon={getLoginMethodIcon(method)}
+                  loading={directRedirectLoadingKey === method.key}
+                  disabled={directRedirectLoadingKey !== null && directRedirectLoadingKey !== method.key}
+                  onClick={() => {
+                    void handleOtherMethodClick(method);
+                  }}
+                  style={{
+                    color: active ? token.colorPrimary : token.colorTextSecondary,
+                    fontSize: token.fontSizeHeading4,
+                    width: token.controlHeightLG,
+                    height: token.controlHeightLG,
+                  }}
+                />
+              </Tooltip>
             );
           })}
         </Flex>
-      )}
+      ) : null}
+
+      {showsTenantAccountLinks && registerPath ? (
+        <Typography.Text type="secondary" style={{ textAlign: 'center' }}>
+          没有账号？
+          <Link to={registerPath}>立即注册</Link>
+        </Typography.Text>
+      ) : null}
+
       {directRedirectError ? <Typography.Text type="danger" data-testid="github-direct-redirect-error">{directRedirectError}</Typography.Text> : null}
     </Flex>
   );
@@ -499,26 +522,45 @@ interface LoginMethodPanelProps {
   onSuccess: LoginSuccessHandler;
   onWechatSuccess: WechatWebSuccessHandler;
   config: AuthInitResp | null;
+  autoLogin: boolean;
+  onAutoLoginChange: (value: boolean) => void;
 }
 
-function LoginMethodPanel({ method, authService, onSuccess, onWechatSuccess, config }: LoginMethodPanelProps) {
+function LoginMethodPanel({
+  method,
+  authService,
+  onSuccess,
+  onWechatSuccess,
+  config,
+  autoLogin,
+  onAutoLoginChange,
+}: LoginMethodPanelProps) {
   switch (method) {
     case 'password':
       return (
         <CredentialsPanel
           accountLabel="用户名"
+          accountPlaceholder="请输入用户名"
+          accountPrefix={<UserOutlined aria-hidden />}
           accountRequiredMessage="请输入用户名"
           login={authService.login}
           onSuccess={onSuccess}
+          autoLogin={autoLogin}
+          onAutoLoginChange={onAutoLoginChange}
+          showForgotPassword
         />
       );
     case 'person':
       return (
         <CredentialsPanel
           accountLabel="平台账号"
+          accountPlaceholder="请输入平台账号"
+          accountPrefix={<UserOutlined aria-hidden />}
           accountRequiredMessage="请输入平台账号"
           login={authService.personLogin}
           onSuccess={onSuccess}
+          autoLogin={autoLogin}
+          onAutoLoginChange={onAutoLoginChange}
         />
       );
     case 'phone':
@@ -534,16 +576,26 @@ function LoginMethodPanel({ method, authService, onSuccess, onWechatSuccess, con
 
 interface CredentialsPanelProps {
   accountLabel: string;
+  accountPlaceholder: string;
+  accountPrefix: ReactNode;
   accountRequiredMessage: string;
   login: (values: LoginReq) => Promise<LoginResp>;
   onSuccess: LoginSuccessHandler;
+  autoLogin: boolean;
+  onAutoLoginChange: (value: boolean) => void;
+  showForgotPassword?: boolean;
 }
 
 function CredentialsPanel({
   accountLabel,
+  accountPlaceholder,
+  accountPrefix,
   accountRequiredMessage,
   login,
   onSuccess,
+  autoLogin,
+  onAutoLoginChange,
+  showForgotPassword = false,
 }: CredentialsPanelProps) {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
@@ -562,18 +614,34 @@ function CredentialsPanel({
 
   return (
     <Form form={form} onFinish={handleSubmit} layout="vertical">
-      <Form.Item
-        label={accountLabel}
-        name="username"
-        rules={[{ required: true, message: accountRequiredMessage }]}
-      >
-        <Input />
+      <Form.Item name="username" rules={[{ required: true, message: accountRequiredMessage }]}>
+        <Input
+          aria-label={accountLabel}
+          autoComplete="username"
+          prefix={accountPrefix}
+          placeholder={accountPlaceholder}
+          size="large"
+        />
       </Form.Item>
-      <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}>
-        <Input.Password />
+      <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
+        <Input.Password
+          aria-label="密码"
+          autoComplete="current-password"
+          prefix={<LockOutlined aria-hidden />}
+          placeholder="请输入密码"
+          size="large"
+        />
       </Form.Item>
-      <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading} block>
+      <Form.Item style={{ marginBottom: 24 }}>
+        <Flex justify="space-between" align="center" gap={8}>
+          <Checkbox checked={autoLogin} onChange={(event) => onAutoLoginChange(event.target.checked)}>
+            自动登录
+          </Checkbox>
+          {showForgotPassword ? <Link to="/forgot-password">忘记密码？</Link> : null}
+        </Flex>
+      </Form.Item>
+      <Form.Item style={{ marginBottom: 0 }}>
+        <Button type="primary" htmlType="submit" loading={loading} block size="large">
           登录
         </Button>
       </Form.Item>
@@ -636,19 +704,25 @@ function PhonePanel({ authService, onSuccess, sendInterval }: PhonePanelProps) {
 
   return (
     <Form form={form} onFinish={handleSubmit} layout="vertical">
-      <Form.Item label="手机号" name="phone" rules={[{ required: true, message: '请输入手机号' }]}>
-        <Input />
+      <Form.Item name="phone" rules={[{ required: true, message: '请输入手机号' }]}>
+        <Input
+          aria-label="手机号"
+          autoComplete="tel"
+          prefix={<MobileOutlined aria-hidden />}
+          placeholder="请输入手机号"
+          size="large"
+        />
       </Form.Item>
       <Form.Item label="验证码" name="code" rules={[{ required: true, message: '请输入验证码' }]}>
         <Flex gap={8}>
-          <Input className="flex-1" />
-          <Button onClick={handleSendCode} loading={sendingCode} disabled={countdown > 0}>
+          <Input className="flex-1" size="large" />
+          <Button onClick={handleSendCode} loading={sendingCode} disabled={countdown > 0} size="large">
             {countdown > 0 ? `${countdown}s` : '发送验证码'}
           </Button>
         </Flex>
       </Form.Item>
-      <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading} block>
+      <Form.Item style={{ marginBottom: 0 }}>
+        <Button type="primary" htmlType="submit" loading={loading} block size="large">
           登录
         </Button>
       </Form.Item>
@@ -711,19 +785,25 @@ function EmailPanel({ authService, onSuccess, sendInterval }: EmailPanelProps) {
 
   return (
     <Form form={form} onFinish={handleSubmit} layout="vertical">
-      <Form.Item label="邮箱" name="email" rules={[{ required: true, message: '请输入邮箱' }]}>
-        <Input />
+      <Form.Item name="email" rules={[{ required: true, message: '请输入邮箱' }]}>
+        <Input
+          aria-label="邮箱"
+          autoComplete="email"
+          prefix={<MailOutlined aria-hidden />}
+          placeholder="请输入邮箱"
+          size="large"
+        />
       </Form.Item>
       <Form.Item label="验证码" name="code" rules={[{ required: true, message: '请输入验证码' }]}>
         <Flex gap={8}>
-          <Input className="flex-1" />
-          <Button onClick={handleSendCode} loading={sendingCode} disabled={countdown > 0}>
+          <Input className="flex-1" size="large" />
+          <Button onClick={handleSendCode} loading={sendingCode} disabled={countdown > 0} size="large">
             {countdown > 0 ? `${countdown}s` : '发送验证码'}
           </Button>
         </Flex>
       </Form.Item>
-      <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading} block>
+      <Form.Item style={{ marginBottom: 0 }}>
+        <Button type="primary" htmlType="submit" loading={loading} block size="large">
           登录
         </Button>
       </Form.Item>

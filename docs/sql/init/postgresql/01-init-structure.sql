@@ -45,6 +45,26 @@ CREATE TABLE IF NOT EXISTS auth_tenant (
 CREATE UNIQUE INDEX IF NOT EXISTS uk_tenant_code ON auth_tenant (code);
 CREATE INDEX IF NOT EXISTS idx_tenant_status ON auth_tenant (status);
 
+
+COMMENT ON TABLE auth_tenant IS '租户表';
+COMMENT ON COLUMN auth_tenant.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_tenant.code IS '租户编码，公开且不可变';
+COMMENT ON COLUMN auth_tenant.name IS '租户名称';
+COMMENT ON COLUMN auth_tenant.status IS '状态：ACTIVE/SUSPENDED/EXPIRED/DELETED';
+COMMENT ON COLUMN auth_tenant.logo IS 'Logo URL';
+COMMENT ON COLUMN auth_tenant.contact_email IS '对外联系邮箱';
+COMMENT ON COLUMN auth_tenant.short_name IS '租户简称';
+COMMENT ON COLUMN auth_tenant.contact_phone IS '对外联系电话';
+COMMENT ON COLUMN auth_tenant.website IS '官网地址';
+COMMENT ON COLUMN auth_tenant.address IS '联系地址';
+COMMENT ON COLUMN auth_tenant.industry IS '所属行业';
+COMMENT ON COLUMN auth_tenant.description IS '租户简介';
+COMMENT ON COLUMN auth_tenant.locale IS '默认语言';
+COMMENT ON COLUMN auth_tenant.timezone IS '默认时区';
+COMMENT ON COLUMN auth_tenant.branding_json IS '登录页品牌配置 JSON';
+COMMENT ON COLUMN auth_tenant.settings_json IS '租户设置 JSON';
+COMMENT ON COLUMN auth_tenant.create_time IS '创建时间';
+COMMENT ON COLUMN auth_tenant.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS auth_tenant_domain (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -58,6 +78,16 @@ CREATE TABLE IF NOT EXISTS auth_tenant_domain (
 CREATE UNIQUE INDEX IF NOT EXISTS uk_tenant_domain ON auth_tenant_domain (domain);
 CREATE INDEX IF NOT EXISTS idx_tenant_domain_tenant ON auth_tenant_domain (tenant_id);
 
+
+COMMENT ON TABLE auth_tenant_domain IS '租户域名表';
+COMMENT ON COLUMN auth_tenant_domain.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_tenant_domain.tenant_id IS '租户ID';
+COMMENT ON COLUMN auth_tenant_domain.domain IS '租户子域名（小写）';
+COMMENT ON COLUMN auth_tenant_domain.primary_domain IS '是否主域名';
+COMMENT ON COLUMN auth_tenant_domain.status IS '状态：ACTIVE/DISABLED';
+COMMENT ON COLUMN auth_tenant_domain.verified_at IS '验证时间';
+COMMENT ON COLUMN auth_tenant_domain.create_time IS '创建时间';
+COMMENT ON COLUMN auth_tenant_domain.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS auth_person (
     id CHAR(32) PRIMARY KEY,
     username VARCHAR(64) NOT NULL,
@@ -71,6 +101,17 @@ CREATE TABLE IF NOT EXISTS auth_person (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uk_person_username ON auth_person (username);
 
+
+COMMENT ON TABLE auth_person IS '平台账号表';
+COMMENT ON COLUMN auth_person.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_person.username IS '全局唯一用户名（小写）';
+COMMENT ON COLUMN auth_person.display_name IS '展示名';
+COMMENT ON COLUMN auth_person.password_hash IS '密码哈希';
+COMMENT ON COLUMN auth_person.status IS '状态：ACTIVE/DISABLED/LOCKED';
+COMMENT ON COLUMN auth_person.platform_admin IS '是否平台管理员';
+COMMENT ON COLUMN auth_person.last_login_time IS '最后登录时间';
+COMMENT ON COLUMN auth_person.create_time IS '创建时间';
+COMMENT ON COLUMN auth_person.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS auth_person_user (
     id CHAR(32) PRIMARY KEY,
     person_id CHAR(32) NOT NULL,
@@ -87,6 +128,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_person_user_tenant_user ON auth_person_user
 CREATE INDEX IF NOT EXISTS idx_person_user_person ON auth_person_user (person_id);
 CREATE INDEX IF NOT EXISTS idx_person_user_tenant_status ON auth_person_user (tenant_id, link_status);
 
+
+COMMENT ON TABLE auth_person_user IS '平台账号-租户账号关联表';
+COMMENT ON COLUMN auth_person_user.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_person_user.person_id IS '平台账号ID';
+COMMENT ON COLUMN auth_person_user.tenant_id IS '租户ID';
+COMMENT ON COLUMN auth_person_user.user_id IS '租户用户ID';
+COMMENT ON COLUMN auth_person_user.link_status IS '关联状态：PENDING/ACTIVE/REVOKED';
+COMMENT ON COLUMN auth_person_user.link_source IS '关联来源：INVITE/FIRST_LOGIN/BIND_EXISTING/ADMIN';
+COMMENT ON COLUMN auth_person_user.verified_at IS '确认时间';
+COMMENT ON COLUMN auth_person_user.revoked_at IS '撤销时间';
+COMMENT ON COLUMN auth_person_user.create_time IS '创建时间';
+COMMENT ON COLUMN auth_person_user.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS auth_oauth2_provider (
     id CHAR(32) PRIMARY KEY,
     code VARCHAR(50) NOT NULL,
@@ -102,6 +155,19 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_provider (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uk_oauth2_provider_code ON auth_oauth2_provider (code);
 
+
+COMMENT ON TABLE auth_oauth2_provider IS 'OAuth2提供商全局目录';
+COMMENT ON COLUMN auth_oauth2_provider.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_oauth2_provider.code IS '提供商编码';
+COMMENT ON COLUMN auth_oauth2_provider.name IS '提供商名称';
+COMMENT ON COLUMN auth_oauth2_provider.protocol IS '协议：OAUTH2/OIDC/WECHAT';
+COMMENT ON COLUMN auth_oauth2_provider.supports_channels IS '支持的渠道，逗号分隔';
+COMMENT ON COLUMN auth_oauth2_provider.tenant_configurable IS '是否允许租户配置';
+COMMENT ON COLUMN auth_oauth2_provider.allowed_endpoints IS '允许的端点 JSON';
+COMMENT ON COLUMN auth_oauth2_provider.icon_url IS '图标地址';
+COMMENT ON COLUMN auth_oauth2_provider.status IS '状态：ACTIVE/DISABLED';
+COMMENT ON COLUMN auth_oauth2_provider.create_time IS '创建时间';
+COMMENT ON COLUMN auth_oauth2_provider.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -124,6 +190,25 @@ CREATE TABLE IF NOT EXISTS auth_tenant_oauth2_provider (
 CREATE UNIQUE INDEX IF NOT EXISTS uk_tenant_oauth2_provider ON auth_tenant_oauth2_provider (tenant_id, provider_id, channel);
 CREATE INDEX IF NOT EXISTS idx_tenant_oauth2_tenant ON auth_tenant_oauth2_provider (tenant_id);
 
+
+COMMENT ON TABLE auth_tenant_oauth2_provider IS '租户OAuth2提供商配置';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.tenant_id IS '租户ID';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.provider_id IS '提供商ID';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.channel IS '渠道：WEB/MINI/APP';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.enabled IS '是否启用';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.client_id IS 'Client ID';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.client_secret_cipher IS 'Client Secret 密文（只写不读）';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.redirect_uri IS '回调地址';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.frontend_callback_uri IS '前端回调地址';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.frontend_callback_allowlist IS '前端回调白名单 JSON';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.authorize_url IS '授权端点';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.token_url IS '令牌端点';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.userinfo_url IS '用户信息端点';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.scope IS 'Scope';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.config_json IS '扩展配置 JSON';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.create_time IS '创建时间';
+COMMENT ON COLUMN auth_tenant_oauth2_provider.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS auth_tenant_invitation (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -146,6 +231,20 @@ CREATE INDEX IF NOT EXISTS idx_tenant_invitation_tenant ON auth_tenant_invitatio
 -- auth-core / user
 -- Tables: auth_user
 -- ----------------------------------------------------------------------------
+
+COMMENT ON TABLE auth_tenant_invitation IS '租户邀请表';
+COMMENT ON COLUMN auth_tenant_invitation.id IS '主键，UUID v7';
+COMMENT ON COLUMN auth_tenant_invitation.tenant_id IS '租户ID';
+COMMENT ON COLUMN auth_tenant_invitation.email IS '受邀邮箱';
+COMMENT ON COLUMN auth_tenant_invitation.phone IS '受邀手机号';
+COMMENT ON COLUMN auth_tenant_invitation.role_id IS '预分配角色ID';
+COMMENT ON COLUMN auth_tenant_invitation.org_id IS '预分配组织ID';
+COMMENT ON COLUMN auth_tenant_invitation.token_hash IS '邀请令牌哈希';
+COMMENT ON COLUMN auth_tenant_invitation.status IS '状态：PENDING/ACCEPTED/REVOKED/EXPIRED';
+COMMENT ON COLUMN auth_tenant_invitation.expires_at IS '过期时间';
+COMMENT ON COLUMN auth_tenant_invitation.accepted_at IS '接受时间';
+COMMENT ON COLUMN auth_tenant_invitation.create_time IS '创建时间';
+COMMENT ON COLUMN auth_tenant_invitation.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS auth_user (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -186,6 +285,8 @@ COMMENT ON COLUMN auth_user.update_time IS '更新时间';
 -- auth-core / role
 -- Tables: auth_role
 -- ----------------------------------------------------------------------------
+
+COMMENT ON COLUMN auth_user.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_role (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -213,6 +314,8 @@ COMMENT ON COLUMN auth_role.update_time IS '更新时间';
 -- auth-core / organization
 -- Tables: auth_org, auth_user_org
 -- ----------------------------------------------------------------------------
+
+COMMENT ON COLUMN auth_role.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_org (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -243,6 +346,8 @@ COMMENT ON COLUMN auth_org.status IS '状态：0禁用 1启用';
 COMMENT ON COLUMN auth_org.create_time IS '创建时间';
 COMMENT ON COLUMN auth_org.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN auth_org.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_user_org (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -269,6 +374,8 @@ COMMENT ON COLUMN auth_user_org.update_time IS '更新时间';
 -- auth-core / user-role relation
 -- Tables: auth_user_role
 -- ----------------------------------------------------------------------------
+
+COMMENT ON COLUMN auth_user_org.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_user_role (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -293,6 +400,8 @@ COMMENT ON COLUMN auth_user_role.update_time IS '更新时间';
 -- auth-core / resource
 -- Tables: auth_menu, auth_button
 -- ----------------------------------------------------------------------------
+
+COMMENT ON COLUMN auth_user_role.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_menu (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -431,6 +540,8 @@ COMMENT ON COLUMN auth_permission.scope IS '权限范围，默认ALL';
 COMMENT ON COLUMN auth_permission.create_time IS '创建时间';
 COMMENT ON COLUMN auth_permission.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN auth_permission.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_data_scope (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -462,6 +573,8 @@ COMMENT ON COLUMN auth_data_scope.update_time IS '更新时间';
 -- auth-core / oauth2
 -- Tables: auth_oauth2_account
 -- ----------------------------------------------------------------------------
+
+COMMENT ON COLUMN auth_data_scope.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_oauth2_account (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -494,6 +607,8 @@ COMMENT ON COLUMN auth_oauth2_account.update_time IS '更新时间';
 -- auth-core / login-record
 -- Tables: auth_login_record
 -- ----------------------------------------------------------------------------
+
+COMMENT ON COLUMN auth_oauth2_account.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS auth_login_record (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -537,6 +652,9 @@ COMMENT ON COLUMN auth_login_record.login_time IS '登录时间';
 COMMENT ON COLUMN auth_login_record.create_time IS '创建时间';
 COMMENT ON COLUMN auth_login_record.update_time IS '更新时间';
 
+COMMENT ON COLUMN auth_login_record.tenant_id IS '租户ID';
+COMMENT ON COLUMN auth_login_record.person_id IS '平台账号ID';
+
 -- ============================================================================
 -- Module: dict
 -- Source: dict/01-dict-schema-mysql.sql
@@ -561,6 +679,8 @@ COMMENT ON COLUMN sys_dict_type.remark IS '备注';
 COMMENT ON COLUMN sys_dict_type.create_time IS '创建时间';
 COMMENT ON COLUMN sys_dict_type.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_dict_type.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_dict_item (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -596,6 +716,8 @@ COMMENT ON COLUMN sys_dict_item.remark IS '备注';
 COMMENT ON COLUMN sys_dict_item.create_time IS '创建时间';
 COMMENT ON COLUMN sys_dict_item.update_time IS '更新时间';
 
+COMMENT ON COLUMN sys_dict_item.tenant_id IS '租户ID';
+
 -- ============================================================================
 -- Module: frontend
 -- Source: frontend/01-frontend-schema-mysql.sql
@@ -624,6 +746,8 @@ COMMENT ON COLUMN frontend_user_preference.sidebar_layout_code IS '预设侧边�
 COMMENT ON COLUMN frontend_user_preference.create_time IS '创建时间';
 COMMENT ON COLUMN frontend_user_preference.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN frontend_user_preference.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS frontend_app_release (
     id CHAR(32) PRIMARY KEY,
     platform VARCHAR(16) NOT NULL,
@@ -683,6 +807,8 @@ COMMENT ON COLUMN sys_notify_template.category_code IS '通知类别 code：SECU
 COMMENT ON COLUMN sys_notify_template.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_template.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_notify_template.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_notify_template_field (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -712,6 +838,8 @@ COMMENT ON COLUMN sys_notify_template_field.remark IS '备注';
 COMMENT ON COLUMN sys_notify_template_field.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_template_field.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_notify_template_field.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_notify_template_variant (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -742,6 +870,8 @@ COMMENT ON COLUMN sys_notify_template_variant.remark IS '备注';
 COMMENT ON COLUMN sys_notify_template_variant.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_template_variant.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_notify_template_variant.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_notify_channel_target (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -768,6 +898,8 @@ COMMENT ON COLUMN sys_notify_channel_target.sign_secret_cipher IS '加签密钥�
 COMMENT ON COLUMN sys_notify_channel_target.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_channel_target.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_notify_channel_target.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_notify_record (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -817,6 +949,8 @@ COMMENT ON COLUMN sys_notify_record.update_time IS '更新时间';
 
 -- 通知类别：模板的归类维度，用于按类控制用户是否接收（消息设置页的开关分组）。
 -- code 是模板、发送记录与用户偏好共同引用的键，创建后不可修改；is_builtin=TRUE 的内置类别不可删除。
+
+COMMENT ON COLUMN sys_notify_record.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_notify_category (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -851,6 +985,8 @@ COMMENT ON COLUMN sys_notify_category.remark IS '备注';
 COMMENT ON COLUMN sys_notify_category.create_time IS '创建时间';
 COMMENT ON COLUMN sys_notify_category.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_notify_category.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_site_message (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -883,6 +1019,8 @@ COMMENT ON COLUMN sys_site_message.read_time IS '已读时间';
 COMMENT ON COLUMN sys_site_message.create_time IS '创建时间';
 COMMENT ON COLUMN sys_site_message.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_site_message.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_announcement (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -919,6 +1057,8 @@ COMMENT ON COLUMN sys_announcement.target_type IS '目标类型';
 COMMENT ON COLUMN sys_announcement.create_time IS '创建时间';
 COMMENT ON COLUMN sys_announcement.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_announcement.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_announcement_target (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -940,6 +1080,8 @@ COMMENT ON COLUMN sys_announcement_target.target_value IS '目标值';
 COMMENT ON COLUMN sys_announcement_target.create_time IS '创建时间';
 COMMENT ON COLUMN sys_announcement_target.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_announcement_target.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_announcement_read_record (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -962,6 +1104,8 @@ COMMENT ON COLUMN sys_announcement_read_record.read_time IS '已读时间';
 COMMENT ON COLUMN sys_announcement_read_record.create_time IS '创建时间';
 COMMENT ON COLUMN sys_announcement_read_record.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN sys_announcement_read_record.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_notify_user_preference (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -989,6 +1133,8 @@ COMMENT ON COLUMN sys_notify_user_preference.update_time IS '更新时间';
 -- device_id 全局唯一：一台设备同时只归属一个用户；换人登录同一台设备走**重归属**而不是新增行，
 -- 否则已登出的用户仍会收到该设备的推送（串号泄露）。
 -- push_token 是可定位到设备的个人数据：注销时清空，日志中不得完整打印。
+
+COMMENT ON COLUMN sys_notify_user_preference.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS sys_notify_push_device (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -1026,6 +1172,15 @@ COMMENT ON COLUMN sys_notify_push_device.invalid_reason IS '失效原因，由�
 
 -- 逐设备推送投递明细。一次 PUSH 发送会扇出到多台设备，sys_notify_record 上只有一个汇总答案，
 -- 排障要能回答"是哪台设备、哪个厂商、什么原因失败的"。刻意不落 push_token。
+
+COMMENT ON COLUMN sys_notify_push_device.id IS '主键';
+COMMENT ON COLUMN sys_notify_push_device.tenant_id IS '租户ID';
+COMMENT ON COLUMN sys_notify_push_device.app_version IS '客户端版本号';
+COMMENT ON COLUMN sys_notify_push_device.app_build IS '客户端构建号';
+COMMENT ON COLUMN sys_notify_push_device.os_version IS '系统版本';
+COMMENT ON COLUMN sys_notify_push_device.device_model IS '设备型号';
+COMMENT ON COLUMN sys_notify_push_device.create_time IS '创建时间';
+COMMENT ON COLUMN sys_notify_push_device.update_time IS '更新时间';
 CREATE TABLE IF NOT EXISTS sys_notify_push_record_detail (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -1051,6 +1206,13 @@ COMMENT ON COLUMN sys_notify_push_record_detail.send_status IS '投递结果：S
 COMMENT ON COLUMN sys_notify_push_record_detail.fail_reason IS '失败或跳过原因（见 NotifyPushReasons）';
 COMMENT ON COLUMN sys_notify_push_record_detail.message_id IS '厂商返回的消息ID，用于排障对账';
 COMMENT ON COLUMN sys_notify_push_record_detail.send_time IS '投递时间；未实际投递（跳过）时为空';
+
+COMMENT ON COLUMN sys_notify_push_record_detail.id IS '主键';
+COMMENT ON COLUMN sys_notify_push_record_detail.tenant_id IS '租户ID';
+COMMENT ON COLUMN sys_notify_push_record_detail.user_id IS '用户ID';
+COMMENT ON COLUMN sys_notify_push_record_detail.vendor IS '推送厂商通道';
+COMMENT ON COLUMN sys_notify_push_record_detail.create_time IS '创建时间';
+COMMENT ON COLUMN sys_notify_push_record_detail.update_time IS '更新时间';
 
 -- ============================================================================
 -- Module: param
@@ -1091,6 +1253,8 @@ COMMENT ON COLUMN sys_param.is_builtin IS '是否内建：0-否，1-是';
 COMMENT ON COLUMN sys_param.create_time IS '创建时间';
 COMMENT ON COLUMN sys_param.update_time IS '更新时间';
 COMMENT ON COLUMN sys_param.is_deleted IS '软删除标记：0-正常，1-已删除';
+
+COMMENT ON COLUMN sys_param.tenant_id IS '租户ID';
 
 -- ============================================================================
 -- Module: scheduler
@@ -1136,6 +1300,8 @@ COMMENT ON COLUMN scheduler_job.timeout_ms IS '超时时间(毫秒)';
 COMMENT ON COLUMN scheduler_job.create_time IS '创建时间';
 COMMENT ON COLUMN scheduler_job.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN scheduler_job.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS scheduler_job_run (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -1193,6 +1359,8 @@ COMMENT ON COLUMN scheduler_job_run.terminated_at IS '终止时间';
 COMMENT ON COLUMN scheduler_job_run.create_time IS '创建时间';
 COMMENT ON COLUMN scheduler_job_run.update_time IS '更新时间';
 
+COMMENT ON COLUMN scheduler_job_run.tenant_id IS '租户ID';
+
 -- ============================================================================
 -- Module: audit
 -- Source: audit/01-audit-schema-mysql.sql
@@ -1240,6 +1408,11 @@ COMMENT ON COLUMN audit_record.result_status IS '结果状态';
 COMMENT ON COLUMN audit_record.result_message IS '结果消息';
 COMMENT ON COLUMN audit_record.create_time IS '创建时间';
 COMMENT ON COLUMN audit_record.update_time IS '更新时间';
+
+COMMENT ON COLUMN audit_record.tenant_id IS '租户ID';
+COMMENT ON COLUMN audit_record.person_id IS '平台账号ID';
+COMMENT ON COLUMN audit_record.operator_tenant_id IS '操作人所属租户ID';
+COMMENT ON COLUMN audit_record.target_tenant_id IS '目标租户ID';
 
 -- ============================================================================
 -- Module: event
@@ -1300,6 +1473,8 @@ COMMENT ON COLUMN event_outbox.last_error_message IS '最近一次错误信息';
 COMMENT ON COLUMN event_outbox.create_time IS '创建时间';
 COMMENT ON COLUMN event_outbox.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN event_outbox.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS event_consume_record (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -1328,6 +1503,8 @@ COMMENT ON COLUMN event_consume_record.error_message IS '错误信息';
 COMMENT ON COLUMN event_consume_record.consume_time IS '消费成功时间';
 COMMENT ON COLUMN event_consume_record.create_time IS '创建时间';
 COMMENT ON COLUMN event_consume_record.update_time IS '更新时间';
+
+COMMENT ON COLUMN event_consume_record.tenant_id IS '租户ID';
 
 -- ============================================================================
 -- Module: storage
@@ -1375,6 +1552,8 @@ COMMENT ON COLUMN storage_upload_task.last_chunk_time IS '最后分片上传时�
 COMMENT ON COLUMN storage_upload_task.create_time IS '创建时间';
 COMMENT ON COLUMN storage_upload_task.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN storage_upload_task.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS storage_upload_part (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -1403,6 +1582,8 @@ COMMENT ON COLUMN storage_upload_part.upload_time IS '上传时间';
 COMMENT ON COLUMN storage_upload_part.create_time IS '创建时间';
 COMMENT ON COLUMN storage_upload_part.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN storage_upload_part.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS storage_file (
     id CHAR(32) PRIMARY KEY,
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
@@ -1447,6 +1628,8 @@ COMMENT ON COLUMN storage_file.upload_user_id IS '上传用户ID';
 COMMENT ON COLUMN storage_file.create_time IS '创建时间';
 COMMENT ON COLUMN storage_file.update_time IS '更新时间';
 
+
+COMMENT ON COLUMN storage_file.tenant_id IS '租户ID';
 CREATE TABLE IF NOT EXISTS storage_content (
     tenant_id CHAR(32) NOT NULL CHECK (tenant_id <> ''),
     storage_key VARCHAR(500) NOT NULL,
@@ -1461,3 +1644,5 @@ COMMENT ON COLUMN storage_content.storage_key IS '存储Key';
 COMMENT ON COLUMN storage_content.content IS '文件内容';
 COMMENT ON COLUMN storage_content.create_time IS '创建时间';
 COMMENT ON COLUMN storage_content.update_time IS '更新时间';
+
+COMMENT ON COLUMN storage_content.tenant_id IS '租户ID';
